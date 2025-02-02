@@ -47,7 +47,7 @@ class BlazePoseEstimator(Estimator, Video):
                 )
                 raw_landmark_2d = result.pose_landmarks[0]
                 key_interest_points_2d = type_processor.get_2d_key_points(
-                    raw_landmark_2d, video.camera_view
+                    raw_landmark_2d, video.camera_view, video.height, video.width
                 )
                 annotated_image = self.draw_landmark(
                     frame, raw_landmark_2d, kips=key_interest_points_2d

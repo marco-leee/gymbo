@@ -32,6 +32,6 @@ class KeyInterestPoint(ABC):
 
     @abstractmethod
     def get_2d_key_points(
-        self, result, camera_view: CameraView
+        self, result, camera_view: CameraView, img_height: int, img_width: int
     ) -> Dict[str, KeyInterestPoint2D]:
         pass

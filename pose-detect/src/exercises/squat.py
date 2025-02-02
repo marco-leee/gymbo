@@ -64,7 +64,7 @@ class Squat(KeyInterestPoint):
 
         idx_to_result = {shoulder: shoulder_coord, hip: hip_coord, knee: knee_coord}
 
-        angle = self.calculate_angle(shoulder_coord, hip_coord, knee_coord)
+        angle = self.calculate_angle(shoulder_coord, hip_coord, knee_coord, outer=True)
         rotation_angle = self.calculate_angle(
             (hip_x + 90, hip_y), hip_coord, knee_coord
         )
@@ -80,10 +80,11 @@ class Squat(KeyInterestPoint):
         )
 
     def get_2d_key_points(
-        self, result, camera_view: CameraView
+        self, result, camera_view: CameraView, img_height: int, img_width: int
     ) -> Dict[str, KeyInterestPoint2D]:
         idx_to_coordinates = {
-            idx: (landmark.x, landmark.y) for idx, landmark in enumerate(result)
+            idx: (landmark.x * img_width, landmark.y * img_height)
+            for idx, landmark in enumerate(result)
         }
 
         key_points_2d = {}

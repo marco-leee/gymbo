@@ -25,10 +25,9 @@ class Video:
         assert self.video.isOpened(), "Cannot open video"
 
         self.fps = int(self.video.get(cv2.CAP_PROP_FPS))
-        self.shape = (
-            int(self.video.get(cv2.CAP_PROP_FRAME_WIDTH)),
-            int(self.video.get(cv2.CAP_PROP_FRAME_HEIGHT)),
-        )
+        self.width = int(self.video.get(cv2.CAP_PROP_FRAME_WIDTH))
+        self.height = int(self.video.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        self.shape = (self.width, self.height)
         self.total_frames = int(self.video.get(cv2.CAP_PROP_FRAME_COUNT))
 
     def get_frames(self):
