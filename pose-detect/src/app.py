@@ -1,11 +1,14 @@
 from random import randint
+from pathlib import Path
 from re import L
 import gradio as gr
+from gradio_webrtc import WebRTC
 import os
 import logging
 import cv2
 import uuid
 
+import numpy as np
 import pandas as pd
 from main import BlazePoseEstimator, ExerciseType
 from utils import Video
@@ -32,54 +35,119 @@ df = pd.DataFrame({"frame": [], "angle": [], "key_points": []})
 real_time_df = pd.DataFrame({"frame": [], "angle": [], "key_points": []})
 
 
-def process_video(video: str, camera_views: str):
-    print(video, camera_views)
-    # TODO: take the str and turn into CameraView
-    camera_views = CameraView.RIGHT
-    processed_video = Video(video, camera_views)
+def process_video(df: pd.DataFrame):
+    def _internal(video: str, camera_views: str):
+        # TODO: take the str and turn into CameraView
+        camera_views = CameraView.RIGHT
+        processed_video = Video(video, camera_views)
 
-    fps = processed_video.fps
-    width = processed_video.width
-    height = processed_video.height
+        fps = processed_video.fps
+        width = processed_video.width
+        height = processed_video.height
 
-    print(f"FPS: {fps}, Desired FPS: {fps}, Width: {width}, Height: {height}")
+        print(f"FPS: {fps}, Desired FPS: {fps}, Width: {width}, Height: {height}")
 
-    # Use UUID to create a unique video file
-    output_video_name = f"output_{uuid.uuid4()}.mp4"
+        # Use UUID to create a unique video file
+        output_video_name = f"output_{uuid.uuid4()}.mp4"
 
-    # Output Video
-    video_codec = cv2.VideoWriter_fourcc(*"mp4v")
-    output_video = cv2.VideoWriter(output_video_name, video_codec, fps, frameSize=processed_video.shape, isColor=True)  # type: ignore
+        # Output Video
+        video_codec = cv2.VideoWriter_fourcc(*"mp4v")
+        output_video = cv2.VideoWriter(output_video_name, video_codec, fps, frameSize=processed_video.shape, isColor=True)  # type: ignore
 
-    global df
-    for result in estimator.execute(ExerciseType.SQUAT, processed_video):
-        frame_count, annotated_image, _, key_interest_point_2d = result
-        output_video.write(annotated_image)
+        for result in estimator.execute(ExerciseType.SQUAT, processed_video):
+            frame_count, annotated_image, _, key_interest_point_2d = result
+            output_video.write(annotated_image)
 
-        len_df = len(df)
-        for index, (name, kip) in enumerate(key_interest_point_2d.items()):
-            i = 0 if (len_df + index) == 0 else len_df + index + 1
-            df.loc[i] = [frame_count, kip.angle, name]
-            yield None, df
+            len_df = len(df)
+            for index, (name, kip) in enumerate(key_interest_point_2d.items()):
+                i = 0 if (len_df + index) == 0 else len_df + index + 1
+                df.loc[i] = [frame_count, kip.angle, name]
+                yield None, df
 
-    output_video.release()
-    yield output_video_name, df
+        output_video.release()
+        yield output_video_name, df
+
+    return _internal
+
+
+count = 0
+
+
+def detect(image):
+    print(image)
+    global real_time_df, count
+    _, annotated_image, _, key_interest_point_2d = estimator.detect_image(
+        ExerciseType.SQUAT, image
+    )
+
+    len_df = len(real_time_df)
+    for index, (name, kip) in enumerate(key_interest_point_2d.items()):
+        i = 0 if (len_df + index) == 0 else len_df + index + 1
+        real_time_df.loc[i] = [count, kip.angle, name]
+
+    print(count)
+
+    count += 1
+    return annotated_image
 
 
 def main():
     with gr.Blocks(title="Video Analyser") as exercise:
         with gr.Row():
             with gr.Column():
-                name = gr.Textbox(label="Name")
-                desc = gr.TextArea(
-                    label="Description", placeholder="Enter a description"
-                )
+                # name = gr.Textbox(label="Name")
+                # desc = gr.TextArea(
+                #     label="Description", placeholder="Enter a description"
+                # )
                 exercise_type = gr.Radio(
                     label="Exercise Type", choices=ExerciseType._member_names_
                 )
                 camera_views = gr.Radio(
                     label="Camera Views", choices=CameraView._member_names_
                 )
+        # input_videos = gr.File(
+        #     label="Upload Video", type="filepath", file_count="multiple"
+        # )
+
+        # @gr.render(inputs=input_videos)
+        # def process_videos(videos):
+        #     if videos is None or len(videos) == 0:
+        #         return gr.Markdown("Upload a video to get started.")
+
+        #     for video_path in videos:
+        #         path = Path(video_path)
+        #         with gr.Group():
+        #             gr.Markdown(f"## Video: {path.name}")
+        #             df = pd.DataFrame({"frame": [], "angle": [], "key_points": []})
+        #             # closure to return two functions: one return the image and one generate dataframe
+        #             line_plot = gr.LinePlot(
+        #                 df,
+        #                 title="Key Point Interest Angles",
+        #                 x="frame",
+        #                 y="angle",
+        #                 color="key_points",
+        #             )
+        #             with gr.Row(equal_height=True):
+        #                 input_video = gr.Video(
+        #                     value=video_path,
+        #                     label="Input Video",
+        #                 )
+        #                 output_video = gr.Video(
+        #                     inputs=[input_video, camera_views],
+        #                     label="Output Video",
+        #                     streaming=False,
+        #                     autoplay=True,
+        #                 )
+        # input_video.
+        # output_video.attach_load_event(
+        #     callable=process_video(df), every=1, inputs=[input_video]
+        # )
+        # input_video.upload(
+        #     fn=process_video(df),
+        #     inputs=[input_video, camera_views],
+        #     outputs=[output_video, line_plot],
+        # )
+        df = pd.DataFrame({"frame": [], "angle": [], "key_points": []})
         line_plot = gr.LinePlot(
             df,
             title="Key Point Interest Angles",
@@ -96,18 +164,18 @@ def main():
                 )
 
         input_video.upload(
-            fn=process_video,
+            fn=process_video(df),
             inputs=[input_video, camera_views],
             outputs=[output_video, line_plot],
         )
 
-        submit_btn = gr.Button("Submit")
-        submit_btn.click(
-            fn=greet,
-            inputs=[name, camera_views, exercise_type],
-            outputs=[],
-            api_name="exercise_analyser",
-        )
+        # submit_btn = gr.Button("Submit")
+        # submit_btn.click(
+        #     fn=greet,
+        #     inputs=[name, camera_views, exercise_type],
+        #     outputs=[],
+        #     api_name="exercise_analyser",
+        # )
 
     with gr.Blocks(title="Real Time Analysis") as real_time_analysis:
         plot = gr.LinePlot(
@@ -117,7 +185,16 @@ def main():
             y="angle",
             color="key_points",
         )
-        camera = gr.Video(label="Camera", sources=["webcam"])
+        with gr.Row():
+            image = WebRTC(
+                label="WebRTC Stream",
+                modality="video",
+                mode="send-receive",
+            )
+            output_image = gr.Image(image_mode="RGB")
+            image.stream(
+                fn=detect, inputs=[image], outputs=[image], time_limit=10
+            )
 
     main = gr.TabbedInterface([real_time_analysis, exercise], ["Real Time", "Video"])
 

@@ -1,6 +1,7 @@
 import os
 import logging
-from typing import Dict, Generator
+from typing import Generator
+import numpy as np
 import mediapipe as mp
 from mediapipe.tasks.python.vision import (
     PoseLandmarker,
@@ -34,6 +35,23 @@ class BlazePoseEstimator(Estimator, Video):
             base_options=BaseOptions(model_asset_path=self._model_path),
             running_mode=RunningMode.IMAGE,
         )
+
+    def detect_image(self, type: ExerciseType, image: np.ndarray) -> EstimatorOutput:
+        type_processor = self._exercise_types[type]
+        
+        with PoseLandmarker.create_from_options(self._options) as landmarker:
+            result = landmarker.detect(
+                mp.Image(image_format=mp.ImageFormat.SRGB, data=image)
+            )
+            raw_landmark_2d = result.pose_landmarks[0]
+            key_interest_points_2d = type_processor.get_2d_key_points(
+                raw_landmark_2d, self.camera_view, self.height, self.width
+            )
+            annotated_image = self.draw_landmark(
+                image, raw_landmark_2d, kips=key_interest_points_2d
+            )
+        
+        return EstimatorOutput(0, annotated_image, raw_landmark_2d, key_interest_points_2d)
 
     def execute(
         self, type: ExerciseType, video: Video
