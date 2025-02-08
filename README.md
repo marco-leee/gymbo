@@ -2,8 +2,6 @@
 
 Check out the doc for architecture and design details.
 
-
-
 ---
 
 ## Cloud Architecture
@@ -33,3 +31,14 @@ architecture-beta
   backend:T <-- B:mq
   worker:R --> L:mq
 ```
+
+---
+
+## Functional Requirements
+
+1. Through mobile, user can set up camera to capture client performing exercise.
+   1. Pose detection should be done in real-time with visual shown on the screen.
+2. Detected pose and data should save to the database.
+   1. App should be able to retrieve the data and show it to the user.
+3. User should be able to see the history of the exercises.
+4. Physio-assessment should be saved to the database.
