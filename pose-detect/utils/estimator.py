@@ -124,7 +124,6 @@ class Estimator(ABC):
                 2,
             )
 
-        # TODO: find out why is not drawing the angle
         for key_interest_point in kips.values():
             _, center, _ = key_interest_point.idx_to_coordinates.values()
             self.draw_angle(

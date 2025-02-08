@@ -177,27 +177,7 @@ def main():
         #     api_name="exercise_analyser",
         # )
 
-    with gr.Blocks(title="Real Time Analysis") as real_time_analysis:
-        plot = gr.LinePlot(
-            real_time_df,
-            title="Real Time Key Point Interest Angles",
-            x="frame",
-            y="angle",
-            color="key_points",
-        )
-        with gr.Row():
-            image = WebRTC(
-                label="WebRTC Stream",
-                modality="video",
-                mode="send-receive",
-            )
-            image.stream(fn=detect, inputs=[image], outputs=[image])
-            image.on_additional_outputs(
-                lambda image, df: df,
-                outputs=[plot],
-            )
-
-    main = gr.TabbedInterface([real_time_analysis, exercise], ["Real Time", "Video"])
+    main = gr.TabbedInterface([exercise], ["Video"])
 
     # main.launch(auth=("admin", "local"))
     main.launch()

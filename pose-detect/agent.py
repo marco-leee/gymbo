@@ -1,14 +1,16 @@
 import logging
 import os
 import asyncio
+from re import L
 import numpy as np
 
-# from dotenv import load_dotenv
+from dotenv import load_dotenv
 from livekit.agents import (
     AutoSubscribe,
     JobContext,
     JobProcess,
     WorkerOptions,
+    WorkerType,
     WorkerPermissions,
     cli,
     llm,
@@ -16,15 +18,9 @@ from livekit.agents import (
 )
 from livekit import rtc
 
+from utils import LIVEKIT_API_KEY, LIVEKIT_API_SECRET, LIVEKIT_URL
 
-# load_dotenv(dotenv_path=".env.local")
 logger = logging.getLogger("voice-agent")
-
-# def prewarm(proc: JobProcess):
-#     proc.userdata["vad"] = silero.VAD.load()
-
-os.environ["LIVEKIT_API_KEY"] = "devkey"
-os.environ["LIVEKIT_API_SECRET"] = "secret"
 
 
 async def process_audio_stream(track: rtc.Track):
@@ -38,16 +34,16 @@ async def process_audio_stream(track: rtc.Track):
 async def process_video_stream(track: rtc.Track, source: rtc.VideoSource):
     input_stream = rtc.VideoStream(track)
     async for frame in input_stream:
-        print("list ", frame.frame.data.tolist())
+        print(frame.frame.data.shape)
         image = np.frombuffer(frame.frame.data, dtype=np.uint8)
-        print("image: ", image)
-
+        # print("image: ", image)
         source.capture_frame(frame.frame)
     await input_stream.aclose()
     await source.aclose()
 
 
 async def entrypoint(ctx: JobContext):
+    print("Hi")
     logger.info(f"connecting to room {ctx.room.name}")
     await ctx.connect(auto_subscribe=AutoSubscribe.VIDEO_ONLY)
 
@@ -56,8 +52,8 @@ async def entrypoint(ctx: JobContext):
     logger.info(f"starting voice assistant for participant {participant.identity}")
 
     # video
-    WIDTH = 640
-    HEIGHT = 480
+    WIDTH = 1280
+    HEIGHT = 720
     video_source = rtc.VideoSource(WIDTH, HEIGHT)
     video_track = rtc.LocalVideoTrack.create_video_track(
         "exercise-analysing-video", video_source
@@ -112,7 +108,21 @@ async def entrypoint(ctx: JobContext):
 if __name__ == "__main__":
     cli.run_app(
         WorkerOptions(
-            # agent_name="exercise-agent",
+            host=LIVEKIT_URL,
+            api_key=LIVEKIT_API_KEY,
+            api_secret=LIVEKIT_API_SECRET,
+            agent_name=f"exercise-agent",
+            worker_type=WorkerType.ROOM,
+            permissions=WorkerPermissions(
+                can_subscribe=True,
+                can_publish=True,
+                can_publish_data=True,
+                # can_publish_sources=[
+                #     rtc.TrackSource.SOURCE_CAMERA,
+                #     rtc.TrackSource.SOURCE_MICROPHONE,
+                #     rtc.TrackSource.SOURCE_SCREENSHARE,
+                # ],
+            ),
             entrypoint_fnc=entrypoint,
             # load_fnc=
         ),
