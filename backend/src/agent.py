@@ -1,10 +1,7 @@
 import logging
-import os
 import asyncio
-from re import L
 import numpy as np
 
-from dotenv import load_dotenv
 from livekit.agents import (
     AutoSubscribe,
     JobContext,
