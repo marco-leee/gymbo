@@ -74,7 +74,9 @@ count = 0
 
 
 def detect(image):
-    print(image)
+    if image is None:
+        return None
+
     global real_time_df, count
     _, annotated_image, _, key_interest_point_2d = estimator.detect_image(
         ExerciseType.SQUAT, image
@@ -85,10 +87,8 @@ def detect(image):
         i = 0 if (len_df + index) == 0 else len_df + index + 1
         real_time_df.loc[i] = [count, kip.angle, name]
 
-    print(count)
-
     count += 1
-    return annotated_image
+    return (annotated_image, real_time_df)
 
 
 def main():
@@ -191,9 +191,10 @@ def main():
                 modality="video",
                 mode="send-receive",
             )
-            output_image = gr.Image(image_mode="RGB")
-            image.stream(
-                fn=detect, inputs=[image], outputs=[image], time_limit=10
+            image.stream(fn=detect, inputs=[image], outputs=[image])
+            image.on_additional_outputs(
+                lambda image, df: df,
+                outputs=[plot],
             )
 
     main = gr.TabbedInterface([real_time_analysis, exercise], ["Real Time", "Video"])
