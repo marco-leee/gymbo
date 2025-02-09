@@ -3,12 +3,20 @@ from typing import Dict, NamedTuple, Tuple
 import numpy as np
 from enum import Enum
 
-from utils import CameraView, KeyInterestPoint2D
+from utils import CameraView
 
 
 class ExerciseType(Enum):
     SQUAT = "SQUAT"
     PUSH_UP = "PUSH_UP"
+
+
+class KeyInterestPoint2D(NamedTuple):
+    idx_to_coordinates: Dict[int, Tuple[int, int]]
+    angle: int
+    rotation_angle: int
+    comment: str
+    colour: Tuple[int, int, int]
 
 
 class KeyInterestPoint(ABC):

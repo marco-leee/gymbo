@@ -3,6 +3,8 @@ from typing import Dict, NamedTuple, Generator, Tuple
 import numpy as np
 from mediapipe.tasks.python.vision.pose_landmarker import PoseLandmarkerResult
 import cv2 as cv
+from utils.video import Video
+from exercises import ExerciseType
 
 
 class KeyInterestPoint2D(NamedTuple):
@@ -138,7 +140,11 @@ class Estimator(ABC):
         return annotated_image
 
     @abstractmethod
+    def detect_image(self, type: ExerciseType, image: np.ndarray) -> EstimatorOutput:
+        pass
+
+    @abstractmethod
     def execute(
-        self, path: str, is_video: bool
+        self, type: ExerciseType, video: Video
     ) -> Generator[EstimatorOutput, None, None]:
         pass
