@@ -4,31 +4,19 @@ services:
     ports:
       - "6379:6379"
     networks:
-      - exercise-analyzer
+      - gymbo
 
   mongo:
     image:  mongodb/mongodb-community-server:8.0.4-ubi9
     ports:
       - "27017:27017"
     networks:
-      - exercise-analyzer
+      - gymbo
     volumes:
       - mongo-db:/data/db
     environment:
       - MONGO_INITDB_ROOT_USERNAME=admin
       - MONGO_INITDB_ROOT_PASSWORD=local
-
-  cassandra:
-    image: bitnami/cassandra:5.0.2
-    ports:
-      - "9042:9042"
-    networks:
-      - exercise-analyzer
-    volumes:
-      - data:/bitnami
-    environment:
-      - CASSANDRA_USER=admin
-      - CASSANDRA_PASSWORD=local
 
   minio:
     image: quay.io/minio/minio:latest
@@ -37,7 +25,7 @@ services:
       - "9000:9000"
       - "9001:9001"
     networks:
-      - exercise-analyzer
+      - gymbo
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
       interval: 1m30s
@@ -49,7 +37,7 @@ services:
     environment:
       MINIO_ROOT_USER: admin
       MINIO_ROOT_PASSWORD: qwertyui
-      MINIO_DEFAULT_BUCKET: exercise-analyzer
+      MINIO_DEFAULT_BUCKET: gymbo
 
 volumes:
   minio:
@@ -61,5 +49,5 @@ volumes:
 
 
 networks:
-  exercise-analyzer:
+  gymbo:
     driver: bridge

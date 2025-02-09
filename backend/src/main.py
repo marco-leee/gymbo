@@ -11,68 +11,15 @@ from mediapipe.tasks.python.vision import (
 )
 from repo import CoreRepo, MongoCoreRepo
 from exercises import ExerciseType, Squat
+from utils import Video, CameraView, S3_ACCESS_KEY, S3_BUCKET, S3_ENDPOINT, S3_SECRET
 from storage import S3StorageProvider, StorageProvider
 import cv2 as cv
-from utils import Video, CameraView, EstimatorOutput, Estimator
+
+from estimator import Estimator, MediapipeEstimator
 
 BaseOptions = mp.tasks.BaseOptions
 
 root_path = os.path.dirname(os.path.abspath(__file__))
-
-
-class BlazePoseEstimator(Estimator, Video):
-    _model_path: str
-    _excluded_index_list: frozenset[int] = frozenset(list(range(11)))
-    _connections = frozenset(
-        [(c.start, c.end) for c in PoseLandmarksConnections.POSE_LANDMARKS]
-    )
-    _exercise_types = {ExerciseType.SQUAT: Squat()}
-
-    def __init__(self, model_path: str):
-        self._model_path = model_path
-
-        self._options = PoseLandmarkerOptions(
-            base_options=BaseOptions(model_asset_path=self._model_path),
-            running_mode=RunningMode.IMAGE,
-        )
-
-    def detect_image(self, type: ExerciseType, image: np.ndarray) -> EstimatorOutput:
-        type_processor = self._exercise_types[type]
-        
-        with PoseLandmarker.create_from_options(self._options) as landmarker:
-            result = landmarker.detect(
-                mp.Image(image_format=mp.ImageFormat.SRGB, data=image)
-            )
-            raw_landmark_2d = result.pose_landmarks[0]
-            key_interest_points_2d = type_processor.get_2d_key_points(
-                raw_landmark_2d, self.camera_view, self.height, self.width
-            )
-            annotated_image = self.draw_landmark(
-                image, raw_landmark_2d, kips=key_interest_points_2d
-            )
-        
-        return EstimatorOutput(0, annotated_image, raw_landmark_2d, key_interest_points_2d)
-
-    def execute(
-        self, type: ExerciseType, video: Video
-    ) -> Generator[EstimatorOutput, None, None]:
-        type_processor = self._exercise_types[type]
-
-        with PoseLandmarker.create_from_options(self._options) as landmarker:
-            for idx, frame in video.get_frames():
-                result = landmarker.detect(
-                    mp.Image(image_format=mp.ImageFormat.SRGB, data=frame)
-                )
-                raw_landmark_2d = result.pose_landmarks[0]
-                key_interest_points_2d = type_processor.get_2d_key_points(
-                    raw_landmark_2d, video.camera_view, video.height, video.width
-                )
-                annotated_image = self.draw_landmark(
-                    frame, raw_landmark_2d, kips=key_interest_points_2d
-                )
-                yield EstimatorOutput(
-                    idx, annotated_image, raw_landmark_2d, key_interest_points_2d
-                )
 
 
 class PoseEstimationWorker:
@@ -112,7 +59,7 @@ class PoseEstimationWorker:
         # TODO: Validate the schema
 
         # TODO: Turn into a tmp path
-        video_path = f"{root_path}/media/test.mp4"
+        video_path = f"{root_path}/media/prewarm.mp4"
 
         video = Video(video_path, CameraView.RIGHT)
 
@@ -146,10 +93,10 @@ def main() -> None:
         access_key = "RFbPRwd0jI499M1bi2S0"
         secret_key = "dIefcszHPiUwLqf28U9XGAZs6WLLMLjQd3P1wCrl"
         s3 = S3StorageProvider(
-            bucket="exercise-analyser",
-            access_key=access_key,
-            secret_key=secret_key,
-            endpoint_url="http://localhost:9000",
+            bucket=S3_BUCKET,
+            access_key=S3_ACCESS_KEY,
+            secret_key=S3_SECRET,
+            endpoint_url=S3_ENDPOINT,
         )
     except Exception as e:
         logger.fatal("pose detection worker init failed: ", e)
@@ -164,7 +111,7 @@ def main() -> None:
         exit(1)
 
     try:
-        estimator = BlazePoseEstimator(
+        estimator = MediapipeEstimator(
             model_path=os.path.join(root_path, "models", "pose_landmarker_full.task")
         )
     except Exception as e:
