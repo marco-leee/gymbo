@@ -6,16 +6,20 @@ import uuid
 
 import numpy as np
 import pandas as pd
-from main import BlazePoseEstimator, ExerciseType
+from main import MediapipeEstimator, ExerciseType
 from utils import Video
 from utils.video import CameraView
+
+USER = os.environ.get("USER", None)
+PASSWORD = os.environ.get("PASSWORD", None)
+AUTH = (USER, PASSWORD) if USER and PASSWORD else None
 
 
 logger = logging.getLogger(__name__)
 root_path = os.path.dirname(os.path.abspath(__file__))
 
 try:
-    estimator = BlazePoseEstimator(
+    estimator = MediapipeEstimator(
         model_path=os.path.join(root_path, "models", "pose_landmarker_full.task")
     )
 except Exception as e:
@@ -32,10 +36,12 @@ real_time_df = pd.DataFrame({"frame": [], "angle": [], "key_points": []})
 
 
 def process_video(df: pd.DataFrame):
-    def _internal(video: str, camera_views: str):
-        # TODO: take the str and turn into CameraView
-        camera_views = CameraView.RIGHT
-        processed_video = Video(video, camera_views)
+    def _internal(video: str, exercise_type: str, camera_views: str):
+        print(exercise_type, camera_views)
+        if exercise_type is None and camera_views is None:
+            raise gr.Error("Please select an exercise type and camera view.")
+        
+        processed_video = Video(video, CameraView.from_string(camera_views))
 
         fps = processed_video.fps
         width = processed_video.width
@@ -50,7 +56,7 @@ def process_video(df: pd.DataFrame):
         video_codec = cv2.VideoWriter_fourcc(*"mp4v")
         output_video = cv2.VideoWriter(output_video_name, video_codec, fps, frameSize=processed_video.shape, isColor=True)  # type: ignore
 
-        for result in estimator.execute(ExerciseType.SQUAT, processed_video):
+        for result in estimator.detect_video(ExerciseType.from_string(exercise_type), processed_video):
             frame_count, annotated_image, _, key_interest_point_2d = result
             output_video.write(annotated_image)
 
@@ -101,48 +107,7 @@ def main():
                 camera_views = gr.Radio(
                     label="Camera Views", choices=CameraView._member_names_
                 )
-        # input_videos = gr.File(
-        #     label="Upload Video", type="filepath", file_count="multiple"
-        # )
 
-        # @gr.render(inputs=input_videos)
-        # def process_videos(videos):
-        #     if videos is None or len(videos) == 0:
-        #         return gr.Markdown("Upload a video to get started.")
-
-        #     for video_path in videos:
-        #         path = Path(video_path)
-        #         with gr.Group():
-        #             gr.Markdown(f"## Video: {path.name}")
-        #             df = pd.DataFrame({"frame": [], "angle": [], "key_points": []})
-        #             # closure to return two functions: one return the image and one generate dataframe
-        #             line_plot = gr.LinePlot(
-        #                 df,
-        #                 title="Key Point Interest Angles",
-        #                 x="frame",
-        #                 y="angle",
-        #                 color="key_points",
-        #             )
-        #             with gr.Row(equal_height=True):
-        #                 input_video = gr.Video(
-        #                     value=video_path,
-        #                     label="Input Video",
-        #                 )
-        #                 output_video = gr.Video(
-        #                     inputs=[input_video, camera_views],
-        #                     label="Output Video",
-        #                     streaming=False,
-        #                     autoplay=True,
-        #                 )
-        # input_video.
-        # output_video.attach_load_event(
-        #     callable=process_video(df), every=1, inputs=[input_video]
-        # )
-        # input_video.upload(
-        #     fn=process_video(df),
-        #     inputs=[input_video, camera_views],
-        #     outputs=[output_video, line_plot],
-        # )
         df = pd.DataFrame({"frame": [], "angle": [], "key_points": []})
         line_plot = gr.LinePlot(
             df,
@@ -151,6 +116,7 @@ def main():
             y="angle",
             color="key_points",
         )
+
         with gr.Row():
             with gr.Column():
                 input_video = gr.Video(label="Input Video", sources=["upload"])
@@ -161,22 +127,13 @@ def main():
 
         input_video.upload(
             fn=process_video(df),
-            inputs=[input_video, camera_views],
+            inputs=[input_video, exercise_type, camera_views],
             outputs=[output_video, line_plot],
         )
 
-        # submit_btn = gr.Button("Submit")
-        # submit_btn.click(
-        #     fn=greet,
-        #     inputs=[name, camera_views, exercise_type],
-        #     outputs=[],
-        #     api_name="exercise_analyser",
-        # )
-
     main = gr.TabbedInterface([exercise], ["Video"])
 
-    # main.launch(auth=("admin", "local"))
-    main.launch()
+    main.launch(auth=AUTH)
 
 
 if __name__ == "__main__":

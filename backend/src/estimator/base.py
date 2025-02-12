@@ -144,7 +144,7 @@ class Estimator(ABC):
         pass
 
     @abstractmethod
-    def execute(
+    def detect_video(
         self, type: ExerciseType, video: Video
     ) -> Generator[EstimatorOutput, None, None]:
         pass

@@ -8,7 +8,14 @@ from utils import CameraView
 
 class ExerciseType(Enum):
     SQUAT = "SQUAT"
-    PUSH_UP = "PUSH_UP"
+    # PUSH_UP = "PUSH_UP"
+    
+    def __str__(self):
+        return self.value
+    
+    @staticmethod
+    def from_string(exercise: str):
+        return ExerciseType[exercise.upper()]
 
 
 class KeyInterestPoint2D(NamedTuple):
