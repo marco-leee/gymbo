@@ -4,14 +4,14 @@ import cv2
 
 
 class CameraView(Enum):
-    TOP = "TOP"
+    # TOP = "TOP"
     LEFT = "LEFT"
     RIGHT = "RIGHT"
-    FRONT = "FRONT"
-    BACK = "BACK"
-    BOTTOM = "BOTTOM"
+    # FRONT = "FRONT"
+    # BACK = "BACK"
+    # BOTTOM = "BOTTOM"
 
-    @classmethod
+    @staticmethod
     def from_string(view: str) -> Self:
         return CameraView[view.upper()]
 
