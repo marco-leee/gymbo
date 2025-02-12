@@ -1,4 +1,28 @@
 services:
+  caddy:
+    image: caddy:2.9.1-alpine
+    build:
+      context: .
+      dockerfile: caddy.dockerfile
+    ports:
+      - "443:443"
+    environment:
+      - DOMAIN=localhost
+      - BACKEND_HOST=gradio
+      - BACKEND_PORT=7860
+    networks:
+      - gymbo
+
+  gradio:
+    image: bitnami/python:3.12
+    build:
+      context: .
+      dockerfile: gradio.dockerfile
+    ports:
+      - "7860:7860"
+    networks:
+      - gymbo
+
   redis:
     image: redis:alpine
     ports:
