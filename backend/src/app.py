@@ -40,7 +40,7 @@ def process_video(df: pd.DataFrame):
         print(exercise_type, camera_views)
         if exercise_type is None and camera_views is None:
             raise gr.Error("Please select an exercise type and camera view.")
-        
+
         processed_video = Video(video, CameraView.from_string(camera_views))
 
         fps = processed_video.fps
@@ -56,7 +56,9 @@ def process_video(df: pd.DataFrame):
         video_codec = cv2.VideoWriter_fourcc(*"mp4v")
         output_video = cv2.VideoWriter(output_video_name, video_codec, fps, frameSize=processed_video.shape, isColor=True)  # type: ignore
 
-        for result in estimator.detect_video(ExerciseType.from_string(exercise_type), processed_video):
+        for result in estimator.detect_video(
+            ExerciseType.from_string(exercise_type), processed_video
+        ):
             frame_count, annotated_image, _, key_interest_point_2d = result
             output_video.write(annotated_image)
 
@@ -95,12 +97,22 @@ def detect(image):
 
 def main():
     with gr.Blocks(title="Video Analyser") as exercise:
+        gr.Markdown(
+            """
+        # Video Exercise Analyser
+        
+        ## Instructions
+        
+        1. Select the exercise type and camera view. If not, will see an error message
+        2. Upload a video file in `Input Video` section
+        3. Processing will start immediately.
+        4. You will see the graph moving but video will only be shown after processing is done.
+        5. Keep the page open until the processing is done.
+        6. Refresh the page to start over
+        """
+        )
         with gr.Row():
             with gr.Column():
-                # name = gr.Textbox(label="Name")
-                # desc = gr.TextArea(
-                #     label="Description", placeholder="Enter a description"
-                # )
                 exercise_type = gr.Radio(
                     label="Exercise Type", choices=ExerciseType._member_names_
                 )
