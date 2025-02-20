@@ -7,8 +7,7 @@ import uuid
 import numpy as np
 import pandas as pd
 from main import MediapipeEstimator, ExerciseType
-from utils import Video
-from utils.video import CameraView
+from utils import Video, CameraView
 
 USER = os.environ.get("USER", None)
 PASSWORD = os.environ.get("PASSWORD", None)
