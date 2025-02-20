@@ -17,6 +17,10 @@ AUTH = (USER, PASSWORD) if USER and PASSWORD else None
 logger = logging.getLogger(__name__)
 root_path = os.path.dirname(os.path.abspath(__file__))
 
+os.path.exists(os.path.join(root_path, "media", "out")) or os.makedirs(
+    os.path.join(root_path, "media", "out")
+)
+
 try:
     estimator = MediapipeEstimator(
         model_path=os.path.join(root_path, "models", "pose_landmarker_full.task")
@@ -49,7 +53,7 @@ def process_video(df: pd.DataFrame):
         print(f"FPS: {fps}, Desired FPS: {fps}, Width: {width}, Height: {height}")
 
         # Use UUID to create a unique video file
-        output_video_name = f"output_{uuid.uuid4()}.mp4"
+        output_video_name = f"media/out/output_{uuid.uuid4()}.mp4"
 
         # Output Video
         video_codec = cv2.VideoWriter_fourcc(*"mp4v")
@@ -141,11 +145,13 @@ def main():
             fn=process_video(df),
             inputs=[input_video, exercise_type, camera_views],
             outputs=[output_video, line_plot],
+            concurrency_limit=3,
+            concurrency_id="video",
         )
 
     main = gr.TabbedInterface([exercise], ["Video"])
 
-    main.launch(auth=AUTH)
+    main.queue(max_size=10).launch(auth=AUTH)
 
 
 if __name__ == "__main__":
