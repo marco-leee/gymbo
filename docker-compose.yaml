@@ -1,25 +1,29 @@
 services:
   caddy:
-    image: caddy:2.9.1-alpine
+    image: caddy
     build:
       context: .
       dockerfile: caddy.dockerfile
     ports:
       - "443:443"
     environment:
-      - DOMAIN=localhost
+      # - DOMAIN=localhost
+      - DOMAIN=gymbo.stixman.co
       - BACKEND_HOST=gradio
       - BACKEND_PORT=7860
     networks:
       - gymbo
 
   gradio:
-    image: bitnami/python:3.12
+    image: gradio
     build:
       context: .
       dockerfile: gradio.dockerfile
     ports:
       - "7860:7860"
+    environment:
+      - USER=admin
+      - PASSWORD=sayplease
     networks:
       - gymbo
 
@@ -75,3 +79,5 @@ volumes:
 networks:
   gymbo:
     driver: bridge
+  host:
+    driver: host

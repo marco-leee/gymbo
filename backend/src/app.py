@@ -37,10 +37,10 @@ real_time_df = pd.DataFrame({"frame": [], "angle": [], "key_points": []})
 
 def process_video(df: pd.DataFrame):
     def _internal(video: str, exercise_type: str, camera_views: str):
-        print(exercise_type, camera_views)
         if exercise_type is None and camera_views is None:
             raise gr.Error("Please select an exercise type and camera view.")
 
+        df = pd.DataFrame({"frame": [], "angle": [], "key_points": []})
         processed_video = Video(video, CameraView.from_string(camera_views))
 
         fps = processed_video.fps
@@ -108,7 +108,8 @@ def main():
         3. Processing will start immediately.
         4. You will see the graph moving but video will only be shown after processing is done.
         5. Keep the page open until the processing is done.
-        6. Refresh the page to start over
+        6. On the output video block below, click the download button to download the processed video.
+        7. Refresh the page to start over
         """
         )
         with gr.Row():
