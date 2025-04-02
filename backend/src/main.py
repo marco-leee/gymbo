@@ -59,7 +59,7 @@ class PoseEstimationWorker:
         # TODO: Validate the schema
 
         # TODO: Turn into a tmp path
-        video_path = f"{root_path}/media/prewarm.mp4"
+        video_path = f"{root_path}/test.mp4"
 
         video = Video(video_path, CameraView.RIGHT)
 
@@ -72,10 +72,12 @@ class PoseEstimationWorker:
             isColor=True,
         )
 
-        for result in self._estimator.execute(ExerciseType.SQUAT, video):
+        for result in self._estimator.detect_video(ExerciseType.SQUAT, video):
+            if result is None:
+                continue
+
             frame_count, annotated_image, raw_landmarks, key_interest_point_2d = result
             formatted_landmarks = self.postprocessing(raw_landmarks)
-
             new_video.write(annotated_image)
 
         new_video.release()
@@ -90,8 +92,6 @@ def main() -> None:
     logger = logging.getLogger(__name__)
 
     try:
-        access_key = "RFbPRwd0jI499M1bi2S0"
-        secret_key = "dIefcszHPiUwLqf28U9XGAZs6WLLMLjQd3P1wCrl"
         s3 = S3StorageProvider(
             bucket=S3_BUCKET,
             access_key=S3_ACCESS_KEY,

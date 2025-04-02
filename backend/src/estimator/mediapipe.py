@@ -69,7 +69,7 @@ class MediapipeEstimator(Estimator, Video):
                 )
                 
                 if not result.pose_landmarks:
-                    return None
+                    continue
 
                 raw_landmark_2d = result.pose_landmarks[0]
                 key_interest_points_2d = type_processor.get_2d_key_points(
