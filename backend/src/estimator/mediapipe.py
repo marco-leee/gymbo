@@ -30,13 +30,19 @@ class MediapipeEstimator(Estimator, Video):
             base_options=BaseOptions(model_asset_path=self._model_path),
             running_mode=RunningMode.IMAGE,
         )
-        
+
     # TODO: Add a function for livestream prediction
 
     def detect_image(
-        self, type: ExerciseType, image: np.ndarray
+        self,
+        image: np.ndarray,
+        type: ExerciseType = None,
     ) -> EstimatorOutput | None:
-        type_processor = self._exercise_types[type]
+        type_processor = None
+
+        if type is not None:
+            type_processor = self._exercise_types[type]
+
         with PoseLandmarker.create_from_options(self._options) as landmarker:
             result = landmarker.detect(
                 image=mp.Image(image_format=mp.ImageFormat.SRGB, data=image),
@@ -46,9 +52,13 @@ class MediapipeEstimator(Estimator, Video):
                 return None
 
             raw_landmark_2d = result.pose_landmarks[0]
-            key_interest_points_2d = type_processor.get_2d_key_points(
-                raw_landmark_2d, self.camera_view, self.height, self.width
-            )
+
+            key_interest_points_2d = None
+
+            if type_processor is not None:
+                key_interest_points_2d = type_processor.get_2d_key_points(
+                    raw_landmark_2d, self.camera_view, self.height, self.width
+                )
             annotated_image = self.draw_landmark(
                 image, raw_landmark_2d, kips=key_interest_points_2d
             )
@@ -58,26 +68,35 @@ class MediapipeEstimator(Estimator, Video):
         )
 
     def detect_video(
-        self, type: ExerciseType, video: Video
+        self, video: Video, type: ExerciseType = None
     ) -> Generator[EstimatorOutput, None, None]:
-        type_processor = self._exercise_types[type]
+        type_processor = None
+
+        if type is not None:
+            type_processor = self._exercise_types[type]
 
         with PoseLandmarker.create_from_options(self._options) as landmarker:
             for idx, frame in video.get_frames():
                 result = landmarker.detect(
                     mp.Image(image_format=mp.ImageFormat.SRGB, data=frame)
                 )
-                
+
                 if not result.pose_landmarks:
                     continue
 
                 raw_landmark_2d = result.pose_landmarks[0]
-                key_interest_points_2d = type_processor.get_2d_key_points(
-                    raw_landmark_2d, video.camera_view, video.height, video.width
-                )
+
+                key_interest_points_2d = None
+
+                if type_processor is not None:
+                    key_interest_points_2d = type_processor.get_2d_key_points(
+                        raw_landmark_2d, video.camera_view, video.height, video.width
+                    )
+
                 annotated_image = self.draw_landmark(
                     frame, raw_landmark_2d, kips=key_interest_points_2d
                 )
+
                 yield EstimatorOutput(
                     idx, annotated_image, raw_landmark_2d, key_interest_points_2d
                 )

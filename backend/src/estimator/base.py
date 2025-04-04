@@ -83,7 +83,7 @@ class Estimator(ABC):
         self,
         image: np.ndarray,
         landmarks,
-        kips: Dict[str, KeyInterestPoint2D],
+        kips: Dict[str, KeyInterestPoint2D] | None = None,
         vis_threshold=0.6,
         presence_threshold=0.6,
     ):
@@ -126,8 +126,9 @@ class Estimator(ABC):
                 2,
             )
 
-        for key_interest_point in kips.values():
-            _, center, _ = key_interest_point.idx_to_coordinates.values()
+        if kips:
+            for key_interest_point in kips.values():
+                _, center, _ = key_interest_point.idx_to_coordinates.values()
             self.draw_angle(
                 annotated_image,
                 key_interest_point.angle,
