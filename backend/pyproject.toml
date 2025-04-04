@@ -20,7 +20,8 @@ dependencies = [
     "python-ulid (>=3.0.0,<4.0.0)",
     "boto3 (>=1.36.16,<2.0.0)",
     "livekit (<0.20)",
-    "livekit-agents (>=0.12.11,<0.13.0)"
+    "livekit-agents (>=0.12.11,<0.13.0)",
+    "python-socketio[asyncio] (>=5.12.1,<6.0.0)"
 ]
 
 [project.scripts]
