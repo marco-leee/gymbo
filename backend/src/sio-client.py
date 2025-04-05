@@ -78,7 +78,6 @@ class PoseDetectionNamespace(socketio.AsyncClientNamespace):
             print("Video streaming finished")
             self.should_stream = False
             new_video.release()
-            
 
     async def start_streaming(self):
         """Start the streaming process once we're connected to the room"""
