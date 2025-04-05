@@ -1,8 +1,10 @@
 'use client';
 
-import { AppShell, Burger, Group, Skeleton } from "@mantine/core";
+import { AppShell, Burger, Group, NavLink, Skeleton } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
+import Link from "next/link";
 import React from "react";
+import { IconDeviceMobile, IconDeviceDesktop } from '@tabler/icons-react';
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const [mobileOpened, { toggle: toggleMobile }] = useDisclosure();
@@ -12,7 +14,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     <AppShell
       header={{ height: 60 }}
       footer={{ height: 60 }}
-      navbar={{ width: 300, breakpoint: 'sm', collapsed: { mobile: !mobileOpened, desktop: !desktopOpened } }}
+      navbar={{ width: 300, breakpoint: 'sm', collapsed: { mobile: !mobileOpened, desktop: desktopOpened } }}
       aside={{ width: 300, breakpoint: 'md', collapsed: { desktop: false, mobile: true } }}
       padding="md"
     >
@@ -24,12 +26,16 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         </Group>
       </AppShell.Header>
       <AppShell.Navbar p="md">
-        Navbar
-        {Array(15)
-          .fill(0)
-          .map((_, index) => (
-            <Skeleton key={index} h={28} mt="sm" animate={false} />
-          ))}
+        <NavLink
+          href="/world/live-desktop"
+          label="Desktop Only"
+          leftSection={<IconDeviceDesktop size={16} stroke={1.5} />}
+        />
+        <NavLink
+          href="/world/live-mobile"
+          label="Mobile Only"
+          leftSection={<IconDeviceMobile size={16} stroke={1.5} />}
+        />
       </AppShell.Navbar>
       <AppShell.Main>
         {children}
