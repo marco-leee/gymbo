@@ -40,8 +40,11 @@ class Rooms:
     def join(self, room_id: str, sid: str, type: str):
         self.rooms[room_id][type] = sid
 
-    def leave(self, room_id: str, type: str):
-        del self.rooms[room_id][type]
+    def leave(self, room_id: str, sid: str):
+        for type, client_sid in self.rooms[room_id].items():
+            if client_sid == sid:
+                del self.rooms[room_id][type]
+                return
 
     def is_sid_in_room(self, room_id: str, type: str):
         return type in self.rooms[room_id].keys()
@@ -69,11 +72,19 @@ class PoseDetectionNamespace(socketio.AsyncNamespace):
         # TODO: Turn this into queue in the future
         if len(self.rooms) >= 2:
             logger.warning(f"Room full, rejecting client {sid}")
-            raise ConnectionRefusedError("Room is full")
+            raise ConnectionRefusedError("Server capacity is full")
 
-        if self.rooms.get(room_id) is None:
+        room = self.rooms.get(room_id)
+        if room is None:
             self.rooms.add(room_id, sid, type)
             logger.info(f"Added {sid} to room {room_id}")
+        else:
+            self.rooms.join(room_id, sid, type)
+            logger.info(f"Added {sid} to room {room_id}")
+            # if len(room) == 1:
+            # else:
+            #     logger.warning(f"Room {room_id} is full, rejecting client {sid}")
+            #     raise ConnectionRefusedError("Service room is full")
 
         logger.info(f"Sending room_joined event to {sid}")
         await self.emit(
@@ -126,9 +137,18 @@ class PoseDetectionNamespace(socketio.AsyncNamespace):
                 return
 
             # Verify that the sender is in a valid room
-            if not self.rooms.get(room_id):
+            room = self.rooms.get(room_id)
+
+            if not room:
                 logger.warning(f"Invalid room_id {room_id} from {sid}")
                 await self.emit("error", {"message": "Invalid room_id"}, room=sid)
+                return
+
+            if "desktop" not in room:
+                logger.warning(f"No desktop client found in room {room_id}")
+                await self.emit(
+                    "error", {"message": "No desktop client found"}, room=sid
+                )
                 return
 
             # Process the frame
@@ -185,21 +205,16 @@ class PoseDetectionNamespace(socketio.AsyncNamespace):
                 f"Frame processed, annotated image size: {len(result.annotated_image)}"
             )
 
-            # If there's a desktop client in this room, send results to it
-            room = self.rooms.get(room_id)
-            if "desktop" in room:
-                logger.info(
-                    f"Emitting pose_results to desktop client {room['desktop']}"
-                )
-                desktop_sid = room["desktop"]
-                await self.emit(
-                    "pose_results",
-                    {"annotated_image": result.annotated_image},
-                    room=desktop_sid,
-                )
-            else:
-                logger.warning(f"No desktop client found in room {room_id}")
-
+            desktop_sid = room["desktop"]
+            await self.emit(
+                "pose_results",
+                {
+                    "annotated_image": result.annotated_image.tobytes(),
+                    "dimensions": dimensions,
+                },
+                room=desktop_sid,
+            )
+            logger.info(f"Emitted pose_results to desktop client {desktop_sid}")
         except Exception as e:
             logger.error(f"Error processing frame from {sid}: {str(e)}")
             await self.emit("error", {"message": str(e)}, room=sid)
@@ -250,13 +265,13 @@ def main():
 
     # Enable socketio logging
     socketio_logger = logging.getLogger("socketio")
-    socketio_logger.setLevel(logging.DEBUG)
+    socketio_logger.setLevel(logging.INFO)
 
     sio.register_namespace(PoseDetectionNamespace("/pose-detection"))
 
     app = socketio.ASGIApp(sio)
 
-    uvicorn.run(app, host="0.0.0.0", port=10000, log_level="debug")
+    uvicorn.run(app, host="0.0.0.0", port=10000, log_level="info")
 
 
 if __name__ == "__main__":
