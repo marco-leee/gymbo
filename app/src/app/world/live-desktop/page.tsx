@@ -11,9 +11,11 @@ export default function Page() {
   const [joinedRoom, setJoinedRoom] = useState('');
   const [error, setError] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const imageRef = useRef<HTMLImageElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const frameIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -53,10 +55,62 @@ export default function Page() {
       setError('');
     });
 
-    socketInstance.on('pose_results', (frameData) => {
-      console.log(frameData);
-    });
+    socketInstance.on('pose_results', (data) => {
+      const { annotated_image, dimensions } = data;
+      
+      console.log('Received pose results:', dimensions);
+      
+      // Create a blob from the array buffer
+      const blob = new Blob([annotated_image], { type: `image/${dimensions.format}` });
 
+      const reader = new FileReader();
+      reader.onload = () => {
+        console.log('Image URL:', reader.result);
+
+        const img = new Image();
+        
+        img.src = reader.result as string;
+
+        img.onload = () => {
+          console.log('Image loaded, dimensions:', img.width, 'x', img.height);
+
+          // Get the canvas context
+          const canvas = canvasRef.current;
+          if (!canvas) {
+            console.error('Canvas element not found');
+            return;
+          }
+          
+          // Set canvas dimensions to match the image
+          canvas.width = dimensions.width;
+          canvas.height = dimensions.height;
+          console.log('Canvas dimensions set to:', canvas.width, 'x', canvas.height);
+          
+          // // Draw the image on the canvas
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            console.error('Could not get canvas context');
+            return;
+          }
+          
+          // Clear the canvas first
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          
+          // Draw the image
+          ctx.drawImage(img, 0, 0, dimensions.width, dimensions.height);
+          // console.log('Image drawn to canvas');
+
+          // // Clean up the object URL to prevent memory leaks
+          URL.revokeObjectURL(reader.result as string);
+        };
+
+        img.onerror = (error) => {
+          console.error('Error loading image:', error);
+          URL.revokeObjectURL(reader.result as string);
+        };
+      };
+      reader.readAsDataURL(blob);
+    });
     setSocket(socketInstance);
 
     // Cleanup on component unmount
@@ -65,6 +119,31 @@ export default function Page() {
     };
   }, []);
 
+  // Initialize canvas with default size and color
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    
+    // Set default dimensions
+    canvas.width = 640;
+    canvas.height = 480;
+    
+    // Draw a placeholder
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    
+    // Fill with a dark gray color
+    ctx.fillStyle = '#333333';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // Add text
+    ctx.fillStyle = 'white';
+    ctx.font = '16px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('Waiting for pose detection...', canvas.width / 2, canvas.height / 2);
+    
+    console.log('Canvas initialized with default size and color');
+  }, []);
 
   const handleJoinRoom = form.onSubmit((values) => {
     if (!socket) return;
@@ -118,7 +197,7 @@ export default function Page() {
             
             {/* Video display */}
             <Box pos="relative" mx="auto" mb="xl">
-              {/* Visible video element with styling */}
+              {/* Canvas element with styling */}
               <Box 
                 style={{ 
                   position: 'relative',
@@ -131,15 +210,13 @@ export default function Page() {
                   background: '#000'
                 }}
               >
-                <video 
-                  ref={videoRef} 
-                  autoPlay 
-                  playsInline 
-                  muted
+                <canvas 
+                  ref={canvasRef} 
                   style={{ 
                     width: '100%',
                     height: '100%',
-                    objectFit: 'cover'
+                    objectFit: 'contain',
+                    display: 'block'
                   }} 
                 />
                 
@@ -160,12 +237,6 @@ export default function Page() {
                   </Box>
                 )}
               </Box>
-              
-              {/* Hidden canvas for processing frames */}
-              <canvas 
-                ref={canvasRef} 
-                style={{ display: 'none' }} 
-              />
             </Box>
             
             <Group justify="center" mt="md">
