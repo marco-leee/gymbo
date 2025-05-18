@@ -1,6 +1,8 @@
 import mediapipe as mp
 import numpy as np
 from typing import Any, Generator
+
+from utils.video import CameraView
 from .base import Estimator, EstimatorOutput
 from mediapipe.tasks.python.vision import (
     PoseLandmarker,
@@ -59,6 +61,44 @@ class MediapipeEstimator(Estimator, Video):
             if type_processor is not None:
                 key_interest_points_2d = type_processor.get_2d_key_points(
                     raw_landmark_2d, self.camera_view, self.height, self.width
+                )
+            annotated_image = self.draw_landmark(
+                image, raw_landmark_2d, kips=key_interest_points_2d
+            )
+
+        return EstimatorOutput(
+            0, annotated_image, raw_landmark_2d, key_interest_points_2d
+        )
+
+    def detect_image_custom_params(
+        self,
+        image: np.ndarray,
+        type: ExerciseType = None,
+        camera_view: CameraView = CameraView.RIGHT,
+        height: int = 1080,
+        width: int = 1920,
+    ) -> EstimatorOutput | None:
+        type_processor = None
+
+        if type is not None:
+            type_processor = self._exercise_types[type]
+
+        with PoseLandmarker.create_from_options(self._options) as landmarker:
+            result = landmarker.detect(
+                image=mp.Image(image_format=mp.ImageFormat.SRGB, data=image),
+            )
+
+            # Avoid confusion with None
+            if not result.pose_landmarks:
+                return None
+
+            raw_landmark_2d = result.pose_landmarks[0]
+
+            key_interest_points_2d = None
+
+            if type_processor is not None:
+                key_interest_points_2d = type_processor.get_2d_key_points(
+                    raw_landmark_2d, camera_view, height, width
                 )
             annotated_image = self.draw_landmark(
                 image, raw_landmark_2d, kips=key_interest_points_2d

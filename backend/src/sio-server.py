@@ -1,18 +1,35 @@
+import datetime
+import random
+from typing import List
 import socketio
 import socketio.exceptions
 import ulid
 import uvicorn
 import os
+import cv2
+import numpy as np
+import asyncio
 
-from yaml import emit
 from estimator import MediapipeEstimator
 import logging
-import numpy as np
+
+from pydantic import BaseModel
+from pydantic.dataclasses import dataclass
+from exercises import ExerciseType
+from room import Rooms
 
 
 root_path = os.path.dirname(os.path.abspath(__file__))
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
+
+
+@dataclass
+class Room:
+    id: str
+    type: ExerciseType
+    mobile_id: str
+    desktop_id: List[str]
 
 
 try:
@@ -22,41 +39,6 @@ try:
 except Exception as e:
     logger.fatal("pose estimator init failed", e)
     exit(1)
-
-
-class Rooms:
-    def __init__(self):
-        self.rooms: dict[str, dict[str, str]] = {}
-
-    def __len__(self):
-        return len(self.rooms)
-
-    def add(self, room_id: str, sid: str, type: str):
-        self.rooms[room_id] = {type: sid}
-
-    def get(self, room_id: str):
-        return self.rooms.get(room_id)
-
-    def join(self, room_id: str, sid: str, type: str):
-        self.rooms[room_id][type] = sid
-
-    def leave(self, room_id: str, sid: str):
-        for type, client_sid in self.rooms[room_id].items():
-            if client_sid == sid:
-                del self.rooms[room_id][type]
-                return
-
-    def is_sid_in_room(self, room_id: str, type: str):
-        return type in self.rooms[room_id].keys()
-
-    def is_room_full(self, room_id: str):
-        return len(self.rooms[room_id]) >= 2
-
-    def is_room_empty(self, room_id: str):
-        return len(self.rooms[room_id]) == 0
-
-    def remove_room(self, room_id: str):
-        del self.rooms[room_id]
 
 
 class PoseDetectionNamespace(socketio.AsyncNamespace):
@@ -70,7 +52,7 @@ class PoseDetectionNamespace(socketio.AsyncNamespace):
 
     async def on_join_room(self, sid: str, room_id: str, type: str):
         # TODO: Turn this into queue in the future
-        if len(self.rooms) >= 2:
+        if self.rooms.is_max_capacity_reached():
             logger.warning(f"Room full, rejecting client {sid}")
             raise ConnectionRefusedError("Server capacity is full")
 
@@ -121,6 +103,10 @@ class PoseDetectionNamespace(socketio.AsyncNamespace):
     async def on_heartbeat(self, sid):
         logger.debug(f"Heartbeat received from {sid}")
 
+    async def on_set_exercise(self, sid, exercise_id: str):
+        logger.info(f"Client {sid} set exercise to {exercise_id}")
+        # self.rooms.set_exercise(sid, exercise_id)
+
     async def on_video_frame(self, sid, data):
         """Handle incoming video frame in binary format"""
         # Debug logging to confirm event receipt
@@ -144,7 +130,7 @@ class PoseDetectionNamespace(socketio.AsyncNamespace):
                 await self.emit("error", {"message": "Invalid room_id"}, room=sid)
                 return
 
-            if "desktop" not in room:
+            if not self.rooms.is_any_desktop_client_in_room(room_id):
                 logger.warning(f"No desktop client found in room {room_id}")
                 await self.emit(
                     "error", {"message": "No desktop client found"}, room=sid
@@ -179,9 +165,6 @@ class PoseDetectionNamespace(socketio.AsyncNamespace):
                     logger.info(f"Reshaped frame to ({height}, {width}, 3)")
                 else:
                     # Assume it's a compressed image format (JPEG/PNG)
-                    import cv2
-
-                    # Use OpenCV to decode the image
                     img = cv2.imdecode(np_frame, cv2.IMREAD_COLOR)
                     if img is None:
                         raise ValueError(
@@ -200,20 +183,40 @@ class PoseDetectionNamespace(socketio.AsyncNamespace):
                 )
                 return
 
-            result = estimator.detect_image(np_frame)
-            logger.info(
-                f"Frame processed, annotated image size: {len(result.annotated_image)}"
+            annotated_image, key_interest_points_2d = None, None
+
+            result = estimator.detect_image_custom_params(
+                np_frame, ExerciseType.SQUAT, height=height, width=width
             )
 
-            desktop_sid = room["desktop"]
-            await self.emit(
-                "pose_results",
-                {
-                    "annotated_image": result.annotated_image.tobytes(),
-                    "dimensions": dimensions,
-                },
-                room=desktop_sid,
+            if result is not None:
+                annotated_image = result.annotated_image
+                key_interest_points_2d = result.key_interest_points_2d
+            else:
+                logger.info("No pose landmarks detected, sending original frame")
+                annotated_image = np_frame
+                key_interest_points_2d = {}
+
+            logger.info(
+                f"Frame processed, annotated image size: {len(annotated_image)}"
             )
+
+            _, annotated_image = cv2.imencode(".jpg", annotated_image)
+
+            desktop_sids = self.rooms.get_desktop_clients(room_id)
+            for desktop_sid in desktop_sids:
+                await self.emit(
+                    "pose_results",
+                    {
+                        "time": datetime.datetime.now().timestamp(),
+                        "annotated_image": annotated_image.tobytes(),
+                        "dimensions": dimensions,
+                        "key_interest_points_2d": {
+                            k: v.model_dump() for k, v in key_interest_points_2d.items()
+                        },
+                    },
+                    room=desktop_sid,
+                )
             logger.info(f"Emitted pose_results to desktop client {desktop_sid}")
         except Exception as e:
             logger.error(f"Error processing frame from {sid}: {str(e)}")
