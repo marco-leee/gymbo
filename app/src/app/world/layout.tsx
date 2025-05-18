@@ -13,9 +13,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   return (
     <AppShell
       header={{ height: 60 }}
-      footer={{ height: 60 }}
       navbar={{ width: 300, breakpoint: 'sm', collapsed: { mobile: !mobileOpened, desktop: desktopOpened } }}
-      aside={{ width: 300, breakpoint: 'md', collapsed: { desktop: false, mobile: true } }}
       padding="md"
     >
       <AppShell.Header>
@@ -28,20 +26,18 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       <AppShell.Navbar p="md">
         <NavLink
           href="/world/live-desktop"
-          label="Desktop Only"
+          label="Pose Detection Live Dashboard"
           leftSection={<IconDeviceDesktop size={16} stroke={1.5} />}
         />
         <NavLink
           href="/world/live-mobile"
-          label="Mobile Only"
+          label="Pose Detection Mobile Stream"
           leftSection={<IconDeviceMobile size={16} stroke={1.5} />}
         />
       </AppShell.Navbar>
-      <AppShell.Main>
+      <AppShell.Main styles={{ main: { display: 'flex', justifyContent: 'center', alignItems: 'center' } }}>
         {children}
       </AppShell.Main>
-      {/* <AppShell.Aside p="md">Aside</AppShell.Aside>
-      <AppShell.Footer p="md">Footer</AppShell.Footer> */}
     </AppShell>
   );
 }
