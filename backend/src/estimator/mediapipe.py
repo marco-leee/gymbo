@@ -48,6 +48,7 @@ class MediapipeEstimator(Estimator, Video):
                 image=mp.Image(image_format=mp.ImageFormat.SRGB, data=image),
             )
 
+            # Avoid confusion with None
             if not result.pose_landmarks:
                 return None
 
