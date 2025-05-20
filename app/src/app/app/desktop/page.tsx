@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { TextInput, Button, Group, Paper, Title, Container, Text, Box, Stack, Loader, Center, Flex, Grid, Select, Image as MantineImage, Card, Badge, List, CardSection, AspectRatio } from '@mantine/core';
+import { TextInput, Button, Group, Container, Text, Box, Stack, Select, Image as MantineImage, Card, Badge, List, AspectRatio } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { io, Socket } from 'socket.io-client';
 import { LineChart } from '@mantine/charts';
@@ -13,16 +13,10 @@ export default function Page() {
   const [joinedRoom, setJoinedRoom] = useState('');
   const [error, setError] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [chartData, setChartData] = useState<Array<{ time: string } & Record<string, number>>>([]);
   const [availableFields, setAvailableFields] = useState<string[]>([]);
 
-
-  const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const imageRef = useRef<HTMLImageElement>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  const frameIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const form = useForm({
     initialValues: {
@@ -35,7 +29,7 @@ export default function Page() {
 
   useEffect(() => {
     // Initialize Socket.IO connection
-    const socketInstance = io(process.env.NEXT_PUBLIC_SOCKET_SERVER_URL || 'http://localhost:10000/pose-detection', {
+    const socketInstance = io(`${process.env.NEXT_PUBLIC_SOCKET_SERVER_URL || 'http://localhost:10000'}/pose-detection`, {
       transports: ['websocket'],
     });
 
@@ -147,30 +141,30 @@ export default function Page() {
   }, []);
 
   // Initialize canvas with default size and color
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+  // useEffect(() => {
+  //   const canvas = canvasRef.current;
+  //   if (!canvas) return;
 
-    // Set default dimensions
-    canvas.width = 640;
-    canvas.height = 480;
+  //   // Set default dimensions
+  //   canvas.width = 640;
+  //   canvas.height = 480;
 
-    // Draw a placeholder
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+  //   // Draw a placeholder
+  //   const ctx = canvas.getContext('2d');
+  //   if (!ctx) return;
 
-    // Fill with a dark gray color
-    ctx.fillStyle = '#333333';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  //   // Fill with a dark gray color
+  //   ctx.fillStyle = '#333333';
+  //   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Add text
-    ctx.fillStyle = 'white';
-    ctx.font = '16px Arial';
-    ctx.textAlign = 'center';
-    ctx.fillText('Waiting for pose detection...', canvas.width / 2, canvas.height / 2);
+  //   // Add text
+  //   ctx.fillStyle = 'white';
+  //   ctx.font = '16px Arial';
+  //   ctx.textAlign = 'center';
+  //   ctx.fillText('Waiting for pose detection...', canvas.width / 2, canvas.height / 2);
 
-    console.log('Canvas initialized with default size and color');
-  }, []);
+  //   console.log('Canvas initialized with default size and color');
+  // }, []);
 
   const handleJoinRoom = form.onSubmit((values) => {
     if (!socket) return;

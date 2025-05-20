@@ -286,15 +286,15 @@ export default function Page() {
   }
 
   return (
-    <Container size="xs" py="xl" w="100%" h="100%">
-      <Paper radius="md" p="xl" withBorder>
-
-        <Text ta="center" size="lg" mb="md">
-          Room ID: <b>{joinedRoom}</b>
-        </Text>
+    <Container w="100%" h="100%">
+      <Paper>
 
         {/* Connection status badges */}
-        <Group justify="center" gap="xs" mb="md">
+        <Group justify="center" gap="xs" mb="md" ta="center">
+
+          <Text ta="center" size="lg">
+            Room ID: <b>{joinedRoom}</b>
+          </Text>
           {isConnected && (
             <Badge color="green">Connected</Badge>
           )}
