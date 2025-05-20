@@ -25,12 +25,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       </AppShell.Header>
       <AppShell.Navbar p="md">
         <NavLink
-          href="/world/live-desktop"
+          href="/app/desktop"
           label="Pose Detection Live Dashboard"
           leftSection={<IconDeviceDesktop size={16} stroke={1.5} />}
         />
         <NavLink
-          href="/world/live-mobile"
+          href="/app/mobile"
           label="Pose Detection Mobile Stream"
           leftSection={<IconDeviceMobile size={16} stroke={1.5} />}
         />

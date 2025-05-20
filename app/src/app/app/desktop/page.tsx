@@ -141,6 +141,7 @@ export default function Page() {
 
     // Cleanup on component unmount
     return () => {
+      socketInstance.emit('leave_room', joinedRoom);
       socketInstance.disconnect();
     };
   }, []);
@@ -275,71 +276,71 @@ export default function Page() {
             </Text>
           )}
 
-          <Select
-            label="Select an exercise type"
-            data={["SQUAT", "PUSH_UP"]}
-            onChange={handleSelectChange}
-          />
-
-          <LineChart
-            h={300}
-            w="100%"
-            data={chartData}
-            dataKey="time"
-            withLegend
-            legendProps={{ verticalAlign: 'bottom', height: 50 }}
-            series={series}
-          />
-        </Stack>
-
-
-        <AspectRatio ratio={9 / 16} maw={"50%"} mah={"50%"}>
-          <Box pos="relative" mx="auto" style={{ flex: 1 }}>
-            {/* Canvas element with styling */}
-            <Box
-              style={{
-                position: 'relative',
-                width: '100%',
-                height: '100%',
-                maxWidth: '100%',
-                aspectRatio: '4/3',
-                overflow: 'hidden',
-                borderRadius: '8px',
-                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
-                background: '#000'
-              }}
-            >
-              <canvas
-                ref={canvasRef}
-                style={{
-                  width: '100%',
-                  height: '100%',
-                  objectFit: 'contain',
-                  display: 'block'
-                }}
-              />
-
-              {isStreaming && (
+          <Group justify="space-between" align="flex-start">
+            <AspectRatio w={"45%"}>
+              <Box pos="relative" mx="auto" style={{ flex: 1 }}>
+                {/* Canvas element with styling */}
                 <Box
                   style={{
-                    position: 'absolute',
-                    top: '10px',
-                    right: '10px',
-                    background: 'rgba(0,0,0,0.5)',
-                    color: 'white',
-                    padding: '4px 8px',
-                    borderRadius: '4px',
-                    fontSize: '12px'
+                    position: 'relative',
+                    width: '100%',
+                    height: '100%',
+                    maxWidth: '100%',
+                    aspectRatio: '4/3',
+                    overflow: 'hidden',
+                    borderRadius: '8px',
+                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+                    background: '#000'
                   }}
                 >
-                  LIVE
+                  <canvas
+                    ref={canvasRef}
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'contain',
+                      display: 'block'
+                    }}
+                  />
+
+                  {isStreaming && (
+                    <Box
+                      style={{
+                        position: 'absolute',
+                        top: '10px',
+                        right: '10px',
+                        background: 'rgba(0,0,0,0.5)',
+                        color: 'white',
+                        padding: '4px 8px',
+                        borderRadius: '4px',
+                        fontSize: '12px'
+                      }}
+                    >
+                      LIVE
+                    </Box>
+                  )}
                 </Box>
-              )}
-            </Box>
-          </Box>
-        </AspectRatio>
-
-
+              </Box>
+            </AspectRatio>
+            <Stack w={"50%"} justify='space-between'>
+              <Select
+                label="Select an exercise type"
+                data={["SQUAT"]}
+                defaultValue={"SQUAT"}
+                onChange={handleSelectChange}
+              />
+              <LineChart
+                h={300}
+                w="100%"
+                data={chartData}
+                dataKey="time"
+                withLegend
+                legendProps={{ verticalAlign: 'bottom', height: 50 }}
+                series={series}
+              />
+            </Stack>
+          </Group>
+        </Stack>
         <Button
           onClick={() => {
             socket?.emit('leave_room', joinedRoom);
