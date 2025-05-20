@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { TextInput, Button, Group, Paper, Title, Container, Text, Box, Stack, Loader, Center, Flex, Grid, Select, Image as MantineImage, Card, Badge, List } from '@mantine/core';
+import { TextInput, Button, Group, Paper, Title, Container, Text, Box, Stack, Loader, Center, Flex, Grid, Select, Image as MantineImage, Card, Badge, List, CardSection, AspectRatio } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { io, Socket } from 'socket.io-client';
 import { LineChart } from '@mantine/charts';
@@ -255,17 +255,17 @@ export default function Page() {
 
   return (
     <Container w="100%" h="100%" maw="100%" mah="100%" p={0}>
-      <Stack justify="space-between" h="100%" gap="md">
+      <Stack justify="space-between" gap="md">
         <Stack gap="xs">
-          <Text ta="center" size="lg">
-            Room ID: <b>{joinedRoom}</b>
-          </Text>
           <Group justify="center" gap="xs">
+            <Text ta="center" size="lg">
+              Room ID: <b>{joinedRoom}</b>
+            </Text>
             {isConnected && (
-              <Text size="md" fw={500} c="green">●&nbsp;Connected</Text>
+              <Badge color="green">Connected</Badge>
             )}
             {isStreaming && (
-              <Text size="md" fw={500} c="blue">●&nbsp;Streaming</Text>
+              <Badge color="blue">Streaming</Badge>
             )}
           </Group>
 
@@ -274,78 +274,70 @@ export default function Page() {
               {error}
             </Text>
           )}
+
+          <Select
+            label="Select an exercise type"
+            data={["SQUAT", "PUSH_UP"]}
+            onChange={handleSelectChange}
+          />
+
+          <LineChart
+            h={300}
+            w="100%"
+            data={chartData}
+            dataKey="time"
+            withLegend
+            legendProps={{ verticalAlign: 'bottom', height: 50 }}
+            series={series}
+          />
         </Stack>
 
-        <Group justify="space-between" w="100%">
-          {/* Video display */}
-          <Grid w="100%" h="100%">
-            <Grid.Col span={6}>
-              <Box pos="relative" mx="auto" style={{ flex: 1 }}>
-                {/* Canvas element with styling */}
+
+        <AspectRatio ratio={9 / 16} maw={"50%"} mah={"50%"}>
+          <Box pos="relative" mx="auto" style={{ flex: 1 }}>
+            {/* Canvas element with styling */}
+            <Box
+              style={{
+                position: 'relative',
+                width: '100%',
+                height: '100%',
+                maxWidth: '100%',
+                aspectRatio: '4/3',
+                overflow: 'hidden',
+                borderRadius: '8px',
+                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+                background: '#000'
+              }}
+            >
+              <canvas
+                ref={canvasRef}
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'contain',
+                  display: 'block'
+                }}
+              />
+
+              {isStreaming && (
                 <Box
                   style={{
-                    position: 'relative',
-                    width: '100%',
-                    height: '100%',
-                    maxWidth: '100%',
-                    aspectRatio: '4/3',
-                    overflow: 'hidden',
-                    borderRadius: '8px',
-                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
-                    background: '#000'
+                    position: 'absolute',
+                    top: '10px',
+                    right: '10px',
+                    background: 'rgba(0,0,0,0.5)',
+                    color: 'white',
+                    padding: '4px 8px',
+                    borderRadius: '4px',
+                    fontSize: '12px'
                   }}
                 >
-                  <canvas
-                    ref={canvasRef}
-                    style={{
-                      width: '100%',
-                      height: '100%',
-                      objectFit: 'contain',
-                      display: 'block'
-                    }}
-                  />
-
-                  {isStreaming && (
-                    <Box
-                      style={{
-                        position: 'absolute',
-                        top: '10px',
-                        right: '10px',
-                        background: 'rgba(0,0,0,0.5)',
-                        color: 'white',
-                        padding: '4px 8px',
-                        borderRadius: '4px',
-                        fontSize: '12px'
-                      }}
-                    >
-                      LIVE
-                    </Box>
-                  )}
+                  LIVE
                 </Box>
-              </Box>
-            </Grid.Col>
-            <Grid.Col span={6}>
-              <Stack h="100%" w="100%" justify="space-between" align="stretch">
-                <Group>
-                  <Select
-                    label="Select an exercise type"
-                    data={["SQUAT", "PUSH_UP"]}
-                    onChange={handleSelectChange}
-                  />
-                </Group>
-                <LineChart
-                  h={300}
-                  w="100%"
-                  data={chartData}
-                  dataKey="time"
-                  withLegend
-                  legendProps={{ verticalAlign: 'bottom', height: 50 }}
-                  series={series}
-                />
-              </Stack>
-            </Grid.Col>
-          </Grid>
-        </Group>
+              )}
+            </Box>
+          </Box>
+        </AspectRatio>
 
 
         <Button
