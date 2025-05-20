@@ -4,6 +4,8 @@ from pydantic import BaseModel
 
 from exercises import ExerciseType
 
+import logging
+
 
 class ClientType(str, Enum):
     MOBILE = "mobile"
@@ -23,6 +25,7 @@ class Rooms:
 
     def __init__(self):
         self.rooms: dict[str, Room] = {}
+        self.logger = logging.getLogger(__name__)
 
     def __len__(self):
         return len(self.rooms)
@@ -44,9 +47,13 @@ class Rooms:
         room = self.rooms[room_id]
         return room.desktop_id
 
-    def set_exercise(self, room_id: str, exercise: ExerciseType):
+    def set_exercise(self, room_id: str, exercise: ExerciseType | str):
         room = self.rooms[room_id]
-        room.exercise = exercise
+        room.type = ExerciseType(exercise) if isinstance(exercise, str) else exercise
+
+    def get_exercise(self, room_id: str) -> ExerciseType | None:
+        room = self.rooms[room_id]
+        return room.type
 
     def join(self, room_id: str, sid: str, type: str):
         room = self.rooms[room_id]

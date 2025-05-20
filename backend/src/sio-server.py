@@ -16,7 +16,7 @@ import logging
 from pydantic import BaseModel
 from pydantic.dataclasses import dataclass
 from exercises import ExerciseType
-from room import Rooms
+from utils.room import Rooms
 
 
 root_path = os.path.dirname(os.path.abspath(__file__))
@@ -63,10 +63,6 @@ class PoseDetectionNamespace(socketio.AsyncNamespace):
         else:
             self.rooms.join(room_id, sid, type)
             logger.info(f"Added {sid} to room {room_id}")
-            # if len(room) == 1:
-            # else:
-            #     logger.warning(f"Room {room_id} is full, rejecting client {sid}")
-            #     raise ConnectionRefusedError("Service room is full")
 
         logger.info(f"Sending room_joined event to {sid}")
         await self.emit(
@@ -165,14 +161,12 @@ class PoseDetectionNamespace(socketio.AsyncNamespace):
                     logger.info(f"Reshaped frame to ({height}, {width}, 3)")
                 else:
                     # Assume it's a compressed image format (JPEG/PNG)
-                    img = cv2.imdecode(np_frame, cv2.IMREAD_COLOR)
-                    if img is None:
+                    np_frame = cv2.imdecode(np_frame, cv2.IMREAD_COLOR)
+                    
+                    if np_frame is None:
                         raise ValueError(
                             f"Failed to decode image buffer of size {len(np_frame)}"
                         )
-
-                    # Convert BGR to RGB (OpenCV uses BGR by default)
-                    np_frame = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
                     logger.info(f"Decoded frame using OpenCV, shape: {np_frame.shape}")
             except Exception as reshape_error:
                 logger.error(f"Error reshaping frame: {reshape_error}")
@@ -217,7 +211,7 @@ class PoseDetectionNamespace(socketio.AsyncNamespace):
                     },
                     room=desktop_sid,
                 )
-            logger.info(f"Emitted pose_results to desktop client {desktop_sid}")
+            logger.info(f"Emitted pose_results to {len(desktop_sids)} desktop clients")
         except Exception as e:
             logger.error(f"Error processing frame from {sid}: {str(e)}")
             await self.emit("error", {"message": str(e)}, room=sid)
