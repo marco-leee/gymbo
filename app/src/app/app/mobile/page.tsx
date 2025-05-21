@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { TextInput, Button, Group, Paper, Title, Container, Text, Box, Stack, Badge, Card, List, Image } from '@mantine/core';
+import { TextInput, Button, Group, Paper, Container, Text, Box, Stack, Badge, Card, List, Image } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { io, Socket } from 'socket.io-client';
 import RoomLoading from '@/app/components/room/RoomLoading';
@@ -30,7 +30,7 @@ export default function Page() {
 
   useEffect(() => {
     // Initialize Socket.IO connection
-    const socketInstance = io(process.env.NEXT_PUBLIC_SOCKET_SERVER_URL || 'http://localhost:10000/pose-detection', {
+    const socketInstance = io(`${process.env.NEXT_PUBLIC_SOCKET_SERVER_URL || 'http://localhost:10000'}/pose-detection`, {
       transports: ['websocket'],
     });
 
@@ -50,7 +50,7 @@ export default function Page() {
       setError(`Connection error: ${err.message}`);
     });
 
-    socketInstance.on('room_joined', ({ message, room_id, sid }) => {
+    socketInstance.on('room_joined', ({ room_id }) => {
       setJoinedRoom(room_id);
       setError('');
 
@@ -250,7 +250,7 @@ export default function Page() {
             </Group>
 
             {!isConnected && !joinedRoom && (
-              <RoomLoading error={error} isConnected={isConnected} isStreaming={isStreaming} />
+              <RoomLoading error={error} isConnected={isConnected} />
             )}
 
             {isConnected && !joinedRoom && (
