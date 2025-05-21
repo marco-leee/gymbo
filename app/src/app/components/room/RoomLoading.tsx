@@ -1,13 +1,12 @@
 import { Stack, Text, Loader } from "@mantine/core";
-import { IconChecks, IconX } from "@tabler/icons-react";
+import { IconChecks } from "@tabler/icons-react";
 
 export type RoomLoadingProps = {
   error: string;
   isConnected: boolean;
-  isStreaming: boolean;
 }
 
-export default function RoomLoading({ error, isConnected, isStreaming }: RoomLoadingProps) {
+export default function RoomLoading({ error, isConnected }: RoomLoadingProps) {
   return (
     <Stack align='center' gap="md">
       {isConnected && (

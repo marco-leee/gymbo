@@ -1,8 +1,7 @@
 'use client';
 
-import { AppShell, Burger, Group, NavLink, Skeleton } from "@mantine/core";
+import { AppShell, Burger, Group, NavLink } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import Link from "next/link";
 import React from "react";
 import { IconDeviceMobile, IconDeviceDesktop } from '@tabler/icons-react';
 
@@ -20,7 +19,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         <Group h="100%" px="md">
           <Burger opened={mobileOpened} onClick={toggleMobile} hiddenFrom="sm" size="sm" />
           <Burger opened={desktopOpened} onClick={toggleDesktop} visibleFrom="sm" size="sm" />
-          Header
+          Gymbo AI
         </Group>
       </AppShell.Header>
       <AppShell.Navbar p="md">

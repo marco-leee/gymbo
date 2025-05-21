@@ -140,32 +140,6 @@ export default function Page() {
     };
   }, []);
 
-  // Initialize canvas with default size and color
-  // useEffect(() => {
-  //   const canvas = canvasRef.current;
-  //   if (!canvas) return;
-
-  //   // Set default dimensions
-  //   canvas.width = 640;
-  //   canvas.height = 480;
-
-  //   // Draw a placeholder
-  //   const ctx = canvas.getContext('2d');
-  //   if (!ctx) return;
-
-  //   // Fill with a dark gray color
-  //   ctx.fillStyle = '#333333';
-  //   ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-  //   // Add text
-  //   ctx.fillStyle = 'white';
-  //   ctx.font = '16px Arial';
-  //   ctx.textAlign = 'center';
-  //   ctx.fillText('Waiting for pose detection...', canvas.width / 2, canvas.height / 2);
-
-  //   console.log('Canvas initialized with default size and color');
-  // }, []);
-
   const handleJoinRoom = form.onSubmit((values) => {
     if (!socket) return;
     setError('');
@@ -209,7 +183,7 @@ export default function Page() {
             </Group>
 
             {!isConnected && !joinedRoom && (
-              <RoomLoading error={error} isConnected={isConnected} isStreaming={isStreaming} />
+              <RoomLoading error={error} isConnected={isConnected} />
             )}
 
             {isConnected && !joinedRoom && (
