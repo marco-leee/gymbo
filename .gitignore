@@ -11,3 +11,5 @@ services/target
 __pycache__
 
 media
+
+models/

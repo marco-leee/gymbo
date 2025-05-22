@@ -8,11 +8,22 @@ services:
       - "443:443"
     environment:
       # - DOMAIN=localhost
-      - DOMAIN=gymbo.stixman.co
+      - DOMAIN=gymbo-gradio.stixman.co
       - BACKEND_HOST=gradio
       - BACKEND_PORT=7860
+      - APP_DOMAIN=gymbo.stixman.co
+      - APP_HOST=sio-server
+      - APP_PORT=10000
     networks:
       - gymbo
+
+  sio-server:
+    image: sio-server
+    build:
+      context: .
+      dockerfile: sio-server.dockerfile
+    ports:
+      - "10000:10000"
 
   gradio:
     image: gradio
