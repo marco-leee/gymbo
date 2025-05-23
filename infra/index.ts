@@ -132,26 +132,26 @@ const main = async () => {
 		},
 	});
 
-	const gpuInstance = new aws.ec2.Instance("gymbo-gpu-instance", {
-		instanceType: aws.ec2.InstanceTypes.,
-		keyName: keyPair.keyName,
-		subnetId: public_subnet.id,
-		associatePublicIpAddress: true,
-		vpcSecurityGroupIds: [ec2SecurityGroup.id],
-		ami: "ami-0a6e6f0e5b49f8d0c",
-		ebsBlockDevices: [{
-			deviceName: "/dev/sda1",
-			volumeSize: 64,
-			volumeType: "gp3",
-			iops: 3000,
-		}],
-		instanceMarketOptions: {
-			marketType: 'spot',
-		},
-		tags: {
-			Name: "gymbo-gpu-instance",
-		},
-	});
+	// const gpuInstance = new aws.ec2.Instance("gymbo-gpu-instance", {
+	// 	instanceType: aws.ec2.InstanceTypes.T3_Medium,
+	// 	keyName: keyPair.keyName,
+	// 	subnetId: public_subnet.id,
+	// 	associatePublicIpAddress: true,
+	// 	vpcSecurityGroupIds: [ec2SecurityGroup.id],
+	// 	ami: "ami-0a6e6f0e5b49f8d0c",
+	// 	ebsBlockDevices: [{
+	// 		deviceName: "/dev/sda1",
+	// 		volumeSize: 64,
+	// 		volumeType: "gp3",
+	// 		iops: 3000,
+	// 	}],
+	// 	instanceMarketOptions: {
+	// 		marketType: 'spot',
+	// 	},
+	// 	tags: {
+	// 		Name: "gymbo-gpu-instance",
+	// 	},
+	// });
 
   const hostedZone = new aws.route53.Zone("gymbo-zone", {
     name: "stixman.co",
@@ -159,7 +159,15 @@ const main = async () => {
 
   const record = new aws.route53.Record("gymbo-record", {
     zoneId: hostedZone.zoneId,
-    name: "gymbo.stixman.co",
+    name: "api.stixman.co",
+    type: "A",
+    ttl: 300,
+    records: [instance.publicIp],
+  });
+
+  const gradioRecord = new aws.route53.Record("gymbo-gradio-record", {
+    zoneId: hostedZone.zoneId,
+    name: "gymbo-gradio.stixman.co",
     type: "A",
     ttl: 300,
     records: [instance.publicIp],

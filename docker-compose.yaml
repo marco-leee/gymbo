@@ -11,7 +11,7 @@ services:
       - DOMAIN=gymbo-gradio.stixman.co
       - BACKEND_HOST=gradio
       - BACKEND_PORT=7860
-      - APP_DOMAIN=gymbo.stixman.co
+      - APP_DOMAIN=api.stixman.co
       - APP_HOST=sio-server
       - APP_PORT=10000
     networks:
