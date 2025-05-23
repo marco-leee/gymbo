@@ -274,7 +274,7 @@ export default function Page() {
                   {...form.getInputProps('roomName')}
                 />
 
-                <Button color="blue" fullWidth mt="md" radius="md">
+                <Button color="blue" fullWidth mt="md" radius="md" type='submit'>
                   Join Room
                 </Button>
               </>
