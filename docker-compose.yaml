@@ -24,6 +24,8 @@ services:
       dockerfile: sio-server.dockerfile
     ports:
       - "10000:10000"
+    networks:
+      - gymbo
 
   gradio:
     image: gradio
