@@ -165,6 +165,14 @@ const main = async () => {
     records: [instance.publicIp],
   });
 
+	const frontendRecord = new aws.route53.Record("gymbo-frontend-record", {
+    zoneId: hostedZone.zoneId,
+    name: "gymbo.stixman.co",
+    type: "CNAME",
+    ttl: 300,
+    records: ["cname.vercel-dns.com."],
+  });
+
   const gradioRecord = new aws.route53.Record("gymbo-gradio-record", {
     zoneId: hostedZone.zoneId,
     name: "gymbo-gradio.stixman.co",
