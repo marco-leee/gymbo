@@ -90,29 +90,6 @@ const main = async () => {
 		},
 	});
 
-	// const ami = await aws.ec2.getAmi({
-	// 	includeDeprecated: false,
-	// 	mostRecent: true,
-	// 	owners: ["amazon"],
-	// 	filters: [
-	// 		{
-	// 			name: "name",
-	// 			values: ["ubuntu"],
-	// 		},
-	// 		{
-	// 			name: "root-device-type",
-	// 			values: ["ebs"],
-	// 		},
-	// 		{
-	// 			name: "virtualization-type",
-	// 			values: ["hvm"],
-	// 		},
-  //     {
-  //       name: "architecture",
-  //       values: ["amd64"],
-  //   },
-	// 	],
-	// });
 
 	const instance = new aws.ec2.Instance("gymbo-instance", {
 		instanceType: aws.ec2.InstanceTypes.T3_Medium,
@@ -129,6 +106,14 @@ const main = async () => {
     }],
 		tags: {
 			Name: "gymbo-instance",
+		},
+	});
+
+	const elasticIp = new aws.ec2.Eip("gymbo-eip", {
+		instance: instance.id,
+		domain: "vpc",
+		tags: {
+			Name: "gymbo-eip",
 		},
 	});
 
@@ -162,7 +147,7 @@ const main = async () => {
     name: "api.stixman.co",
     type: "A",
     ttl: 300,
-    records: [instance.publicIp],
+    records: [elasticIp.publicIp],
   });
 
 	const frontendRecord = new aws.route53.Record("gymbo-frontend-record", {
@@ -178,7 +163,7 @@ const main = async () => {
     name: "gymbo-gradio.stixman.co",
     type: "A",
     ttl: 300,
-    records: [instance.publicIp],
+    records: [elasticIp.publicIp],
   });
 };
 
