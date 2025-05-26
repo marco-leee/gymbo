@@ -11,17 +11,13 @@
 }
 
 {$APP_DOMAIN}:443 {
-	rewrite /path /path/
-	handle_path /path/* {
-		rewrite * /socket.io{path}
-		reverse_proxy {$APP_HOST}:{$APP_PORT} {
-			header_up Host {host}
-			header_up Upgrade {http.request.header.Upgrade}
-			header_up Connection {http.request.header.Connection}
-			flush_interval -1 # 禁用缓冲 Disable buffering
-			transport http {
-				versions 1.1
-			}
+	reverse_proxy {$APP_HOST}:{$APP_PORT} {
+		header_up Host {host}
+		header_up Upgrade {http.request.header.Upgrade}
+		header_up Connection {http.request.header.Connection}
+		flush_interval -1 # 禁用缓冲 Disable buffering
+		transport http {
+			versions 1.1
 		}
 	}
 }
