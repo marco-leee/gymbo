@@ -11,16 +11,18 @@
     "prepare": "husky install"
   },
   "dependencies": {
-    "@mantine/charts": "^7.16.2",
-    "@mantine/core": "^7.16.2",
-    "@mantine/form": "^7.16.2",
-    "@mantine/hooks": "^7.16.2",
+    "@mantine/charts": "^8.0.1",
+    "@mantine/core": "^8.0.1",
+    "@mantine/form": "^8.0.1",
+    "@mantine/hooks": "^8.0.1",
     "@tabler/icons-react": "^3.31.0",
     "next": "15.1.6",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "recharts": "2",
-    "socket.io-client": "^4.8.1"
+    "socket.io-client": "^4.8.1",
+    "zod": "^3.25.30",
+    "zustand": "^5.0.5"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
