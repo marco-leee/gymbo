@@ -83,7 +83,7 @@ const main = async () => {
 				toPort: 443,
 				protocol: "tcp",
 				cidrBlocks: ["0.0.0.0/0"],
-			},
+			}
 		],
 		tags: {
 			Name: "gymbo-ec2-sg",
@@ -117,26 +117,31 @@ const main = async () => {
 		},
 	});
 
-	// const gpuInstance = new aws.ec2.Instance("gymbo-gpu-instance", {
-	// 	instanceType: aws.ec2.InstanceTypes.T3_Medium,
-	// 	keyName: keyPair.keyName,
-	// 	subnetId: public_subnet.id,
-	// 	associatePublicIpAddress: true,
-	// 	vpcSecurityGroupIds: [ec2SecurityGroup.id],
-	// 	ami: "ami-0a6e6f0e5b49f8d0c",
-	// 	ebsBlockDevices: [{
-	// 		deviceName: "/dev/sda1",
-	// 		volumeSize: 64,
-	// 		volumeType: "gp3",
-	// 		iops: 3000,
-	// 	}],
-	// 	instanceMarketOptions: {
-	// 		marketType: 'spot',
-	// 	},
-	// 	tags: {
-	// 		Name: "gymbo-gpu-instance",
-	// 	},
-	// });
+	const instanceXL = new aws.ec2.Instance("gymbo-instance-xl", {
+		instanceType: aws.ec2.InstanceTypes.T3_2XLarge,
+		keyName: keyPair.keyName,
+		subnetId: public_subnet.id,
+		associatePublicIpAddress: true,
+		vpcSecurityGroupIds: [ec2SecurityGroup.id],
+    ami: "ami-019a40287c6e93276",
+    ebsBlockDevices: [{
+      deviceName: "/dev/sda1",
+      volumeSize: 64,
+      volumeType: "gp3",
+      iops: 3000,
+    }],
+		tags: {
+			Name: "gymbo-instance",
+		},
+	});
+
+	const elasticIpXL = new aws.ec2.Eip("gymbo-eip-xl", {
+		instance: instanceXL.id,
+		domain: "vpc",
+		tags: {
+			Name: "gymbo-eip",
+		},
+	});
 
   const hostedZone = new aws.route53.Zone("gymbo-zone", {
     name: "stixman.co",
@@ -147,7 +152,15 @@ const main = async () => {
     name: "api.stixman.co",
     type: "A",
     ttl: 300,
-    records: [elasticIp.publicIp],
+    records: [elasticIpXL.publicIp],
+  });
+
+	const record2 = new aws.route53.Record("gymbo-record-2", {
+    zoneId: hostedZone.zoneId,
+    name: "api-2.stixman.co",
+    type: "A",
+    ttl: 300,
+    records: [elasticIpXL.publicIp],
   });
 
 	const frontendRecord = new aws.route53.Record("gymbo-frontend-record", {
