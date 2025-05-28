@@ -10,6 +10,6 @@ services/target
 
 __pycache__
 
-media
+backend/media
 
-models/
+backend/models
