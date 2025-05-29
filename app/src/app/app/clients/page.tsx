@@ -23,10 +23,10 @@ const columns = [
     accessor: "last_name",
     title: "Last Name",
   },
-  {
-    accessor: "actions",
-    title: "Actions",
-  },
+  // {
+  //   accessor: "actions",
+  //   title: "Actions",
+  // },
 ];
 
 export default function Clients() {
@@ -67,9 +67,9 @@ export default function Clients() {
                 <Table.Td>{client.email}</Table.Td>
                 <Table.Td>{client.first_name}</Table.Td>
                 <Table.Td>{client.last_name}</Table.Td>
-                <Table.Td>
+                {/* <Table.Td>
                   <Button component={Link} href={`/app/clients/${client.id}`}>Edit</Button>
-                </Table.Td>
+                </Table.Td> */}
               </Table.Tr>
             ))}
           </Table.Tbody>
