@@ -1,6 +1,6 @@
 import { useSupabaseClient } from "@/app/utils/supabase-client";
 import { SupabaseClient } from "@supabase/supabase-js";
-import { Trainer } from "@/app/models";
+import { Trainer } from "@/models";
 
 class TrainerService {
   private readonly TRAINER_TABLE = "trainers";
@@ -18,24 +18,24 @@ class TrainerService {
     return data.map((trainer) => Trainer.parse(trainer));
   }
 
-  async getTrainerById(id: string): Promise<Trainer> {
-    const { data, error } = await this.trainer.from(this.TRAINER_TABLE).select("*").eq("id", id).single();
+  async getTrainerById(id: string): Promise<Trainer | null> {
+    const { data, error } = await this.trainer.from(this.TRAINER_TABLE).select("*").eq("id", id).limit(1);
 
     if (error) {
       throw error;
     }
 
-    return Trainer.parse(data);
+    return data.length > 0 ? Trainer.parse(data[0]) : null;
   }
 
-  async getTrainerByEmail(email: string): Promise<Trainer> {
-    const { data, error } = await this.trainer.from(this.TRAINER_TABLE).select("*").eq("email", email).single();
+  async getTrainerByEmail(email: string): Promise<Trainer | null> {
+    const { data, error } = await this.trainer.from(this.TRAINER_TABLE).select("*").eq("email", email).limit(1);
 
     if (error) {
       throw error;
     }
 
-    return Trainer.parse(data);
+    return data.length > 0 ? Trainer.parse(data[0]) : null;
   }
 
 

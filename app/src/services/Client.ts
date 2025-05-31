@@ -1,6 +1,6 @@
 import { useSupabaseClient } from "@/app/utils/supabase-client";
 import { SupabaseClient } from "@supabase/supabase-js";
-import { Client } from "@/app/models";
+import { Client } from "@/models";
 
 class ClientService {
   private readonly CLIENT_TABLE = "clients";
