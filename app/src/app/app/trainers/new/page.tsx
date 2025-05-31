@@ -1,14 +1,13 @@
 "use client";
 
-import { Gender } from "@/models";
-import { Box, Button, LoadingOverlay, Stack, TextInput, Title, Text, Select } from "@mantine/core";
+import { Box, Button, LoadingOverlay, Stack, TextInput, Title, Text } from "@mantine/core";
 
 import { Container } from "@mantine/core";
 import { Form, useForm } from "@mantine/form";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-export default function NewClientPage() {
+export default function NewTrainerPage() {
   const [visible, setVisible] = useState(false);
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
@@ -19,9 +18,6 @@ export default function NewClientPage() {
       email: '',
       first_name: '',
       last_name: '',
-      gender: '',
-      height: '',
-      weight: '',
     },
 
     validate: {
@@ -34,7 +30,7 @@ export default function NewClientPage() {
   const handleSubmit = async (values: typeof form.values) => {
     setVisible(true);
 
-    const response = await fetch('/api/v1/clients', {
+    const response = await fetch('/api/v1/trainers', {
       method: 'POST',
       body: JSON.stringify(values),
     });
@@ -42,7 +38,7 @@ export default function NewClientPage() {
     const data = await response.json();
 
     if (response.ok) {
-      router.push(`/app/clients/${data.data.id}`);
+      router.push(`/app/trainers/${data.data.id}`);
     } else {
       setError(data.error);
     }
@@ -53,16 +49,13 @@ export default function NewClientPage() {
   return (
     <Container fluid>
       <form onSubmit={form.onSubmit(handleSubmit)}>
-        <Title order={2}>New Client</Title>
+        <Title order={2}>New Trainer</Title>
         <Box pos="relative">
           <LoadingOverlay visible={visible} zIndex={1000} overlayProps={{ blur: 2 }} />
           <Stack gap="md">
-            <TextInput label="Email" {...form.getInputProps('email')} required />
-            <TextInput label="First Name" {...form.getInputProps('first_name')} required />
-            <TextInput label="Last Name" {...form.getInputProps('last_name')} required />
-            <Select label="Gender" {...form.getInputProps('gender')} data={Gender.options} required />
-            <TextInput label="Height" {...form.getInputProps('height')} type="number" min={0} />
-            <TextInput label="Weight" {...form.getInputProps('weight')} type="number" min={0} />
+            <TextInput label="Email" {...form.getInputProps('email')} />
+            <TextInput label="First Name" {...form.getInputProps('first_name')} />
+            <TextInput label="Last Name" {...form.getInputProps('last_name')} />
             {error && <Text c="red">{error}</Text>}
             <Button type="submit">Create</Button>
           </Stack>

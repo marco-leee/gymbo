@@ -3,8 +3,8 @@
 import { Button, Center, Container, Group, Loader, Stack, Table, Title } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
-import Loading from "@/app/components/Loading";
-import { type Client } from "@/app/models/Client";
+import Loading from "@/components/Loading";
+import { type Client } from "@/models/Client";
 
 const columns = [
   {

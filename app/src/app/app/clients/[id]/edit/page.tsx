@@ -1,6 +1,6 @@
 "use client";
 
-import Loading from "@/app/components/Loading";
+import Loading from "@/components/Loading";
 import { useQuery } from "@tanstack/react-query";
 import { useParams } from "next/navigation";
 
