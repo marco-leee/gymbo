@@ -1,5 +1,15 @@
 # API requirements
 
+## Services
+
+### Client Service
+
+### Trainer Service
+
+### Organisation Service
+
+
+
 > Organised by pages
 
 - All paths with prefix `/api/v1`
