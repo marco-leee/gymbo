@@ -57,7 +57,13 @@ def process_video(df: pd.DataFrame):
 
         # Output Video
         video_codec = cv2.VideoWriter_fourcc(*"mp4v")
-        output_video = cv2.VideoWriter(output_video_name, video_codec, fps, frameSize=processed_video.shape, isColor=True)  # type: ignore
+        output_video = cv2.VideoWriter(
+            output_video_name,
+            video_codec,
+            fps,
+            frameSize=processed_video.shape,
+            isColor=True,
+        )  # type: ignore
 
         for result in estimator.detect_video(
             ExerciseType.from_string(exercise_type), processed_video

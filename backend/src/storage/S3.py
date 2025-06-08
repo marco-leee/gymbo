@@ -3,7 +3,6 @@ import boto3
 
 
 class S3StorageProvider(StorageProvider):
-
     def __init__(
         self, bucket: str, access_key: str, secret_key: str, endpoint_url: str = None
     ) -> None:

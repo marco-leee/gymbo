@@ -162,7 +162,7 @@ class PoseDetectionNamespace(socketio.AsyncNamespace):
                 else:
                     # Assume it's a compressed image format (JPEG/PNG)
                     np_frame = cv2.imdecode(np_frame, cv2.IMREAD_COLOR)
-                    
+
                     if np_frame is None:
                         raise ValueError(
                             f"Failed to decode image buffer of size {len(np_frame)}"
