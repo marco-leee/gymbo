@@ -13,3 +13,7 @@ __pycache__
 backend/media
 
 backend/models
+
+gen
+
+main
