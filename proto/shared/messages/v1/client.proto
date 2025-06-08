@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+package shared.messages.v1;
+
+option go_package = "gymbo.stixman.co/shared/gen/messages/v1";
+
+message GetClientRequest {}
+
+message GetClientResponse {}
+
+message ListClientsRequest {}
+
+message ListClientsResponse {}
+
+message CreateClientRequest {}
+
+message CreateClientResponse {}
+
+message UpdateClientRequest {}
+
+message UpdateClientResponse {}
+
+message DeleteClientRequest {}
+
+message DeleteClientResponse {}

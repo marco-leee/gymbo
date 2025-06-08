@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+package shared.messages.v1;
+
+option go_package = "gymbo.stixman.co/shared/gen/messages/v1";
+
+message GetOrganisationRequest {}
+
+message GetOrganisationResponse {}
+
+message ListOrganisationRequest {}
+
+message ListOrganisationResponse {}
+
+message CreateOrganisationRequest {}
+
+message CreateOrganisationResponse {}
+
+message UpdateOrganisationRequest {}
+
+message UpdateOrganisationResponse {}
+
+message DeleteOrganisationRequest {}
+
+message DeleteOrganisationResponse {}

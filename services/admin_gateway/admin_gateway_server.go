@@ -11,6 +11,10 @@ import (
 func init() {
 }
 
+type AdminGateway struct {
+	v1connect.UnimplementedAdminGatewayServiceHandler
+}
+
 type AdminGatewayServer struct {
 	adminGateway *AdminGateway
 }

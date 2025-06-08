@@ -4,10 +4,60 @@ package gateways.admin.v1;
 
 option go_package = "gymbo.stixman.co/admin_gateway/gen/gateways/v1";
 
+import "shared/messages/v1/organisation.proto";
+import "shared/messages/v1/client.proto";
+import "shared/messages/v1/trainer.proto";
+import "shared/messages/v1/exercise.proto";
+import "shared/messages/v1/assessment.proto";
+import "shared/messages/v1/media.proto";
+
 service AdminGatewayService {
   rpc GetAdmin(GetAdminRequest) returns (GetAdminResponse) {}
+  rpc RegisterAdmin(RegisterAdminRequest) returns (RegisterAdminResponse) {}
+
+  // Organisation
+  rpc GetOrganisation(shared.messages.v1.GetOrganisationRequest) returns (shared.messages.v1.GetOrganisationResponse) {}
+  rpc CreateOrganisation(shared.messages.v1.CreateOrganisationRequest) returns (shared.messages.v1.CreateOrganisationResponse) {}
+  rpc UpdateOrganisation(shared.messages.v1.UpdateOrganisationRequest) returns (shared.messages.v1.UpdateOrganisationResponse) {}
+  rpc DeleteOrganisation(shared.messages.v1.DeleteOrganisationRequest) returns (shared.messages.v1.DeleteOrganisationResponse) {}
+  rpc ListOrganisations(shared.messages.v1.ListOrganisationRequest) returns (shared.messages.v1.ListOrganisationResponse) {}
+
+  // Client
+  rpc GetClient(shared.messages.v1.GetClientRequest) returns (shared.messages.v1.GetClientResponse) {}
+  rpc CreateClient(shared.messages.v1.CreateClientRequest) returns (shared.messages.v1.CreateClientResponse) {}
+  rpc UpdateClient(shared.messages.v1.UpdateClientRequest) returns (shared.messages.v1.UpdateClientResponse) {}
+  rpc DeleteClient(shared.messages.v1.DeleteClientRequest) returns (shared.messages.v1.DeleteClientResponse) {}
+  rpc ListClients(shared.messages.v1.ListClientsRequest) returns (shared.messages.v1.ListClientsResponse) {}
+
+  // Trainer
+  rpc GetTrainer(shared.messages.v1.GetTrainerRequest) returns (shared.messages.v1.GetTrainerResponse) {}
+  rpc CreateTrainer(shared.messages.v1.CreateTrainerRequest) returns (shared.messages.v1.CreateTrainerResponse) {}
+  rpc UpdateTrainer(shared.messages.v1.UpdateTrainerRequest) returns (shared.messages.v1.UpdateTrainerResponse) {}
+  rpc DeleteTrainer(shared.messages.v1.DeleteTrainerRequest) returns (shared.messages.v1.DeleteTrainerResponse) {}
+  rpc ListTrainers(shared.messages.v1.ListTrainersRequest) returns (shared.messages.v1.ListTrainersResponse) {}
+
+  // Exercise
+  rpc GetExercise(shared.messages.v1.GetExerciseRequest) returns (shared.messages.v1.GetExerciseResponse) {}
+  rpc CreateExercise(shared.messages.v1.CreateExerciseRequest) returns (shared.messages.v1.CreateExerciseResponse) {}
+  rpc UpdateExercise(shared.messages.v1.UpdateExerciseRequest) returns (shared.messages.v1.UpdateExerciseResponse) {}
+  rpc DeleteExercise(shared.messages.v1.DeleteExerciseRequest) returns (shared.messages.v1.DeleteExerciseResponse) {}
+  rpc ListExercises(shared.messages.v1.ListExercisesRequest) returns (shared.messages.v1.ListExercisesResponse) {}
+
+  // Assessment
+  rpc GetAssessment(shared.messages.v1.GetAssessmentRequest) returns (shared.messages.v1.GetAssessmentResponse) {}
+  rpc CreateAssessment(shared.messages.v1.CreateAssessmentRequest) returns (shared.messages.v1.CreateAssessmentResponse) {}
+  rpc UpdateAssessment(shared.messages.v1.UpdateAssessmentRequest) returns (shared.messages.v1.UpdateAssessmentResponse) {}
+  rpc DeleteAssessment(shared.messages.v1.DeleteAssessmentRequest) returns (shared.messages.v1.DeleteAssessmentResponse) {}
+  rpc ListAssessments(shared.messages.v1.ListAssessmentsRequest) returns (shared.messages.v1.ListAssessmentsResponse) {}
+
+  // Media
+  rpc SignMediaUpload(shared.messages.v1.SignMediaUploadRequest) returns (shared.messages.v1.SignMediaUploadResponse) {}
 }
 
 message GetAdminRequest {}
 
 message GetAdminResponse {}
+
+message RegisterAdminRequest {}
+
+message RegisterAdminResponse {}
