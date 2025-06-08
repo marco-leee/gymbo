@@ -1,4 +1,4 @@
-import { useSupabaseClient } from "@/app/utils/supabase-client";
+import { useSupabaseClient } from "@/utils/supabase";
 import { SupabaseClient } from "@supabase/supabase-js";
 import { Client } from "@/models";
 

@@ -1,17 +1,18 @@
 import { z } from "zod/v4";
+import { Email, Name, Timestamp, Ulid } from "./base";
 
 export const Gender = z.enum(["male", "female", "other"]);
 
 export const Client = z.object({
-  id: z.ulid(),
-  email: z.email(),
-  first_name: z.string(),
-  last_name: z.string(),
+  id: Ulid,
+  email: Email,
+  first_name: Name,
+  last_name: Name,
   gender: Gender.nullable(),
   height: z.number().nullable(),
   weight: z.number().nullable(),
-  updated_at: z.coerce.date().nullable(),
-  created_at: z.coerce.date().nullable(),
+  created_at: Timestamp.nullable(),
+  updated_at: Timestamp.nullable(),
 });
 
 export type Gender = z.infer<typeof Gender>;
