@@ -4,6 +4,8 @@ import { AppShell, Burger, Group, NavLink, Text } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import React from "react";
 import { IconDeviceMobile, IconDeviceDesktop, IconForms, IconTreadmill, IconTrain, IconUser, IconDashboard, IconSettings, IconBuilding } from '@tabler/icons-react';
+import { useSession } from "@/context/SessionProvider";
+import { useRouter } from "next/navigation";
 
 const links = [
   {

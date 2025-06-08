@@ -5,7 +5,7 @@ import { TextInput, Button, Group, Container, Text, Box, Stack, Select, Image as
 import { useForm } from '@mantine/form';
 import { io, Socket } from 'socket.io-client';
 import { LineChart } from '@mantine/charts';
-import RoomLoading from '@/app/components/room/RoomLoading';
+import RoomLoading from '@/components/room/RoomLoading';
 
 export default function Page() {
   const [socket, setSocket] = useState<Socket | null>(null);

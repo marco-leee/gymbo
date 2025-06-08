@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { TextInput, Button, Group, Paper, Container, Text, Box, Stack, Badge, Card, List, Image } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { io, Socket } from 'socket.io-client';
-import RoomLoading from '@/app/components/room/RoomLoading';
+import RoomLoading from '@/components/room/RoomLoading';
 
 export default function Page() {
   const [socket, setSocket] = useState<Socket | null>(null);
