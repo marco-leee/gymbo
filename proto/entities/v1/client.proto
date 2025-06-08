@@ -1,0 +1,29 @@
+syntax = "proto3";
+
+package entities.v1;
+
+option go_package = "gymbo.stixman.co/gen/entities/v1";
+
+import "google/protobuf/timestamp.proto";
+
+message Client {
+  message Height {
+    uint32 value = 1;
+    string unit = 2;
+  }
+
+  message Weight {
+    uint32 value = 1;
+    string unit = 2;
+  }
+
+  string id = 1;
+  string first_name = 2;
+  string last_name = 3;
+  string email = 4;
+  optional Height height = 5;
+  optional Weight weight = 6;
+
+  google.protobuf.Timestamp created_at = 7;
+  google.protobuf.Timestamp updated_at = 8;
+}

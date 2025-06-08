@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+package gateways.admin.v1;
+
+option go_package = "gymbo.stixman.co/admin_gateway/gen/gateways/v1";
+
+service AdminGatewayService {
+  rpc GetAdmin(GetAdminRequest) returns (GetAdminResponse) {}
+}
+
+message GetAdminRequest {}
+
+message GetAdminResponse {}

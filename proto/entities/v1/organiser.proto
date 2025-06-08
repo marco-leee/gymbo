@@ -1,0 +1,5 @@
+syntax = "proto3";
+
+package entities.v1;
+
+option go_package = "gymbo.stixman.co/gen/entities/v1";
