@@ -1,0 +1,7 @@
+syntax = "proto3";
+
+package shared.entities.v1;
+
+option go_package = "gymbo.stixman.co/shared/gen/entities/v1";
+
+message Assessment {}
