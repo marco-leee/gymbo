@@ -4,22 +4,56 @@ package shared.messages.v1;
 
 option go_package = "gymbo.stixman.co/shared/gen/messages/v1";
 
-message GetOrganisationRequest {}
+import "shared/entities/v1/organisation.proto";
 
-message GetOrganisationResponse {}
+message GetOrganisationRequest {
+  string id = 1;
+}
 
-message ListOrganisationRequest {}
+message GetOrganisationResponse {
+  shared.entities.v1.Organisation organisation = 1;
+}
 
-message ListOrganisationResponse {}
+message ListOrganisationRequest {
+  enum Sort {
+    SORT_UNSPECIFIED = 0;
+    SORT_ASC = 1;
+    SORT_DESC = 2;
+  }
 
-message CreateOrganisationRequest {}
+  int32 index = 1;
+  int32 limit = 2;
+  int32 offset = 3;
+  map<string, string> filters = 4;
+  map<string, Sort> sort = 5;
+}
 
-message CreateOrganisationResponse {}
+message ListOrganisationResponse {
+  repeated shared.entities.v1.Organisation organisations = 1;
+  int32 total = 2;
+  int32 page = 3;
+  int32 limit = 4;
+  int32 offset = 5;
+}
 
-message UpdateOrganisationRequest {}
+message CreateOrganisationRequest {
+  shared.entities.v1.Organisation organisation = 1;
+}
 
-message UpdateOrganisationResponse {}
+message CreateOrganisationResponse {
+  shared.entities.v1.Organisation organisation = 1;
+}
 
-message DeleteOrganisationRequest {}
+message UpdateOrganisationRequest {
+  shared.entities.v1.Organisation organisation = 1;
+}
+
+message UpdateOrganisationResponse {
+  shared.entities.v1.Organisation organisation = 1;
+}
+
+message DeleteOrganisationRequest {
+  string id = 1;
+}
 
 message DeleteOrganisationResponse {}
