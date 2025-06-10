@@ -2,18 +2,20 @@ version: v2
 managed:
   enabled: true
 plugins:
-  # - local: protoc-gen-js
-  #   out: web/dist/
-  #   # opt:
-  #   #   - paths=source_relative
-  # - local: protoc-gen-grpc-web
-  #   out: web/dist/
-  #   opt:
-  #     - import_style=typescript
-  #     - mode=grpcwebtext
+  # yarn global add @bufbuild/buf @bufbuild/protoc-gen-es
+  - local: protoc-gen-es
+    out: gen/web
+    # Also generate any imported dependencies
+    include_imports: true
+    # Add more plugin options here
+    opt: target=ts
+  - local: protoc-gen-connect-query # yarn global add @connectrpc/protoc-gen-connect-query
+    out: gen/web
+    include_imports: true
+    opt: target=ts
   - local: protoc-gen-go
-    out: gen
+    out: gen/go
     opt: paths=source_relative
   - local: protoc-gen-connect-go
-    out: gen
+    out: gen/go
     opt: paths=source_relative

@@ -11,6 +11,9 @@
     "prepare": "husky install"
   },
   "dependencies": {
+    "@connectrpc/connect": "^2.0.2",
+    "@connectrpc/connect-query": "^2.1.0",
+    "@connectrpc/connect-web": "^2.0.2",
     "@mantine/charts": "^8.0.1",
     "@mantine/core": "^8.0.1",
     "@mantine/dates": "^8.0.2",
