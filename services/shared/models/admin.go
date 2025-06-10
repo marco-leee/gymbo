@@ -5,13 +5,11 @@ import (
 	"time"
 )
 
-type Organisation struct {
+type Admin struct {
 	ID        string `gorm:"primaryKey"`
-	Email     string `gorm:"unique; not null"`
-	Name      string
-	Address   string
-	Phone     string
-	Logo      string
+	UserID    string `gorm:"unique;not null"`
+	User      Users
+	Password  string `gorm:"not null"`
 	CreatedAt time.Time
 	UpdatedAt time.Time
 	DeletedAt sql.NullTime

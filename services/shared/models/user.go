@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-type User struct {
+type Users struct {
 	ID        string `gorm:"primaryKey"`
 	Email     string `gorm:"unique;not null"`
 	FullName  string

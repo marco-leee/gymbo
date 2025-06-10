@@ -8,7 +8,7 @@ import (
 type Client struct {
 	ID        string `gorm:"primaryKey"`
 	UserID    string `gorm:"unique;not null"`
-	User      User
+	User      Users
 	Gender    string
 	Height    float64
 	Weight    float64
