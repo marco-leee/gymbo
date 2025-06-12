@@ -4,6 +4,9 @@ package shared.messages.v1;
 
 option go_package = "gymbo.stixman.co/shared/gen/messages/v1";
 
+import "shared/entities/v1/exercise.proto";
+import "shared/entities/v1/media.proto";
+
 message GetExerciseRequest {}
 
 message GetExerciseResponse {}

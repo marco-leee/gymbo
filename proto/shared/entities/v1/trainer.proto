@@ -3,3 +3,14 @@ syntax = "proto3";
 package shared.entities.v1;
 
 option go_package = "gymbo.stixman.co/shared/gen/entities/v1";
+
+message Trainer {
+  string id = 1;
+  string email = 2;
+  string full_name = 3;
+  optional string first_name = 4;
+  optional string last_name = 5;
+  google.protobuf.Timestamp created_at = 9;
+  google.protobuf.Timestamp updated_at = 10;
+  google.protobuf.Timestamp deleted_at = 11;
+}

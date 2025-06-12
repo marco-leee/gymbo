@@ -4,4 +4,30 @@ package shared.entities.v1;
 
 option go_package = "gymbo.stixman.co/shared/gen/entities/v1";
 
-message Media {}
+enum CameraView {
+  CAMERA_VIEW_UNSPECIFIED = 0;
+  CAMERA_VIEW_FRONT = 1;
+  CAMERA_VIEW_BACK = 2;
+  CAMERA_VIEW_LEFT = 3;
+  CAMERA_VIEW_RIGHT = 4;
+}
+
+enum Steps {
+  STEP_UNSPECIFIED = 0;
+}
+
+message Media {
+  string id = 1;
+  shared.entities.v1.Exercise exercise = 2;
+  Steps step = 3;
+  CameraView camera_view = 4;
+  string original_video_location = 5;
+  string processed_video_location = 6;
+  string pose_detection_model_name = 7;
+  map<string, string> metadata = 8;
+  map<string, string> errors = 9;
+  google.protobuf.Timestamp completed_at = 10;
+  google.protobuf.Timestamp created_at = 11;
+  google.protobuf.Timestamp updated_at = 12;
+  google.protobuf.Timestamp deleted_at = 13;
+}

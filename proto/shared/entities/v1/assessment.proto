@@ -4,4 +4,14 @@ package shared.entities.v1;
 
 option go_package = "gymbo.stixman.co/shared/gen/entities/v1";
 
-message Assessment {}
+message Assessment {
+  string id = 1;
+  shared.entities.v1.Client client = 2;
+  shared.entities.v1.Trainer trainer = 3;
+  optional shared.entities.v1.Organisation organisation = 4;
+  google.protobuf.Timestamp date = 4;
+  string comment = 5;
+  google.protobuf.Timestamp created_at = 6;
+  google.protobuf.Timestamp updated_at = 7;
+  google.protobuf.Timestamp deleted_at = 8;
+}

@@ -18,12 +18,14 @@ message Client {
   }
 
   string id = 1;
-  string first_name = 2;
-  string last_name = 3;
-  string email = 4;
-  optional Height height = 5;
-  optional Weight weight = 6;
-
-  google.protobuf.Timestamp created_at = 7;
-  google.protobuf.Timestamp updated_at = 8;
+  string email = 2;
+  string full_name = 3;
+  optional string first_name = 4;
+  optional string last_name = 5;
+  string gender = 6;
+  optional Height height = 7;
+  optional Weight weight = 8;
+  google.protobuf.Timestamp created_at = 9;
+  google.protobuf.Timestamp updated_at = 10;
+  google.protobuf.Timestamp deleted_at = 11;
 }

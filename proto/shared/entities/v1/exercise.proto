@@ -3,3 +3,46 @@ syntax = "proto3";
 package shared.entities.v1;
 
 option go_package = "gymbo.stixman.co/shared/gen/entities/v1";
+
+import "shared/entities/v1/client.proto";
+import "shared/entities/v1/assessment.proto";
+import "google/protobuf/timestamp.proto";
+
+message Exercise {
+  string id = 1;
+  shared.entities.v1.Client client = 2;
+  optional shared.entities.v1.Assessment assessment = 3;
+  shared.entities.v1.Media media = 4;
+  string name = 5;
+  string description = 6;
+  string type = 7;
+  string comment = 8;
+  map<string, string> angles_of_interest_enum = 9;
+  map<int, Angle> angles_of_interest = 10;
+  map<int, Landmark2dResult> landmark_2d_results = 11;
+  map<int, Landmark3dResult> landmark_3d_results = 12;
+  google.protobuf.Timestamp created_at = 13;
+  google.protobuf.Timestamp updated_at = 14;
+  google.protobuf.Timestamp deleted_at = 15;
+}
+
+message Angle {
+  int32 idx = 1;
+  int32 degree = 2;
+}
+
+message Landmark2dResult {
+  int32 idx = 1;
+  float x = 2;
+  float y = 3;
+  float x_score = 4;
+  float y_score = 5;
+}
+
+message Landmark3dResult {
+  int32 idx = 1;
+  float score = 2;
+  float x = 3;
+  float y = 4;
+  float z = 5;
+}

@@ -7,7 +7,7 @@ import (
 
 type Exercise struct {
 	ID                   string `gorm:"primaryKey"`
-	ClientID             sql.NullString
+	ClientID             string `gorm:"not null"`
 	Client               Client
 	AssessmentID         sql.NullString
 	Assessment           Assessment
