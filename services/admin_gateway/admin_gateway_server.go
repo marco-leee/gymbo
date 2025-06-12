@@ -1,20 +1,23 @@
 package admingateway
 
 import (
+	"fmt"
 	"net/http"
 
 	"connectrpc.com/connect"
+	"go.uber.org/zap"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
+	"gymbo.stixman.co/admin_gateway/database"
 	"gymbo.stixman.co/admin_gateway/gen/gateways/v1/v1connect"
 	"gymbo.stixman.co/shared/interceptors"
+	"gymbo.stixman.co/shared/logger"
 )
-
-func init() {
-}
 
 type AdminGateway struct {
 	v1connect.UnimplementedAdminGatewayServiceHandler
+	db     *database.AdminGatewayDatabase
+	Logger *zap.Logger
 }
 
 type AdminGatewayServer struct {
@@ -22,7 +25,12 @@ type AdminGatewayServer struct {
 }
 
 func newAdminGateway() *AdminGateway {
-	return &AdminGateway{}
+	db := database.NewAdminGatewayDatabase()
+
+	return &AdminGateway{
+		db:     db,
+		Logger: logger.New("admin_gateway"),
+	}
 }
 
 func New() *AdminGatewayServer {
@@ -36,11 +44,15 @@ func (ags *AdminGatewayServer) Register(mux *http.ServeMux) {
 	mux.Handle(path, handler)
 }
 
-func (ags *AdminGatewayServer) Serve() {
+func (ags *AdminGatewayServer) Serve(port string) {
 	mux := http.NewServeMux()
 	ags.Register(mux)
-	http.ListenAndServe(
-		":8080",
+	ags.adminGateway.Logger.Info("Starting admin gateway server on port", zap.String("port", port))
+	if err := http.ListenAndServe(
+		fmt.Sprintf(":%s", port),
 		h2c.NewHandler(mux, &http2.Server{}),
-	)
+	); err != nil {
+		ags.adminGateway.Logger.Error("Failed to start admin gateway server", zap.Error(err))
+		panic(err)
+	}
 }
