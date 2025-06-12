@@ -8,6 +8,8 @@ import { createTheme, MantineProvider } from "@mantine/core";
 import { ConfigProvider } from "@/hooks/useConfig";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { SessionProvider } from "@/context/SessionProvider";
+import { TransportProvider } from '@connectrpc/connect-query';
+import { transport } from "@/services/shared";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -44,9 +46,11 @@ export default function RootLayout({
         <MantineProvider defaultColorScheme="light" theme={customTheme}>
           <SessionProvider>
             <ConfigProvider>
-              <QueryClientProvider client={queryClient}>
-                {children}
-              </QueryClientProvider>
+              <TransportProvider transport={transport}>
+                <QueryClientProvider client={queryClient}>
+                  {children}
+                </QueryClientProvider>
+              </TransportProvider>
             </ConfigProvider>
           </SessionProvider>
         </MantineProvider>
