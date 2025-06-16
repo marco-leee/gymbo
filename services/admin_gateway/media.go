@@ -23,7 +23,8 @@ func validateAndFormat(req *connect.Request[v1_messages.SignMediaUploadRequest])
 		return global_error.AddDetails(global_error.ErrFileSizeLimitExceeded, "file_size", fmt.Sprintf("File size limit exceeded: %d", consts.MAX_FILE_SIZE))
 	}
 
-	formattedName, err := str.FormatFileName(req.Msg.FileName)
+	formattedName, err := str.RefactorInputFileName(req.Msg.FileName)
+
 	if err != nil {
 		return global_error.AddDetails(global_error.ErrInvalidFileName, "file_name", fmt.Sprintf("Invalid file name: %s", req.Msg.FileName))
 	}
