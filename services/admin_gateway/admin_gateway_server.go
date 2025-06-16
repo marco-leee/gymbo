@@ -1,6 +1,7 @@
 package admingateway
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 
@@ -12,35 +13,43 @@ import (
 	"gymbo.stixman.co/admin_gateway/gen/gateways/v1/v1connect"
 	"gymbo.stixman.co/shared/interceptors"
 	"gymbo.stixman.co/shared/logger"
+	"gymbo.stixman.co/shared/storages"
 )
 
 type AdminGateway struct {
 	v1connect.UnimplementedAdminGatewayServiceHandler
-	db     *database.AdminGatewayDatabase
-	Logger *zap.Logger
+	db      *database.AdminGatewayDatabase
+	storage storages.IObjectStorage
+	Logger  *zap.Logger
 }
 
 type AdminGatewayServer struct {
 	adminGateway *AdminGateway
 }
 
-func newAdminGateway() *AdminGateway {
-	db := database.NewAdminGatewayDatabase()
+func newAdminGateway(ctx context.Context) *AdminGateway {
+	db := database.New(ctx)
+	storage, err := storages.NewObjectStorage(ctx)
+
+	if err != nil {
+		panic(err)
+	}
 
 	return &AdminGateway{
-		db:     db,
-		Logger: logger.New("admin_gateway"),
+		db:      db,
+		storage: storage,
+		Logger:  logger.New("admin_gateway"),
 	}
 }
 
-func New() *AdminGatewayServer {
+func New(ctx context.Context) *AdminGatewayServer {
 	return &AdminGatewayServer{
-		adminGateway: newAdminGateway(),
+		adminGateway: newAdminGateway(ctx),
 	}
 }
 
 func (ags *AdminGatewayServer) Register(mux *http.ServeMux) {
-	path, handler := v1connect.NewAdminGatewayServiceHandler(ags.adminGateway, connect.WithInterceptors(interceptors.LogRequest()))
+	path, handler := v1connect.NewAdminGatewayServiceHandler(ags.adminGateway, connect.WithInterceptors(interceptors.LogRequest(), interceptors.Authentication(), interceptors.Authorisation()))
 	mux.Handle(path, handler)
 }
 
