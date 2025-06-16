@@ -52,21 +52,23 @@ services:
     networks:
       - gymbo
 
-  mongo:
-    image:  mongodb/mongodb-community-server:8.0.4-ubi9
+  postgres:
+    image: postgres:17.5-alpine3.22
     ports:
-      - "27017:27017"
+      - "32800:5432"
+    volumes:
+      - psql-db:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=admin
+      - POSTGRES_PASSWORD=local
+      - POSTGRES_DB=gymbo
+    restart: 'no'
     networks:
       - gymbo
-    volumes:
-      - mongo-db:/data/db
-    environment:
-      - MONGO_INITDB_ROOT_USERNAME=admin
-      - MONGO_INITDB_ROOT_PASSWORD=local
 
   minio:
     image: quay.io/minio/minio:latest
-    command: server --address ":9000" --console-address ":9001" /data
+    command: minio server --address ":9000" --console-address ":9001" /data
     ports:
       - "9000:9000"
       - "9001:9001"
@@ -85,14 +87,19 @@ services:
       MINIO_ROOT_PASSWORD: qwertyui
       MINIO_DEFAULT_BUCKET: gymbo
 
+  services:
+    image: services
+    build:
+      context: .
+      dockerfile: services.dockerfile
+    networks:
+      - gymbo
+
 volumes:
   minio:
     driver: local
-  mongo-db:
+  psql-db:
     driver: local
-  data:
-    driver: local
-
 
 networks:
   gymbo:

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 
 	"gymbo.stixman.co/shared/databases"
@@ -9,9 +10,9 @@ import (
 
 func main() {
 	dsn := "host=localhost user=admin password=local dbname=gymbo port=32800 sslmode=disable TimeZone=Asia/Hong_Kong"
-	postgres := databases.NewPostgres(dsn)
+	postgres := databases.NewPostgres(context.Background(), dsn)
 
-	if err := postgres.Connect(); err != nil {
+	if err := postgres.Connect(context.Background()); err != nil {
 		panic(err)
 	}
 
