@@ -21,15 +21,17 @@ type AssessmentSelectProps = {
   value: string;
   onChange: (value: string) => void;
   required?: boolean;
+  disable?: boolean;
 }
 
-export function AssessmentSelect({ value, onChange, required }: AssessmentSelectProps) {
+export function AssessmentSelect({ value, onChange, required, disable }: AssessmentSelectProps) {
   return <InfiniteScrollSelect
     label="Assessment"
     value={value}
     onChange={onChange}
     fetchData={fetchExercises}
-    placeholder="Search for an assessment..."
+    placeholder="Select a client and search for an assessment..."
     required={required}
+    disabled={disable}
   />
 }
