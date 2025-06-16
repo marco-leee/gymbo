@@ -4,12 +4,14 @@ import { Geist, Geist_Mono } from "next/font/google";
 import '@mantine/core/styles.css';
 import '@mantine/charts/styles.css';
 import '@mantine/dates/styles.css';
+import '@mantine/notifications/styles.css';
 import { createTheme, MantineProvider } from "@mantine/core";
 import { ConfigProvider } from "@/hooks/useConfig";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { SessionProvider } from "@/context/SessionProvider";
 import { TransportProvider } from '@connectrpc/connect-query';
 import { transport } from "@/services/shared";
+import { Notifications } from '@mantine/notifications';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -48,6 +50,7 @@ export default function RootLayout({
             <ConfigProvider>
               <TransportProvider transport={transport}>
                 <QueryClientProvider client={queryClient}>
+                  <Notifications />
                   {children}
                 </QueryClientProvider>
               </TransportProvider>
