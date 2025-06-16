@@ -1,6 +1,7 @@
 package databases
 
 import (
+	"context"
 	"database/sql"
 	"sync"
 	"time"
@@ -23,7 +24,7 @@ type IPostgresClient interface {
 	GetClient() *gorm.DB
 }
 
-func NewPostgres(connString string) IPostgresClient {
+func NewPostgres(ctx context.Context, connString string) IPostgresClient {
 	return &PostgresClient{
 		connString: connString,
 	}
@@ -41,7 +42,7 @@ func (p *PostgresClient) Close() error {
 	return p.db.Close()
 }
 
-func (p *PostgresClient) Connect() error {
+func (p *PostgresClient) Connect(ctx context.Context) error {
 	var err error
 
 	p.once.Do(func() {

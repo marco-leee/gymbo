@@ -1,6 +1,8 @@
 package database
 
 import (
+	"context"
+
 	"gorm.io/gorm"
 	"gymbo.stixman.co/shared/databases"
 	"gymbo.stixman.co/shared/env"
@@ -10,10 +12,10 @@ type AdminGatewayDatabase struct {
 	client databases.IPostgresClient
 }
 
-func NewAdminGatewayDatabase() *AdminGatewayDatabase {
-	postgres := databases.NewPostgres(env.DBConnString)
+func New(ctx context.Context) *AdminGatewayDatabase {
+	postgres := databases.NewPostgres(ctx, env.DBConnString)
 
-	if err := postgres.Connect(); err != nil {
+	if err := postgres.Connect(ctx); err != nil {
 		panic(err)
 	}
 
