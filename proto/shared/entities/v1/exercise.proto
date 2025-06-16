@@ -4,23 +4,28 @@ package shared.entities.v1;
 
 option go_package = "gymbo.stixman.co/shared/gen/entities/v1";
 
-import "shared/entities/v1/client.proto";
-import "shared/entities/v1/assessment.proto";
 import "google/protobuf/timestamp.proto";
+
+enum ExerciseType {
+  EXERCISE_TYPE_UNSPECIFIED = 0;
+  EXERCISE_TYPE_SQUAT = 1;
+  EXERCISE_TYPE_LUNGE = 2;
+  EXERCISE_TYPE_PUSH_UP = 3;
+}
 
 message Exercise {
   string id = 1;
-  shared.entities.v1.Client client = 2;
-  optional shared.entities.v1.Assessment assessment = 3;
-  shared.entities.v1.Media media = 4;
+  string client_id = 2;
+  optional string assessment_id = 3;
+  string media_id = 4;
   string name = 5;
   string description = 6;
-  string type = 7;
+  ExerciseType type = 7;
   string comment = 8;
   map<string, string> angles_of_interest_enum = 9;
-  map<int, Angle> angles_of_interest = 10;
-  map<int, Landmark2dResult> landmark_2d_results = 11;
-  map<int, Landmark3dResult> landmark_3d_results = 12;
+  map<string, Angle> angles_of_interest = 10;
+  map<string, Landmark2dResult> landmark_2d_results = 11;
+  map<string, Landmark3dResult> landmark_3d_results = 12;
   google.protobuf.Timestamp created_at = 13;
   google.protobuf.Timestamp updated_at = 14;
   google.protobuf.Timestamp deleted_at = 15;
@@ -45,4 +50,13 @@ message Landmark3dResult {
   float x = 3;
   float y = 4;
   float z = 5;
+}
+
+message NewExercise {
+  string name = 1;
+  string client_id = 2;
+  optional string assessment_id = 3;
+  optional string description = 4;
+  ExerciseType type = 5;
+  optional string comment = 6;
 }

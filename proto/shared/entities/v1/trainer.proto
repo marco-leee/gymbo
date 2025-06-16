@@ -4,6 +4,8 @@ package shared.entities.v1;
 
 option go_package = "gymbo.stixman.co/shared/gen/entities/v1";
 
+import "google/protobuf/timestamp.proto";
+
 message Trainer {
   string id = 1;
   string email = 2;

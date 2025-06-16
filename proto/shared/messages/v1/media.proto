@@ -4,8 +4,27 @@ package shared.messages.v1;
 
 option go_package = "gymbo.stixman.co/shared/gen/messages/v1";
 
-message SignMediaUploadRequest {}
+enum StorageProvider {
+  STORAGE_PROVIDER_UNSPECIFIED = 0;
+  STORAGE_PROVIDER_MINIO = 1;
+  STORAGE_PROVIDER_S3 = 2;
+  STORAGE_PROVIDER_GCP = 3;
+}
+
+message StorageReference {
+  StorageProvider storage_provider = 1;
+  string region = 2;
+  string bucket = 3;
+  string key = 4;
+}
+
+message SignMediaUploadRequest {
+  string file_name = 1;
+  string file_type = 2;
+  int64 file_size = 3;
+}
 
 message SignMediaUploadResponse {
   string upload_url = 1;
+  StorageReference storage_reference = 2;
 }
