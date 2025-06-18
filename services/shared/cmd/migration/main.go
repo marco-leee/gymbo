@@ -22,8 +22,8 @@ func main() {
 		&models.Client{},
 		&models.Trainer{},
 		&models.Organisation{},
-		&models.ClientUser{},
-		&models.TrainerUser{},
+		// &models.ClientUser{},
+		// &models.TrainerUser{},
 		&models.OrganisationUser{},
 		&models.OrganisationTrainer{},
 		&models.OrganisationClient{},
@@ -31,6 +31,7 @@ func main() {
 		&models.Assessment{},
 		&models.Exercise{},
 		&models.Media{},
+		&models.ExerciseAssessment{},
 	}
 
 	if err := postgres.Migrate(tables...); err != nil {
