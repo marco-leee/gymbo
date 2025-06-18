@@ -42,8 +42,8 @@ export default function Exercises() {
               case "ID": return exercise.exercise?.id;
               case "Name": return exercise.exercise?.name;
               case "Type": return exercise.exercise?.type;
-              case "Client": return exercise.client?.id;
-              case "Trainer": return exercise.trainer?.id;
+              case "Client": return <Link href={`/app/clients/${exercise.client?.id}`}>{exercise.client?.email}</Link>;
+              case "Trainer": return <Link href={`/app/trainers/${exercise.trainer?.id}`}>{exercise.trainer?.fullName}</Link>;
               // case "Status": return exercise.media?.step;
               case "Actions": return <Button component={Link} href={`/app/exercises/${exercise.exercise?.id}`}>View</Button>;
             }

@@ -13,7 +13,7 @@ import { Dropzone, FileRejection } from "@mantine/dropzone";
 import { AdminGatewayExerciseService } from "@/services";
 import { ClientSelect } from "@/components/ClientSelect";
 import { AssessmentSelect } from "@/components/AssessmentSelect";
-import { formatString, toCameraView, toExerciseType } from "@/utils/string";
+import { formatLabel, toCameraView, toExerciseType } from "@/utils/string";
 import { useListState, UseListStateHandlers } from "@mantine/hooks";
 import { useQuery } from "@connectrpc/connect-query";
 import { signMediaUpload } from "@/gen/web/gateways/admin/v1/admin_gateway-AdminGatewayService_connectquery";
@@ -75,7 +75,7 @@ export default function NewExercisePage() {
         name: values.name,
         clientId: values.client_id,
         type: toExerciseType(values.type),
-        assessmentId: values.assessment_id,
+        ...(values.assessment_id ? { assessmentId: values.assessment_id } : {}),
         description: values.description,
         comment: values.comment,
       }, media);
@@ -146,7 +146,7 @@ export default function NewExercisePage() {
     if (value.localName.includes('UNSPECIFIED')) return acc;
     acc.push({
       value: value.localName,
-      label: formatString(value.localName),
+      label: formatLabel(value.localName),
     });
     return acc;
   }, [] as { value: string, label: string }[])
@@ -178,7 +178,7 @@ export default function NewExercisePage() {
               </Stack>
               <Stack align="stretch" justify="space-between" w={{ base: '100%', md: '48%' }}>
                 <Select label="Type" {...form.getInputProps('type')} required data={types} />
-                <ClientSelect required onChange={onClientChange} value={form.values.client_id} />
+                <ClientSelect onChange={onClientChange} required />
                 <AssessmentSelect disable={!form.values.client_id} onChange={onAssessmentChange} value={form.values.assessment_id} />
               </Stack>
             </Group>
@@ -213,9 +213,8 @@ export default function NewExercisePage() {
             {files.length > 0 && (
               <Stack gap="md">
                 {files.map((file, idx) => (
-                  <>
+                  <Stack key={`${file.file.name}-${idx}`}>
                     <DropzoneFile
-                      key={file.file.name}
                       idx={idx}
                       file={file}
                       onUpload={handleFileUpload}
@@ -223,7 +222,7 @@ export default function NewExercisePage() {
                       onCameraViewChange={handleCameraViewChange}
                     />
                     <Divider />
-                  </>
+                  </Stack>
                 ))}
               </Stack>
             )}
@@ -268,7 +267,7 @@ export function DropzoneFile({ idx, file, onUpload, onRemove, onCameraViewChange
 
     acc.push({
       value: value.localName,
-      label: formatString(value.localName),
+      label: formatLabel(value.localName),
     });
     return acc;
   }, [] as { value: string, label: string }[]);
