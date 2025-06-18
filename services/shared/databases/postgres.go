@@ -51,6 +51,9 @@ func (p *PostgresClient) Connect(ctx context.Context) error {
 				SingularTable: true,
 				NoLowerCase:   false,
 			},
+			NowFunc: func() time.Time {
+				return time.Now().UTC()
+			},
 		})
 
 		if err != nil {

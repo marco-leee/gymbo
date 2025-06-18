@@ -15,34 +15,14 @@ type OrganisationUser struct {
 	DeletedAt      sql.NullTime
 }
 
-type TrainerUser struct {
-	UserID    string `gorm:"primaryKey"`
-	User      Users
-	TrainerID string `gorm:"primaryKey"`
-	Trainer   Trainer
-	CreatedAt time.Time
-	UpdatedAt time.Time
-	DeletedAt sql.NullTime
-}
-
-type ClientUser struct {
-	UserID    string `gorm:"primaryKey"`
-	User      Users
-	ClientID  string `gorm:"primaryKey"`
-	Client    Client
-	CreatedAt time.Time
-	UpdatedAt time.Time
-	DeletedAt sql.NullTime
-}
-
-type AdminUser struct {
-	UserID    string `gorm:"primaryKey"`
-	User      Users
-	AdminID   string `gorm:"primaryKey"`
-	Admin     Admin
-	CreatedAt time.Time
-	UpdatedAt time.Time
-	DeletedAt sql.NullTime
+type ExerciseAssessment struct {
+	ExerciseID   string `gorm:"primaryKey"`
+	Exercise     Exercise
+	AssessmentID string `gorm:"primaryKey"`
+	Assessment   Assessment
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+	DeletedAt    sql.NullTime
 }
 
 type OrganisationTrainer struct {
