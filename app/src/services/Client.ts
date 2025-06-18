@@ -1,54 +1,44 @@
-import { useSupabaseClient } from "@/utils/supabase";
-import { SupabaseClient } from "@supabase/supabase-js";
-import { Client } from "@/models";
+import { CreateClientResponse, DeleteClientResponse, GetClientResponse, UpdateClientResponse } from "@/gen/web/shared/messages/v1/client_pb";
+import { adminGatewayClient } from "./shared";
+import { Client } from "@/gen/web/shared/entities/v1/client_pb";
 
-class ClientService {
-  private readonly CLIENT_TABLE = "clients";
-  private client: SupabaseClient = useSupabaseClient();
 
-  async getClients(page: number, limit: number): Promise<Client[]> {
-    const offset = (page - 1) * limit;
+export class AdminGatewayClientService {
+  private static client = adminGatewayClient;
 
-    const { data, error } = await this.client.from(this.CLIENT_TABLE).select("*").range(offset, offset + limit - 1);
+  public static async createClient(client: Client): Promise<CreateClientResponse> {
+    const response = await AdminGatewayClientService.client.createClient({
+      $typeName: 'shared.messages.v1.CreateClientRequest',
+      client,
+    });
 
-    if (error) {
-      throw error;
-    }
-
-    return data.map((client) => Client.parse(client));
+    return response;
   }
 
-  async getClientById(id: string): Promise<Client | null> {
-    const { data, error } = await this.client.from(this.CLIENT_TABLE).select("*").eq("id", id).limit(1);
+  public static async getClient(id: string): Promise<GetClientResponse> {
+    const response = await AdminGatewayClientService.client.getClient({
+      $typeName: 'shared.messages.v1.GetClientRequest',
+      id,
+    });
 
-    if (error) {
-      throw error;
-    }
-
-    return data.length > 0 ? Client.parse(data[0]) : null;
+    return response;
   }
 
-  async getClientByEmail(email: string): Promise<Client | null> {
-    const { data, error } = await this.client.from(this.CLIENT_TABLE).select("*").eq("email", email).limit(1);
+  public static async updateClient(client: Client): Promise<UpdateClientResponse> {
+    const response = await AdminGatewayClientService.client.updateClient({
+      $typeName: 'shared.messages.v1.UpdateClientRequest',
+      client,
+    });
 
-    if (error) {
-      throw error;
-    }
-
-    return data.length > 0 ? Client.parse(data[0]) : null;
+    return response;
   }
 
-  async createClient(client: Client): Promise<Client> {
-    const { data, error } = await this.client.from(this.CLIENT_TABLE).insert(client).select("*").limit(1).single();
+  public static async deleteClient(id: string): Promise<DeleteClientResponse> {
+    const response = await AdminGatewayClientService.client.deleteClient({
+      $typeName: 'shared.messages.v1.DeleteClientRequest',
+      id,
+    });
 
-    if (error) {
-      throw error;
-    }
-
-    return Client.parse(data);
+    return response;
   }
 }
-
-const clientService = new ClientService();
-
-export default clientService;
