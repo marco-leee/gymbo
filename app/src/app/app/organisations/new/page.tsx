@@ -3,6 +3,7 @@
 import { createOrganisation } from "@/services";
 import { Box, Button, Container, LoadingOverlay, Stack, Text, TextInput, Title } from "@mantine/core";
 import { useForm } from "@mantine/form";
+import { notifications } from "@mantine/notifications";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -49,6 +50,12 @@ export default function NewOrganisation() {
           nanos: 0,
         },
         deletedAt: undefined,
+      });
+
+      notifications.show({
+        title: 'Success',
+        message: `Organisation (${response.organisation?.name}) created successfully`,
+        color: 'green',
       });
 
     if (response.organisation?.id) {

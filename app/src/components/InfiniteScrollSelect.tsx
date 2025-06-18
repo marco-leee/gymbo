@@ -66,6 +66,7 @@ export function InfiniteScrollSelect({
   const handleChange = (value: string | null) => {
     if (value) {
       onChange(value);
+      setSearch('');
     }
   }
 
@@ -76,9 +77,9 @@ export function InfiniteScrollSelect({
         value={value}
         onChange={handleChange}
         data={allOptions}
-        searchable
-        searchValue={search}
-        onSearchChange={setSearch}
+        // searchable
+        // searchValue={search}
+        // onSearchChange={setSearch}
         placeholder={placeholder}
         label={label}
         description={description}
