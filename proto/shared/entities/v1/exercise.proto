@@ -22,34 +22,9 @@ message Exercise {
   string description = 6;
   ExerciseType type = 7;
   string comment = 8;
-  map<string, string> angles_of_interest_enum = 9;
-  map<string, Angle> angles_of_interest = 10;
-  map<string, Landmark2dResult> landmark_2d_results = 11;
-  map<string, Landmark3dResult> landmark_3d_results = 12;
-  google.protobuf.Timestamp created_at = 13;
-  google.protobuf.Timestamp updated_at = 14;
-  google.protobuf.Timestamp deleted_at = 15;
-}
-
-message Angle {
-  int32 idx = 1;
-  int32 degree = 2;
-}
-
-message Landmark2dResult {
-  int32 idx = 1;
-  float x = 2;
-  float y = 3;
-  float x_score = 4;
-  float y_score = 5;
-}
-
-message Landmark3dResult {
-  int32 idx = 1;
-  float score = 2;
-  float x = 3;
-  float y = 4;
-  float z = 5;
+  google.protobuf.Timestamp created_at = 9;
+  google.protobuf.Timestamp updated_at = 10;
+  google.protobuf.Timestamp deleted_at = 11;
 }
 
 message NewExercise {

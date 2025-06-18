@@ -15,9 +15,7 @@ message ExtendedExercise {
   shared.entities.v1.Client client = 1;
   shared.entities.v1.Exercise exercise = 2;
   repeated shared.entities.v1.Media media = 3;
-  optional shared.entities.v1.Trainer trainer = 4;
   repeated shared.entities.v1.Assessment assessments = 5;
-  optional shared.entities.v1.Organisation organisation = 6;
 }
 
 message ExtendedNewExercise {

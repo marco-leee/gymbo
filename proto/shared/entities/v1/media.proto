@@ -18,6 +18,13 @@ enum CameraView {
 
 enum Steps {
   STEP_UNSPECIFIED = 0;
+  STEP_QUEUING = 1;
+  STEP_INITIALIZING = 2;
+  STEP_PREPROCESSING = 3;
+  STEP_PROCESSING = 4;
+  STEP_POSTPROCESSING = 5;
+  STEP_FINALISING = 6;
+  STEP_COMPLETED = 7;
 }
 
 message Media {
@@ -30,14 +37,39 @@ message Media {
   string pose_detection_model_name = 7;
   map<string, string> metadata = 8;
   map<string, string> errors = 9;
-  google.protobuf.Timestamp completed_at = 10;
-  google.protobuf.Timestamp created_at = 11;
-  google.protobuf.Timestamp updated_at = 12;
-  google.protobuf.Timestamp deleted_at = 13;
+  map<string, string> angles_of_interest_enum = 10;
+  map<string, Angle> angles_of_interest = 11;
+  map<string, Landmark2dResult> landmark_2d_results = 12;
+  map<string, Landmark3dResult> landmark_3d_results = 13;
+  google.protobuf.Timestamp completed_at = 14;
+  google.protobuf.Timestamp created_at = 15;
+  google.protobuf.Timestamp updated_at = 16;
+  google.protobuf.Timestamp deleted_at = 17;
 }
 
 message NewMedia {
   CameraView camera_view = 1;
   string original_video_location = 2;
   map<string, string> metadata = 3;
+}
+
+message Angle {
+  int32 idx = 1;
+  int32 degree = 2;
+}
+
+message Landmark2dResult {
+  int32 idx = 1;
+  float x = 2;
+  float y = 3;
+  float x_score = 4;
+  float y_score = 5;
+}
+
+message Landmark3dResult {
+  int32 idx = 1;
+  float score = 2;
+  float x = 3;
+  float y = 4;
+  float z = 5;
 }
