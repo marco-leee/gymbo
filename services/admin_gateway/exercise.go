@@ -2,6 +2,7 @@ package admingateway
 
 import (
 	"context"
+	"fmt"
 
 	"connectrpc.com/connect"
 	v1_messages "gymbo.stixman.co/shared/gen/messages/v1"
@@ -124,6 +125,17 @@ func (as *AdminGateway) CreateExercise(ctx context.Context, req *connect.Request
 		if err := as.db.CreateMedia(media); err != nil {
 			return nil, err
 		}
+
+		// TODO: Encore and send to queue
+		msg := models.AsyncMediaProcessingQueueMessage{
+			Exercise: exercise.ToProto(),
+			Media:    media.ToProto(),
+		}
+		encoded, err := msg.Encode()
+		if err != nil {
+			return nil, err
+		}
+		fmt.Printf("%+v\n", string(encoded))
 	}
 
 	return connect.NewResponse(&v1_messages.CreateExerciseResponse{

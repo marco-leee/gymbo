@@ -6,6 +6,8 @@ option go_package = "gymbo.stixman.co/shared/gen/entities/v1";
 
 import "google/protobuf/timestamp.proto";
 
+import "shared/entities/v1/exercise.proto";
+
 enum CameraView {
   CAMERA_VIEW_UNSPECIFIED = 0;
   CAMERA_VIEW_FRONT = 1;
@@ -72,4 +74,9 @@ message Landmark3dResult {
   float x = 3;
   float y = 4;
   float z = 5;
+}
+
+message AsyncMediaProcessingQueueMessage {
+  shared.entities.v1.Exercise exercise = 1;
+  Media media = 2;
 }

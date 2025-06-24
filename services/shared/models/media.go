@@ -2,6 +2,7 @@ package models
 
 import (
 	"database/sql"
+	"encoding/json"
 	"time"
 
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -81,4 +82,10 @@ func MediasToProto(media []*Media) []*v1_entities.Media {
 		protoMedia[i] = m.ToProto()
 	}
 	return protoMedia
+}
+
+type AsyncMediaProcessingQueueMessage v1_entities.AsyncMediaProcessingQueueMessage
+
+func (m *AsyncMediaProcessingQueueMessage) Encode() ([]byte, error) {
+	return json.Marshal(m)
 }

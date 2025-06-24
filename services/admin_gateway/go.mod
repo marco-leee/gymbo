@@ -8,4 +8,7 @@ require (
 	google.golang.org/protobuf v1.36.6
 )
 
-require golang.org/x/text v0.26.0 // indirect
+require (
+	golang.org/x/oauth2 v0.30.0 // indirect
+	golang.org/x/text v0.26.0 // indirect
+)

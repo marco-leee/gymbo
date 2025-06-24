@@ -11,6 +11,7 @@ import (
 	"golang.org/x/net/http2/h2c"
 	"gymbo.stixman.co/admin_gateway/database"
 	"gymbo.stixman.co/admin_gateway/gen/gateways/v1/v1connect"
+	"gymbo.stixman.co/shared/crypto"
 	"gymbo.stixman.co/shared/interceptors"
 	"gymbo.stixman.co/shared/logger"
 	"gymbo.stixman.co/shared/storages"
@@ -25,6 +26,7 @@ type AdminGateway struct {
 
 type AdminGatewayServer struct {
 	adminGateway *AdminGateway
+	tokenManager crypto.ITokenManager
 }
 
 func newAdminGateway(ctx context.Context) *AdminGateway {
@@ -43,13 +45,27 @@ func newAdminGateway(ctx context.Context) *AdminGateway {
 }
 
 func New(ctx context.Context) *AdminGatewayServer {
+	tokenManager := crypto.NewTokenManager()
+	adminGateway := newAdminGateway(ctx)
+
 	return &AdminGatewayServer{
-		adminGateway: newAdminGateway(ctx),
+		adminGateway: adminGateway,
+		tokenManager: tokenManager,
 	}
 }
 
 func (ags *AdminGatewayServer) Register(mux *http.ServeMux) {
-	path, handler := v1connect.NewAdminGatewayServiceHandler(ags.adminGateway, connect.WithInterceptors(interceptors.LogRequest(), interceptors.Authentication(), interceptors.Authorisation()))
+	// Register gRPC routes
+	path, handler := v1connect.NewAdminGatewayServiceHandler(
+		ags.adminGateway,
+		connect.WithInterceptors(
+			interceptors.LogRequest(),
+			interceptors.Authentication(ags.tokenManager),
+			interceptors.Authorisation("admin"),
+			// TODO: Add rate limiting
+			// TODO: Add tracing
+		),
+	)
 	mux.Handle(path, handler)
 }
 
