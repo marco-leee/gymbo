@@ -4,7 +4,8 @@ import numpy as np
 from mediapipe.tasks.python.vision.pose_landmarker import PoseLandmarkerResult
 import cv2 as cv
 from utils.video import Video
-from exercises import ExerciseType
+from models.exercise import ExerciseType
+from exercises.base import KeyInterestPointEnum
 
 
 class KeyInterestPoint2D(NamedTuple):
@@ -20,6 +21,7 @@ class EstimatorOutput(NamedTuple):
     annotated_image: np.ndarray
     raw_landmarks: PoseLandmarkerResult
     key_interest_points_2d: Dict[str, KeyInterestPoint2D]
+    angle_of_interest_enum: KeyInterestPointEnum
 
 
 class Estimator(ABC):

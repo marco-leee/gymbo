@@ -11,7 +11,8 @@ from mediapipe.tasks.python.vision import (
     RunningMode,
 )
 
-from exercises import ExerciseType, Squat
+from models.exercise import ExerciseType
+from exercises import Squat
 from utils import Video
 
 BaseOptions = mp.tasks.BaseOptions
@@ -112,9 +113,11 @@ class MediapipeEstimator(Estimator, Video):
         self, video: Video, type: ExerciseType = None
     ) -> Generator[EstimatorOutput, None, None]:
         type_processor = None
+        angle_of_interest_enum = None
 
         if type is not None:
             type_processor = self._exercise_types[type]
+            angle_of_interest_enum = type_processor.get_key_interest_point_enum()
 
         with PoseLandmarker.create_from_options(self._options) as landmarker:
             for idx, frame in video.get_frames():
@@ -139,5 +142,9 @@ class MediapipeEstimator(Estimator, Video):
                 )
 
                 yield EstimatorOutput(
-                    idx, annotated_image, raw_landmark_2d, key_interest_points_2d
+                    idx,
+                    annotated_image,
+                    raw_landmark_2d,
+                    angle_of_interest_enum,
+                    key_interest_points_2d,
                 )

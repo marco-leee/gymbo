@@ -1,40 +1,25 @@
 import datetime
-import random
-from typing import List
 import socketio
 import socketio.exceptions
-import ulid
 import uvicorn
 import os
 import cv2
 import numpy as np
-import asyncio
 
 from estimator import MediapipeEstimator
 import logging
 
-from pydantic import BaseModel
-from pydantic.dataclasses import dataclass
 from exercises import ExerciseType
-from utils.room import Rooms
+from utils import Rooms
 
 
 root_path = os.path.dirname(os.path.abspath(__file__))
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
-
-@dataclass
-class Room:
-    id: str
-    type: ExerciseType
-    mobile_id: str
-    desktop_id: List[str]
-
-
 try:
     estimator = MediapipeEstimator(
-        model_path=os.path.join(root_path, "models", "pose_landmarker_lite.task")
+        model_path=os.path.join(root_path, "pose_models", "pose_landmarker_full.task")
     )
 except Exception as e:
     logger.fatal("pose estimator init failed", e)

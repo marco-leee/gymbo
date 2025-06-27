@@ -1,22 +1,9 @@
 from abc import abstractmethod, ABC
 from typing import Dict, NamedTuple, Tuple, TypeAlias
 import numpy as np
-from enum import Enum
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, RootModel
 
 from utils import CameraView
-
-
-class ExerciseType(Enum):
-    SQUAT = "SQUAT"
-    # PUSH_UP = "PUSH_UP"
-
-    def __str__(self):
-        return self.value
-
-    @staticmethod
-    def from_string(exercise: str):
-        return ExerciseType[exercise.upper()]
 
 
 # class KeyInterestPoint2D(NamedTuple):
@@ -75,6 +62,9 @@ class KeyInterestPoint2D(BaseModel):
         return all(0 <= x <= 255 for x in self.colour)
 
 
+KeyInterestPointEnum = RootModel[Dict[str, Dict[str, Tuple[int, int, int]]]]
+
+
 class KeyInterestPoint(ABC):
     def calculate_angle(self, a, b, c, outer=False) -> int:
         """
@@ -95,7 +85,11 @@ class KeyInterestPoint(ABC):
         return int(angle)
 
     @abstractmethod
+    def get_key_interest_point_enum(self) -> KeyInterestPointEnum:
+        raise NotImplementedError
+
+    @abstractmethod
     def get_2d_key_points(
         self, result, camera_view: CameraView, img_height: int, img_width: int
     ) -> Dict[str, KeyInterestPoint2D]:
-        pass
+        raise NotImplementedError

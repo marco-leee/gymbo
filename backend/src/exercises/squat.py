@@ -1,20 +1,23 @@
 from typing import Dict, Tuple
 
 from utils.video import CameraView
-from .base import KeyInterestPoint, KeyInterestPoint2D
+from .base import KeyInterestPoint, KeyInterestPoint2D, KeyInterestPointEnum
 
 
 class Squat(KeyInterestPoint):
-    CAMERA_VIEW_TO_KEY_POINT_INDEX = {
-        CameraView.LEFT: {
-            "INSIDE_KNEE": (23, 25, 27),  # Left hip, knee, ankle
-            "OUTSIDE_HIP": (11, 23, 25),  # Left shoulder, hip, knee
-        },
-        CameraView.RIGHT: {
-            "INSIDE_KNEE": (24, 26, 28),  # Right hip, knee, ankle
-            "OUTSIDE_HIP": (12, 24, 26),  # Right shoulder, hip, knee
-        },
-    }
+    def get_key_interest_point_enum(self) -> KeyInterestPointEnum:
+        return KeyInterestPointEnum(
+            **{
+                CameraView.LEFT.value: {
+                    "INSIDE_KNEE": (23, 25, 27),
+                    "OUTSIDE_HIP": (11, 23, 25),
+                },
+                CameraView.RIGHT.value: {
+                    "INSIDE_KNEE": (24, 26, 28),
+                    "OUTSIDE_HIP": (12, 24, 26),
+                },
+            }
+        )
 
     def calculate_inside_knee_angle(
         self, key_points: Tuple, idx_to_coordinates: Dict[int, tuple[int, int]]
@@ -88,9 +91,9 @@ class Squat(KeyInterestPoint):
         }
 
         key_points_2d = {}
-        for name, key_points in self.CAMERA_VIEW_TO_KEY_POINT_INDEX[
-            camera_view
-        ].items():
+        for name, key_points in (
+            self.get_key_interest_point_enum().dict()[camera_view.value].items()
+        ):
             match name:
                 case "OUTSIDE_HIP":
                     key_points_2d[name] = self.calculate_outside_hip_angle(

@@ -23,7 +23,7 @@ os.path.exists(os.path.join(root_path, "media", "out")) or os.makedirs(
 
 try:
     estimator = MediapipeEstimator(
-        model_path=os.path.join(root_path, "models", "pose_landmarker_full.task")
+        model_path=os.path.join(root_path, "pose_models", "pose_landmarker_full.task")
     )
 except Exception as e:
     logger.fatal("pose estimator init failed")
