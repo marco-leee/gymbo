@@ -29,6 +29,7 @@ class Video:
         self.height = int(self.video.get(cv2.CAP_PROP_FRAME_HEIGHT))
         self.shape = (self.width, self.height)
         self.total_frames = int(self.video.get(cv2.CAP_PROP_FRAME_COUNT))
+        self.duration = self.total_frames / self.fps
 
     def get_frames(self):
         has_next, frame = self.video.read()

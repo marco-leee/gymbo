@@ -19,11 +19,17 @@ def get_env(env_name: str, default: str = None) -> str:
 
 ENV = get_env("ENV", "production")
 
+DB_HOST = get_env("DB_HOST", "localhost")
+DB_PORT = get_env("DB_PORT", 32800)
+DB_USER = get_env("DB_USER", "admin")
+DB_PASSWORD = get_env("DB_PASSWORD", "local")
+DB_NAME = get_env("DB_NAME", "gymbo")
+
 
 S3_BUCKET = get_env("S3_BUCKET", "gymbo")
 S3_REGION = get_env("S3_REGION", "ap-southeast-7")
 S3_ENDPOINT = get_env(
     "S3_ENDPOINT", "http://localhost:9000" if ENV == "local" else None
 )
-S3_ACCESS_KEY = get_env("S3_ACCESS_KEY", "")
-S3_SECRET = get_env("S3_SECRET", "")
+S3_ACCESS_KEY = must_have_env("S3_ACCESS_KEY")
+S3_SECRET = must_have_env("S3_SECRET")

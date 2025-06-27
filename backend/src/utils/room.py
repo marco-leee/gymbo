@@ -2,7 +2,7 @@ from enum import Enum
 from typing import List
 from pydantic import BaseModel
 
-from exercises import ExerciseType
+from models.exercise import ExerciseType
 
 import logging
 
