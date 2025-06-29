@@ -1,17 +1,15 @@
 from pydantic import BaseModel, Field, RootModel
 from ulid import ULID
-from datetime import datetime
-from datetime import UTC
-from typing import Dict
-from utils import now
+from datetime import datetime, UTC
+from typing import Dict, List
 
 
 class Angle(BaseModel):
-    idx: int
     degree: int
+    comment: str | None = None
 
 
-AnglesOfInterest = RootModel[Dict[int, Angle]]
+AnglesOfInterest = RootModel[Dict[int, Dict[str, Angle]]]
 
 
 class Landmark2DResult(BaseModel):
@@ -22,7 +20,7 @@ class Landmark2DResult(BaseModel):
     y_score: float
 
 
-Landmark2DResults = RootModel[Dict[int, Landmark2DResult]]
+Landmark2DResults = RootModel[Dict[int, List[Landmark2DResult]]]
 
 
 class Landmark3DResult(BaseModel):
@@ -33,7 +31,7 @@ class Landmark3DResult(BaseModel):
     z: float
 
 
-Landmark3DResults = RootModel[Dict[int, Landmark3DResult]]
+Landmark3DResults = RootModel[Dict[int, List[Landmark3DResult]]]
 
 
 Metadata = RootModel[Dict[str, str]]
@@ -56,6 +54,6 @@ class Media(BaseModel):
     landmark2d_results: Landmark2DResults
     landmark3d_results: Landmark3DResults
     completed_at: datetime = Field(default=None)
-    created_at: datetime = Field(default_factory=now)
-    updated_at: datetime = Field(default_factory=now)
+    created_at: datetime = Field(default_factory=datetime.now(UTC))
+    updated_at: datetime = Field(default_factory=datetime.now(UTC))
     deleted_at: datetime = Field(default=None)

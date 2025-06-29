@@ -1,6 +1,8 @@
 import os
 import logging
 import time
+from pathlib import Path
+from typing import List
 import mediapipe as mp
 from mediapipe.tasks.python.vision.pose_landmarker import PoseLandmarkerResult
 from estimator.base import EstimatorOutput
@@ -25,7 +27,7 @@ from utils import (
     DB_USER,
     DB_PASSWORD,
     DB_NAME,
-    MAX_RETRY_ERROR,
+    MaxRetryError,
     MAX_RETRY_COUNT,
     get_temp_file_path,
     now,
@@ -33,6 +35,7 @@ from utils import (
 from database import Postgres, PostgresConfig
 from estimator import MediapipeEstimator
 from storage import S3StorageProvider
+from utils.error import MaxRetryError
 
 import cv2 as cv
 
@@ -57,8 +60,19 @@ class PoseEstimationWorker:
     def queuing(self, job: dict) -> None:
         self._repo.update_media_step(job["media"]["id"], "INITIALIZING")
 
-    def initializing(self, job: dict) -> None:
+    def initializing(self, job: dict) -> Path:
+        video_path = get_temp_file_path()
+
+        self._logger.info(
+            f"Downloading video from {job['media']['original_video_location']}"
+        )
+        self.storage_provider.download_object(
+            job["media"]["original_video_location"], video_path
+        )
+        self._logger.info(f"Video downloaded to {video_path}")
         self._repo.update_media_step(job["media"]["id"], "PREPROCESSING")
+
+        return video_path
 
     def preprocessing(self, job: dict) -> None:
         self._repo.update_media_step(job["media"]["id"], "PROCESSING")
@@ -70,31 +84,40 @@ class PoseEstimationWorker:
         self._repo.update_media_step(job["media"]["id"], "FINALISING")
 
     def completed(self, job: dict) -> None:
+        self._logger.info(f"Media {job['media']['id']} completed")
         self._repo.update_media_step(job["media"]["id"], "COMPLETED")
 
-    def postprocessing(self, result: EstimatorOutput) -> tuple[dict, dict, dict]:
-        # frame_count, annotated_image, raw_landmarks, key_interest_point_2d = result
+    def postprocessing(
+        self, result: EstimatorOutput
+    ) -> tuple[List[Angle], List[Landmark2DResult]]:
+        raw_landmarks = result.raw_landmarks
+        key_interest_point_2d = result.key_interest_points_2d
 
-        angle = Angle(idx=0, degree=0)
-        l2d = Landmark2DResult(idx=0, x=0, y=0, x_score=0, y_score=0)
-        l3d = Landmark3DResult(idx=0, score=0, x=0, y=0, z=0)
+        angle = {
+            key: Angle(
+                degree=key_interest_point_2d[key].angle,
+                comment=key_interest_point_2d[key].comment,
+            )
+            for key in key_interest_point_2d
+        }
 
-        # formatted_landmark_2d = [
-        #     {
-        #         "landmark_index": idx,
-        #         "x": each.x,
-        #         "y": each.y,
-        #         "x_score": each.visibility,
-        #         "y_score": each.visibility,
-        #     }
-        #     for idx, each in enumerate(result)
-        # ]
+        l2d = [
+            Landmark2DResult(
+                idx=idx,
+                x=each.x,
+                y=each.y,
+                x_score=each.visibility,
+                y_score=each.visibility,
+            )
+            for idx, each in enumerate(raw_landmarks)
+        ]
 
-        return angle, l2d, l3d
+        return angle, l2d
 
-    def handle_task(self, job: dict, video_path: str) -> None:
+    def handle_task(self, job: dict, video_path: Path) -> None:
+        camera_view = CameraView.RIGHT
 
-        video = Video(video_path, CameraView.RIGHT)
+        video = Video(video_path, camera_view)
 
         temp_video_path = get_temp_file_path(suffix=".mp4")
 
@@ -108,7 +131,6 @@ class PoseEstimationWorker:
 
         angles_of_interest = AnglesOfInterest({})
         landmark2d_results = Landmark2DResults({})
-        landmark3d_results = Landmark3DResults({})
 
         for result in self._estimator.detect_video(video, ExerciseType.SQUAT):
             if result is None:
@@ -116,10 +138,9 @@ class PoseEstimationWorker:
 
             new_video.write(result.annotated_image)
             frame_count = result.frame_count
-            aoi, l2d, l3d = self.postprocessing(result)
+            aoi, l2d = self.postprocessing(result)
             angles_of_interest.root[frame_count] = aoi
             landmark2d_results.root[frame_count] = l2d
-            landmark3d_results.root[frame_count] = l3d
 
         new_video.release()
 
@@ -152,16 +173,19 @@ class PoseEstimationWorker:
                 "duration": video.duration,
             },
             "processed_video_location": object_key,
-            # "angles_of_interest_enum": result.angle_of_interest_enum.model_dump(),
+            "angles_of_interest_enum": result.angle_of_interest_enum.model_dump()[
+                camera_view.value
+            ],
             "angles_of_interest": angles_of_interest.model_dump_json(),
             "landmark2d_results": landmark2d_results.model_dump_json(),
-            "landmark3d_results": landmark3d_results.model_dump_json(),
             "completed_at": now(),
         }
 
         self._repo.update_media(job["media"]["id"], media)
 
         # TODO: Update the job status
+
+        self.completed(job)
 
     def run(self):
         retry = 0
@@ -180,34 +204,28 @@ class PoseEstimationWorker:
         }
         # TODO: Parse the string
         # TODO: Validate the schema
+        self.queuing(job)
         # Turn into a tmp path
-        video_path = get_temp_file_path()
+        video_path = self.initializing(job)
 
-        self._logger.info(
-            f"Downloading video from {job['media']['original_video_location']}"
-        )
-        self.storage_provider.download_object(
-            job["media"]["original_video_location"], video_path
-        )
-        self._logger.info(f"Video downloaded to {video_path}")
+        while retry <= MAX_RETRY_COUNT:
+            try:
+                if retry > 0:
+                    if retry == MAX_RETRY_COUNT:
+                        raise MaxRetryError()
+                    self._logger.info(f"Retrying task {retry} of {MAX_RETRY_COUNT}")
 
-        self.handle_task(job, video_path)
-
-        # while retry <= MAX_RETRY_COUNT:
-        #     try:
-        #         if retry > 0:
-        #             if retry == MAX_RETRY_COUNT:
-        #                 raise MAX_RETRY_ERROR
-        #             self._logger.info(f"Retrying task {retry} of {MAX_RETRY_COUNT}")
-
-        #         self.handle_task(job, video_path)
-        #     except MAX_RETRY_ERROR:
-        #         self._logger.error(MAX_RETRY_ERROR)
-        #         break
-        #     except Exception as e:
-        #         self._logger.error(f"Error processing task: {e}")
-        #         retry += 1
-        #         time.sleep(3)
+                self.handle_task(job, video_path)
+                break
+            except MaxRetryError as e:
+                self._logger.error(e)
+                self._repo.update_media_error(media_id, e)
+                break
+            except Exception as e:
+                self._logger.error(f"Error processing task: {e}")
+                self._repo.update_media_error(media_id, e)
+                retry += 1
+                time.sleep(3)
 
 
 def main() -> None:

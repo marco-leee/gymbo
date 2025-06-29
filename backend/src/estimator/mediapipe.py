@@ -145,6 +145,6 @@ class MediapipeEstimator(Estimator, Video):
                     idx,
                     annotated_image,
                     raw_landmark_2d,
-                    angle_of_interest_enum,
                     key_interest_points_2d,
+                    angle_of_interest_enum,
                 )

@@ -4,10 +4,9 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.sql import text
 
-from models.exercise import Exercise
+from models import Exercise
 from utils import now
-from .tables.Exercise import ExerciseTable
-from .tables.Media import MediaTable
+from .tables import ExerciseTable, MediaTable
 from .base import db_transaction
 
 
@@ -110,13 +109,16 @@ class Postgres:
         return media
 
     @db_transaction
-    def delete_media(self, media_id: str) -> bool:
-        """Delete a media record (soft delete)"""
+    def update_media_error(self, media_id: str, error: Exception) -> MediaTable:
+        """Update the error of a media record"""
         media = self.get_media(media_id)
         if media:
-            media.deleted_at = now()
-            return True
-        return False
+            media.errors = {
+                **(media.errors if media.errors else {}),
+                str(now()): str(error),
+            }
+            media.updated_at = now()
+        return media
 
     def get_media_by_exercise(self, exercise_id: str) -> list[MediaTable]:
         """Get all media records for an exercise"""

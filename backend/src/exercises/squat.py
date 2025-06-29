@@ -73,6 +73,15 @@ class Squat(KeyInterestPoint):
         )
 
         check, colour = None, None
+        if angle in range(90, 120):
+            check = "GOOD"
+            colour = (0, 255, 0)
+        elif angle <= 90:
+            check = "TOO LOW"
+            colour = (255, 0, 0)
+        elif angle in range(120, 150):
+            check = "LOWER"
+            colour = (0, 255, 255)
 
         return KeyInterestPoint2D(
             idx_to_coordinates=idx_to_result,
