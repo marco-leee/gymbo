@@ -10,10 +10,12 @@ import "shared/messages/v1/trainer.proto";
 import "shared/messages/v1/exercise.proto";
 import "shared/messages/v1/assessment.proto";
 import "shared/messages/v1/media.proto";
+import "shared/messages/v1/auth.proto";
 
 service AdminGatewayService {
-  rpc GetAdmin(GetAdminRequest) returns (GetAdminResponse) {}
-  rpc RegisterAdmin(RegisterAdminRequest) returns (RegisterAdminResponse) {}
+  rpc Login(shared.messages.v1.LoginRequest) returns (shared.messages.v1.LoginResponse) {}
+  rpc GetCurrentUser(shared.messages.v1.GetCurrentUserRequest) returns (shared.messages.v1.GetCurrentUserResponse) {}
+  rpc RefreshToken(shared.messages.v1.RefreshTokenRequest) returns (shared.messages.v1.RefreshTokenResponse) {}
 
   // Organisation
   rpc GetOrganisation(shared.messages.v1.GetOrganisationRequest) returns (shared.messages.v1.GetOrganisationResponse) {}
@@ -53,11 +55,3 @@ service AdminGatewayService {
   // Media
   rpc SignMediaUpload(shared.messages.v1.SignMediaUploadRequest) returns (shared.messages.v1.SignMediaUploadResponse) {}
 }
-
-message GetAdminRequest {}
-
-message GetAdminResponse {}
-
-message RegisterAdminRequest {}
-
-message RegisterAdminResponse {}

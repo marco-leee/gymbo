@@ -14,8 +14,9 @@ const (
 
 type AuthPayload struct {
 	jwt.RegisteredClaims
-	UserId string `json:"user_id"`
-	Role   string `json:"role"`
+	Id    string `json:"id"`
+	Email string `json:"email"`
+	Role  string `json:"role"`
 }
 
 type TokenManager struct {
@@ -24,7 +25,7 @@ type TokenManager struct {
 }
 
 type ITokenManager interface {
-	GenerateToken(payload AuthPayload) (string, error)
+	GenerateToken(payload AuthPayload, expiry time.Duration) (string, error)
 	VerifyToken(token string) error
 	GetPayload(token string) (AuthPayload, error)
 }
@@ -38,13 +39,14 @@ func NewTokenManager() ITokenManager {
 	}
 }
 
-func (t *TokenManager) GenerateToken(payload AuthPayload) (string, error) {
+func (t *TokenManager) GenerateToken(payload AuthPayload, expiry time.Duration) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodRS256, AuthPayload{
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(TokenExpiry)),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(expiry)),
 		},
-		UserId: payload.UserId,
-		Role:   payload.Role,
+		Id:    payload.Id,
+		Email: payload.Email,
+		Role:  payload.Role,
 	})
 
 	return token.SignedString(t.privateKey)

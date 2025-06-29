@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"connectrpc.com/connect"
 	"gymbo.stixman.co/shared/crypto"
@@ -11,12 +12,14 @@ import (
 )
 
 const (
-	UserIdHeader   = "x-user-id"
-	UserRoleHeader = "x-user-role"
+	UserIdHeader    = "x-user-id"
+	UserRoleHeader  = "x-user-role"
+	UserEmailHeader = "x-user-email"
 )
 
 var skipRoutes = []string{
-	"/admin_gateway.AdminGatewayService/Login",
+	"/gateways.admin.v1.AdminGatewayService/Login",
+	"/gateways.admin.v1.AdminGatewayService/RefreshToken",
 }
 
 func Authentication(tokenManager crypto.ITokenManager) connect.UnaryInterceptorFunc {
@@ -29,16 +32,17 @@ func Authentication(tokenManager crypto.ITokenManager) connect.UnaryInterceptorF
 				return next(ctx, req)
 			}
 
-			fmt.Printf("[%s] TODO: Authenticating %s %s\n", req.Peer().Protocol, req.HTTPMethod(), req.Spec().Procedure)
+			fmt.Printf("[%s] Authenticating %s %s\n", req.Peer().Protocol, req.HTTPMethod(), req.Spec().Procedure)
 
 			token := req.Header().Get("Authorization")
+
 			if token == "" {
 				return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("missing token"))
 			}
 
-			err := tokenManager.VerifyToken(token)
+			token = strings.TrimPrefix(token, "Bearer ")
 
-			if err != nil {
+			if err := tokenManager.VerifyToken(token); err != nil {
 				return nil, connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("invalid token: %w", err))
 			}
 
@@ -48,8 +52,9 @@ func Authentication(tokenManager crypto.ITokenManager) connect.UnaryInterceptorF
 				return nil, connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("invalid payload: %w", err))
 			}
 
-			req.Header().Set(UserIdHeader, claims.UserId)
+			req.Header().Set(UserIdHeader, claims.Id)
 			req.Header().Set(UserRoleHeader, claims.Role)
+			req.Header().Set(UserEmailHeader, claims.Email)
 
 			return next(ctx, req)
 		})

@@ -12,4 +12,6 @@ var (
 
 	ErrEmailAlreadyInUse = connect.NewError(connect.CodeAlreadyExists, errors.New("email already in use"))
 	ErrEmailRequired     = connect.NewError(connect.CodeInvalidArgument, errors.New("email is required"))
+
+	ErrEntityNotFound = connect.NewError(connect.CodeNotFound, errors.New("entity not found"))
 )

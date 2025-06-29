@@ -19,38 +19,38 @@ import (
 
 type AdminGateway struct {
 	v1connect.UnimplementedAdminGatewayServiceHandler
-	db      *database.AdminGatewayDatabase
-	storage storages.IObjectStorage
-	Logger  *zap.Logger
+	db           *database.AdminGatewayDatabase
+	storage      storages.IObjectStorage
+	tokenManager crypto.ITokenManager
+	Logger       *zap.Logger
 }
 
 type AdminGatewayServer struct {
 	adminGateway *AdminGateway
-	tokenManager crypto.ITokenManager
 }
 
 func newAdminGateway(ctx context.Context) *AdminGateway {
 	db := database.New(ctx)
 	storage, err := storages.NewObjectStorage(ctx)
+	tokenManager := crypto.NewTokenManager()
 
 	if err != nil {
 		panic(err)
 	}
 
 	return &AdminGateway{
-		db:      db,
-		storage: storage,
-		Logger:  logger.New("admin_gateway"),
+		db:           db,
+		storage:      storage,
+		tokenManager: tokenManager,
+		Logger:       logger.New("admin_gateway"),
 	}
 }
 
 func New(ctx context.Context) *AdminGatewayServer {
-	tokenManager := crypto.NewTokenManager()
 	adminGateway := newAdminGateway(ctx)
 
 	return &AdminGatewayServer{
 		adminGateway: adminGateway,
-		tokenManager: tokenManager,
 	}
 }
 
@@ -60,7 +60,7 @@ func (ags *AdminGatewayServer) Register(mux *http.ServeMux) {
 		ags.adminGateway,
 		connect.WithInterceptors(
 			interceptors.LogRequest(),
-			interceptors.Authentication(ags.tokenManager),
+			interceptors.Authentication(ags.adminGateway.tokenManager),
 			interceptors.Authorisation("admin"),
 			// TODO: Add rate limiting
 			// TODO: Add tracing
