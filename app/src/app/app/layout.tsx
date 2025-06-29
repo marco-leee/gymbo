@@ -3,11 +3,12 @@
 import { AppShell, Burger, Group, NavLink, Text } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import React from "react";
-import { IconDeviceMobile, IconDeviceDesktop, IconForms, IconTreadmill, IconTrain, IconUser, IconDashboard, IconSettings, IconBuilding } from '@tabler/icons-react';
-import { useSession } from "@/context/SessionProvider";
-import { useRouter } from "next/navigation";
+import { IconDeviceMobile, IconDeviceDesktop, IconForms, IconTreadmill, IconTrain, IconUser, IconDashboard, IconSettings, IconBuilding, IconLogout, IconSwitch, IconDatabase } from '@tabler/icons-react';
+import { useAuth } from "@/context/AuthProvider";
+import { UserRole } from "@/types/auth";
+import { canUserAccessRoute } from "@/config/auth";
 
-const links = [
+const allLinks = [
   {
     href: "/app/dashboard",
     label: "Dashboard",
@@ -40,7 +41,7 @@ const links = [
   },
   {
     href: "/app/clients",
-    label: "Clients",
+    label: "Client Management",
     icon: <IconUser size={16} stroke={1.5} />,
   },
   {
@@ -53,6 +54,15 @@ const links = [
 export default function Layout({ children }: { children: React.ReactNode }) {
   const [mobileOpened, { toggle: toggleMobile }] = useDisclosure();
   const [desktopOpened, { toggle: toggleDesktop }] = useDisclosure();
+  const { user, logout, token } = useAuth();
+
+  // Filter links based on user role permissions
+  const filteredLinks = allLinks.filter(link => {
+    if (!user) return false;
+    return canUserAccessRoute(token?.user_type as UserRole, link.href);
+  });
+
+  const handleLogout = () => logout();
 
   return (
     <AppShell
@@ -61,15 +71,17 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       padding="md"
     >
       <AppShell.Header>
-        <Group h="100%" px="md">
-          <Burger opened={mobileOpened} onClick={toggleMobile} hiddenFrom="sm" size="sm" />
-          {/* <Burger opened={desktopOpened} onClick={toggleDesktop} visibleFrom="sm" size="sm" /> */}
-          <Text>Gymbo AI</Text>
+        <Group h="100%" px="md" justify="space-between">
+          <Group>
+            <Burger opened={mobileOpened} onClick={toggleMobile} hiddenFrom="sm" size="sm" />
+            <Text>Gymbo AI</Text>
+          </Group>
         </Group>
       </AppShell.Header>
+      
       <AppShell.Navbar p="md">
         <AppShell.Section grow>
-          {links.map((link) => (
+          {filteredLinks.map((link) => (
             <NavLink
               key={link.href}
               href={link.href}

@@ -8,10 +8,11 @@ import '@mantine/notifications/styles.css';
 import { createTheme, MantineProvider } from "@mantine/core";
 import { ConfigProvider } from "@/hooks/useConfig";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { SessionProvider } from "@/context/SessionProvider";
 import { TransportProvider } from '@connectrpc/connect-query';
 import { transport } from "@/services/shared";
 import { Notifications } from '@mantine/notifications';
+import { SessionProvider } from "next-auth/react";
+import { AuthProvider } from "@/context/AuthProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -46,15 +47,17 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <MantineProvider defaultColorScheme="light" theme={customTheme}>
-          <SessionProvider>
-            <ConfigProvider>
-              <TransportProvider transport={transport}>
-                <QueryClientProvider client={queryClient}>
-                  <Notifications />
-                  {children}
-                </QueryClientProvider>
-              </TransportProvider>
-            </ConfigProvider>
+          <SessionProvider basePath="/api/auth">
+            <AuthProvider>
+              <ConfigProvider>
+                <TransportProvider transport={transport}>
+                  <QueryClientProvider client={queryClient}>
+                    <Notifications />
+                    {children}
+                  </QueryClientProvider>
+                </TransportProvider>
+              </ConfigProvider>
+            </AuthProvider>
           </SessionProvider>
         </MantineProvider>
       </body>
