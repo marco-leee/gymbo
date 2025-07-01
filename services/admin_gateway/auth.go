@@ -2,7 +2,6 @@ package admingateway
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"connectrpc.com/connect"
@@ -49,8 +48,6 @@ func (ags *AdminGateway) Login(ctx context.Context, req *connect.Request[v1.Logi
 
 func (ags *AdminGateway) GetCurrentUser(ctx context.Context, req *connect.Request[v1.GetCurrentUserRequest]) (*connect.Response[v1.GetCurrentUserResponse], error) {
 	id := req.Header().Get(interceptors.UserIdHeader)
-
-	fmt.Println("id", id)
 
 	admin, err := ags.db.GetAdminByID(ctx, id)
 

@@ -29,6 +29,14 @@ enum Steps {
   STEP_COMPLETED = 7;
 }
 
+message AnglesOfInterestEnum {
+  message Enum {
+    repeated int32 enum = 1;
+  }
+
+  map<string, Enum> enums = 1;
+}
+
 message Media {
   string id = 1;
   string exercise_id = 2;
@@ -39,10 +47,10 @@ message Media {
   string pose_detection_model_name = 7;
   map<string, string> metadata = 8;
   map<string, string> errors = 9;
-  map<string, string> angles_of_interest_enum = 10;
-  map<string, Angle> angles_of_interest = 11;
-  map<string, Landmark2dResult> landmark_2d_results = 12;
-  map<string, Landmark3dResult> landmark_3d_results = 13;
+  AnglesOfInterestEnum angles_of_interest_enum = 10;
+  repeated AngleOfInterest angles_of_interest = 11;
+  repeated Landmark2dResults landmark_2d_results = 12;
+  repeated Landmark3dResults landmark_3d_results = 13;
   google.protobuf.Timestamp completed_at = 14;
   google.protobuf.Timestamp created_at = 15;
   google.protobuf.Timestamp updated_at = 16;
@@ -55,9 +63,14 @@ message NewMedia {
   map<string, string> metadata = 3;
 }
 
+
 message Angle {
-  int32 idx = 1;
-  int32 degree = 2;
+  int32 degree = 1;
+  string comment = 2;
+}
+
+message AngleOfInterest {
+  map<string, Angle> angles = 1;
 }
 
 message Landmark2dResult {
@@ -68,12 +81,20 @@ message Landmark2dResult {
   float y_score = 5;
 }
 
+message Landmark2dResults {
+  repeated Landmark2dResult results = 1;
+}
+
 message Landmark3dResult {
   int32 idx = 1;
   float score = 2;
   float x = 3;
   float y = 4;
   float z = 5;
+}
+
+message Landmark3dResults {
+  repeated Landmark3dResult results = 1;
 }
 
 message AsyncMediaProcessingQueueMessage {

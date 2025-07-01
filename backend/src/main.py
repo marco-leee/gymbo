@@ -2,7 +2,7 @@ import os
 import logging
 import time
 from pathlib import Path
-from typing import List
+from typing import Dict, List
 import mediapipe as mp
 from mediapipe.tasks.python.vision.pose_landmarker import PoseLandmarkerResult
 from estimator.base import EstimatorOutput
@@ -89,7 +89,7 @@ class PoseEstimationWorker:
 
     def postprocessing(
         self, result: EstimatorOutput
-    ) -> tuple[List[Angle], List[Landmark2DResult]]:
+    ) -> tuple[Dict[str, Angle], List[Landmark2DResult]]:
         raw_landmarks = result.raw_landmarks
         key_interest_point_2d = result.key_interest_points_2d
 
@@ -129,18 +129,17 @@ class PoseEstimationWorker:
             isColor=True,
         )
 
-        angles_of_interest = AnglesOfInterest({})
-        landmark2d_results = Landmark2DResults({})
+        angles_of_interest = AnglesOfInterest(angles=[])
+        landmark2d_results = Landmark2DResults(results=[])
 
         for result in self._estimator.detect_video(video, ExerciseType.SQUAT):
             if result is None:
                 continue
 
             new_video.write(result.annotated_image)
-            frame_count = result.frame_count
             aoi, l2d = self.postprocessing(result)
-            angles_of_interest.root[frame_count] = aoi
-            landmark2d_results.root[frame_count] = l2d
+            angles_of_interest.angles.append(aoi)
+            landmark2d_results.results.append(l2d)
 
         new_video.release()
 
@@ -176,8 +175,8 @@ class PoseEstimationWorker:
             "angles_of_interest_enum": result.angle_of_interest_enum.model_dump()[
                 camera_view.value
             ],
-            "angles_of_interest": angles_of_interest.model_dump_json(),
-            "landmark2d_results": landmark2d_results.model_dump_json(),
+            "angles_of_interest": angles_of_interest.model_dump()["angles"],
+            "landmark2d_results": landmark2d_results.model_dump()["results"],
             "completed_at": now(),
         }
 

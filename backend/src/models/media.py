@@ -1,3 +1,4 @@
+from typing_extensions import TypedDict
 from pydantic import BaseModel, Field, RootModel
 from ulid import ULID
 from datetime import datetime, UTC
@@ -9,10 +10,11 @@ class Angle(BaseModel):
     comment: str | None = None
 
 
-AnglesOfInterest = RootModel[Dict[int, Dict[str, Angle]]]
+class AnglesOfInterest(BaseModel):
+    angles: List[Dict[str, Angle]]
 
 
-class Landmark2DResult(BaseModel):
+class Landmark2DResult(TypedDict):
     idx: int
     x: float
     y: float
@@ -20,10 +22,11 @@ class Landmark2DResult(BaseModel):
     y_score: float
 
 
-Landmark2DResults = RootModel[Dict[int, List[Landmark2DResult]]]
+class Landmark2DResults(BaseModel):
+    results: List[List[Landmark2DResult]]
 
 
-class Landmark3DResult(BaseModel):
+class Landmark3DResult(TypedDict):
     idx: int
     score: float
     x: float
@@ -31,7 +34,8 @@ class Landmark3DResult(BaseModel):
     z: float
 
 
-Landmark3DResults = RootModel[Dict[int, List[Landmark3DResult]]]
+class Landmark3DResults(BaseModel):
+    results: List[List[Landmark3DResult]]
 
 
 Metadata = RootModel[Dict[str, str]]
