@@ -1,61 +1,28 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
-	import { onMount } from 'svelte';
-	import { authStore } from '$lib/auth/index.js';
-	import { canUserAccessRoute } from '$lib/auth/config.js';
-	import type { AuthState } from '$lib/auth/types.js';
 	import NavMain from './nav-main.svelte';
 	import NavUser from './nav-user.svelte';
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
 	import CommandIcon from '@lucide/svelte/icons/command';
-	import MonitorIcon from '@lucide/svelte/icons/monitor';
-	import SmartphoneIcon from '@lucide/svelte/icons/smartphone';
-	import ClipboardListIcon from '@lucide/svelte/icons/clipboard-list';
-	import DumbbellIcon from '@lucide/svelte/icons/dumbbell';
-	import UsersIcon from '@lucide/svelte/icons/users';
+	import LayoutDashboardIcon from '@lucide/svelte/icons/layout-dashboard';
 	import UserIcon from '@lucide/svelte/icons/user';
-	import BuildingIcon from '@lucide/svelte/icons/building';
+	import CalendarIcon from '@lucide/svelte/icons/calendar';
 	import Settings2Icon from '@lucide/svelte/icons/settings-2';
 	import type { ComponentProps } from 'svelte';
 
 	const navMainConfig = [
-		{ title: 'Pose Detection Live', url: '/dashboard/desktop', icon: MonitorIcon },
-		{ title: 'Pose Detection Mobile', url: '/dashboard/mobile', icon: SmartphoneIcon },
-		{ title: 'Assessments', url: '/dashboard/assessments', icon: ClipboardListIcon },
-		{ title: 'Exercises', url: '/dashboard/exercises', icon: DumbbellIcon },
-		{ title: 'Trainers', url: '/dashboard/trainers', icon: UsersIcon },
-		{ title: 'Clients', url: '/dashboard/clients', icon: UserIcon },
-		{ title: 'Organisations', url: '/dashboard/organisations', icon: BuildingIcon },
-		{ title: 'Settings', url: '/dashboard/settings', icon: Settings2Icon },
+		{ title: 'Dashboard', url: '/app/dashboard', icon: LayoutDashboardIcon },
+		{ title: 'Clients', url: '/app/clients', icon: UserIcon },
+		{ title: 'Sessions', url: '/app/sessions', icon: CalendarIcon },
+		{ title: 'Settings', url: '/app/settings', icon: Settings2Icon },
 	];
 
-	let authState = $state<AuthState>({
-		isLoading: true,
-		isAuthenticated: false,
-		user: null,
-		token: null,
-		gateway: null,
-	});
-
-	onMount(() => authStore.subscribe((s) => (authState = s)));
-
 	const filteredNavMain = $derived(
-		navMainConfig
-			.filter((item) => {
-				const role = authState.token?.user_type;
-				if (!role) return false;
-				return canUserAccessRoute(role, item.url);
-			})
-			.map((item) => ({
-				...item,
-				isActive: $page.url.pathname === item.url || $page.url.pathname.startsWith(item.url + '/'),
-			}))
+		navMainConfig.map((item) => ({
+			...item,
+			isActive: $page.url.pathname === item.url || $page.url.pathname.startsWith(item.url + '/'),
+		}))
 	);
-
-	function handleLogout() {
-		authStore.logout((path) => goto(path));
-	}
 
 	let { ref = $bindable(null), ...restProps }: ComponentProps<typeof Sidebar.Root> = $props();
 </script>
@@ -66,7 +33,7 @@
 			<Sidebar.MenuItem>
 				<Sidebar.MenuButton size="lg">
 					{#snippet child({ props })}
-						<a href="/dashboard" {...props}>
+						<a href="/app/dashboard" {...props}>
 							<div
 								class="bg-sidebar-primary text-sidebar-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg"
 							>
@@ -86,9 +53,6 @@
 		<NavMain items={filteredNavMain} />
 	</Sidebar.Content>
 	<Sidebar.Footer>
-		<NavUser
-			user={authState.user ? { name: authState.user.name ?? '', email: authState.user.email ?? '', avatar: '' } : { name: '', email: '', avatar: '' }}
-			onLogout={handleLogout}
-		/>
+		<NavUser user={{ name: 'Guest', email: '', avatar: '' }} onLogout={() => {}} />
 	</Sidebar.Footer>
 </Sidebar.Root>
