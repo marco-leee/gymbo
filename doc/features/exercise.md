@@ -408,23 +408,48 @@ deprecated_at:
 > [!NOTE]
 > Organised by domain, modularised
 
+### API
+
+#### Client API Endpoints
+
+| Method | Endpoint | Description | Request Body | Response |
+|--------|----------|-------------|--------------|----------|
+| GET | /api/clients | List all clients | Query: `?search=&limit=20&offset=0` | `{ clients: Client[], total: number }` |
+| POST | /api/clients | Create a new client | `{ email, full_name, first_name, last_name, gender, height_cm, weight_kg }` | `Client` |
+| GET | /api/clients/[id] | Get client by ID | - | `Client` |
+| PUT | /api/clients/[id] | Update client | `{ gender?, height_cm?, weight_kg?, user? }` | `Client` |
+| DELETE | /api/clients/[id] | Delete client (soft delete) | - | `{ success: boolean }` |
+| GET | /api/clients/[id]/sessions | Get client's sessions | Query: `?from=&to=&status=` | `Session[]` |
+
 ### Database
 
 #### Database Schema
 
 ```mermaid
 classDiagram
-    class A {
-        string id pk
+    class Client {
+        string _id pk
+        string user_id unique
+        string gender
+        double height_cm
+        double weight_kg
         timestamp created_at
         timestamp updated_at
+        timestamp deleted_at
+        User user embedded
     }
 
-    class B {
-        string id pk
+    class User {
+        string email unique
+        string full_name
+        string first_name
+        string last_name
         timestamp created_at
         timestamp updated_at
+        timestamp deleted_at
     }
+
+    Client --> User : embeds
 ```
 
 ### Third Party Services

@@ -14,7 +14,7 @@
 		{ title: 'Dashboard', url: '/app/dashboard', icon: LayoutDashboardIcon },
 		{ title: 'Clients', url: '/app/clients', icon: UserIcon },
 		{ title: 'Sessions', url: '/app/sessions', icon: CalendarIcon },
-		{ title: 'Settings', url: '/app/settings', icon: Settings2Icon },
+		// { title: 'Settings', url: '/app/settings', icon: Settings2Icon },
 	];
 
 	const filteredNavMain = $derived(
