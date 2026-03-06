@@ -7,7 +7,6 @@
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import SearchIcon from '@lucide/svelte/icons/search';
 	import { listClients, getClient } from '$lib/api/clients';
-	import { queryClient } from '$lib/query-client';
 
 	let search = $state('');
 	let selectedClientId = $state<string | null>(null);

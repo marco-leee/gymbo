@@ -1,5 +1,5 @@
 import { MongoClient, ObjectId, type Collection, type WithId, type Filter } from 'mongodb';
-import { ulid, z } from 'zod';
+import { z } from 'zod';
 import { env } from '$env/dynamic/private';
 import { v7 as uuidv7 } from 'uuid';
 

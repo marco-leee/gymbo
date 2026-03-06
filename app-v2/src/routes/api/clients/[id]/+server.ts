@@ -43,7 +43,7 @@ export const GET: RequestHandler = async ({ params }) => {
 		return json(serializeClient(client));
 	} catch (err) {
 		if (err instanceof z.ZodError) {
-			throw error(400, err.errors.map(e => e.message).join(', '));
+			throw error(400, err.issues.map(e => e.message).join(', '));
 		}
 		if (err instanceof Error && 'status' in err) throw err;
 		console.error('Failed to get client:', err);
@@ -77,7 +77,7 @@ export const PUT: RequestHandler = async ({ params, request }) => {
 		return json(serializeClient(updated));
 	} catch (err) {
 		if (err instanceof z.ZodError) {
-			throw error(400, err.errors.map(e => e.message).join(', '));
+			throw error(400, err.issues.map(e => e.message).join(', '));
 		}
 		if (err instanceof Error && 'status' in err) throw err;
 		console.error('Failed to update client:', err);
@@ -103,7 +103,7 @@ export const DELETE: RequestHandler = async ({ params }) => {
 		return json({ success: true });
 	} catch (err) {
 		if (err instanceof z.ZodError) {
-			throw error(400, err.errors.map(e => e.message).join(', '));
+			throw error(400, err.issues.map(e => e.message).join(', '));
 		}
 		if (err instanceof Error && 'status' in err) throw err;
 		console.error('Failed to delete client:', err);
