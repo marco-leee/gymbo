@@ -6,8 +6,8 @@ import {
 	createClient,
 	CreateClientSchema,
 	type ClientDoc,
-	generateUUID
-} from '$lib/services/mongo';
+} from '$lib/services/models/client';
+import { generateUUID } from '$lib/services/mongo';
 import { ObjectId } from 'mongodb';
 
 const ListQuerySchema = z.object({

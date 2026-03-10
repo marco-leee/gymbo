@@ -2,12 +2,12 @@ import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { z } from 'zod';
 import {
+	UpdateClientSchema,
+	type ClientDoc,
 	getClientById,
 	updateClient,
-	softDeleteClient,
-	UpdateClientSchema,
-	type ClientDoc
-} from '$lib/services/mongo';
+	softDeleteClient
+} from '$lib/services/models/client';
 import { ObjectId } from 'mongodb';
 
 const IdParamSchema = z.string().refine(val => ObjectId.isValid(val), {
