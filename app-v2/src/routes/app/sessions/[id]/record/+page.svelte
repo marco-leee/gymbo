@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { page } from "$app/stores";
 	import { invalidateAll } from "$app/navigation";
-	import { onDestroy, onMount } from "svelte";
+	import { onDestroy } from "svelte";
 	import { Button } from "$lib/components/ui/button/index.js";
 	import { Badge } from "$lib/components/ui/badge/index.js";
 	import {
@@ -29,6 +29,7 @@
 		type ExerciseSet,
 	} from "$lib/api/sessions";
 	import { createMutation } from "@tanstack/svelte-query";
+	import { getPoseModelData } from "$lib/services/model-cache";
 	import YoloWorker from "$lib/workers/yolo.worker?worker";
 	// import { LineChart } from "layerchart";
 
@@ -107,7 +108,6 @@
 	const MAX_VIDEO_SIZE = 200 * 1024 * 1024; // 200MB
 	const MAX_VIDEO_DURATION_SEC = 60;
 	const MODEL_INPUT_SIZE = 640;
-	const MODEL_URL = "/yolo26s-pose.onnx";
 	const POSE_CONFIDENCE_THRESHOLD = 0.25;
 	const RIGHT_SHOULDER_IDX = 6;
 	const RIGHT_HIP_IDX = 12;
@@ -133,6 +133,7 @@
 	let durationCheckVideoEl = $state<HTMLVideoElement | null>(null);
 	let yoloWorker: Worker | null = null;
 	let yoloWorkerReadyPromise: Promise<void> | null = null;
+	let yoloWorkerBootPromise: Promise<void> | null = null;
 	let resolveYoloWorkerReady: (() => void) | null = null;
 	let rejectYoloWorkerReady: ((reason?: unknown) => void) | null = null;
 	let nextPoseRequestId = 1;
@@ -204,6 +205,20 @@
 		pendingPoseRequests.clear();
 	}
 
+	function destroyYoloWorker(reason = new Error("Pose worker destroyed")) {
+		rejectYoloWorkerReady?.(reason);
+		rejectYoloWorkerReady = null;
+		resolveYoloWorkerReady = null;
+		rejectPendingPoseRequests(reason);
+		if (yoloWorker) {
+			yoloWorker.postMessage({ type: "dispose" });
+			yoloWorker.terminate();
+			yoloWorker = null;
+		}
+		yoloWorkerReadyPromise = null;
+		yoloWorkerBootPromise = null;
+	}
+
 	function handleYoloWorkerMessage(event: MessageEvent<PoseWorkerMessage>) {
 		const message = event.data;
 		if (message.type === "ready") {
@@ -223,9 +238,7 @@
 				}
 			}
 
-			rejectYoloWorkerReady?.(new Error(message.message));
-			rejectYoloWorkerReady = null;
-			resolveYoloWorkerReady = null;
+			destroyYoloWorker(new Error(message.message));
 			console.error("Pose worker error", message.message);
 			return;
 		}
@@ -237,25 +250,42 @@
 		pending.resolve(message);
 	}
 
-	function createYoloWorker() {
+	async function createYoloWorker() {
 		if (yoloWorker) return;
+		if (yoloWorkerBootPromise) {
+			await yoloWorkerBootPromise;
+			return;
+		}
 
 		resetYoloWorkerReadyPromise();
-		yoloWorker = new YoloWorker();
-		yoloWorker.onmessage = handleYoloWorkerMessage;
-		yoloWorker.onerror = (event) => {
-			const error = new Error(event.message || "Pose worker crashed");
-			rejectYoloWorkerReady?.(error);
-			rejectYoloWorkerReady = null;
-			resolveYoloWorkerReady = null;
-			rejectPendingPoseRequests(error);
-			console.error("Pose worker crashed", error);
-		};
-		yoloWorker.postMessage({ type: "init", modelUrl: MODEL_URL });
+		yoloWorkerBootPromise = (async () => {
+			const modelData = await getPoseModelData();
+			const worker = new YoloWorker();
+			worker.onmessage = handleYoloWorkerMessage;
+			worker.onerror = (event) => {
+				const error = new Error(event.message || "Pose worker crashed");
+				destroyYoloWorker(error);
+				console.error("Pose worker crashed", error);
+			};
+			yoloWorker = worker;
+			worker.postMessage({ type: "init", modelData }, [modelData]);
+			await yoloWorkerReadyPromise;
+		})()
+			.catch((error) => {
+				destroyYoloWorker(
+					error instanceof Error ? error : new Error("Pose worker failed"),
+				);
+				throw error;
+			})
+			.finally(() => {
+				yoloWorkerBootPromise = null;
+			});
+
+		await yoloWorkerBootPromise;
 	}
 
 	async function ensureYoloWorkerReady() {
-		createYoloWorker();
+		await createYoloWorker();
 		if (!yoloWorker || !yoloWorkerReadyPromise) {
 			throw new Error("Pose worker was not created");
 		}
@@ -565,6 +595,8 @@
 				void video.play().catch(finish);
 			});
 		} catch (error) {
+			uploadError =
+				error instanceof Error ? error.message : "Pose processing failed";
 			console.error("Pose processing failed", error);
 		} finally {
 			video.pause();
@@ -574,22 +606,8 @@
 		}
 	}
 
-	onMount(() => {
-		createYoloWorker();
-	});
-
 	onDestroy(() => {
-		const error = new Error("Pose worker destroyed");
-		rejectYoloWorkerReady?.(error);
-		rejectYoloWorkerReady = null;
-		resolveYoloWorkerReady = null;
-		rejectPendingPoseRequests(error);
-		if (yoloWorker) {
-			yoloWorker.postMessage({ type: "dispose" });
-			yoloWorker.terminate();
-			yoloWorker = null;
-		}
-		yoloWorkerReadyPromise = null;
+		destroyYoloWorker();
 	});
 
 	async function handleVideoFileSelect(e: Event) {

@@ -9,7 +9,7 @@ const workerScope = self as unknown as WorkerScope;
 
 type InitMessage = {
 	type: "init";
-	modelUrl: string;
+	modelData: ArrayBuffer;
 };
 
 type RunMessage = {
@@ -47,7 +47,7 @@ type PoseDetection = {
 };
 
 let sessionPromise: Promise<ort.InferenceSession> | null = null;
-let modelUrl = "/yolo26s-pose.onnx";
+let modelData: ArrayBuffer | null = null;
 
 function configureOrt() {
 	ort.env.wasm.wasmPaths = "/ort/";
@@ -55,9 +55,13 @@ function configureOrt() {
 }
 
 function getSession() {
+	if (!modelData) {
+		throw new Error("Pose model was not initialized");
+	}
+
 	if (!sessionPromise) {
 		configureOrt();
-		sessionPromise = ort.InferenceSession.create(modelUrl, {
+		sessionPromise = ort.InferenceSession.create(new Uint8Array(modelData), {
 			executionProviders: ["webgpu", "wasm"],
 		}).catch((error) => {
 			sessionPromise = null;
@@ -134,11 +138,13 @@ workerScope.onmessage = async (event: MessageEvent<WorkerMessage>) => {
 	try {
 		if (message.type === "dispose") {
 			sessionPromise = null;
+			modelData = null;
 			return;
 		}
 
 		if (message.type === "init") {
-			modelUrl = message.modelUrl;
+			modelData = message.modelData;
+			sessionPromise = null;
 			await getSession();
 			workerScope.postMessage({ type: "ready" });
 			return;

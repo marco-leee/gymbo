@@ -1,21 +1,21 @@
-import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import {
+	GetObjectCommand,
+	HeadObjectCommand,
+	PutObjectCommand,
+	S3Client
+} from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import { env } from '$env/dynamic/private';
+import { env } from '$lib/env';
 
 const PRESIGN_PUT_EXPIRES_IN = 15 * 60; // 15 minutes
 const PRESIGN_GET_EXPIRES_IN = 15 * 60; // 15 minutes
+const MODEL_PRESIGN_GET_EXPIRES_IN = 60 * 60; // 1 hour
 
 function getS3Client(): S3Client {
-	const endpoint = env.STORAGE_ENDPOINT || 'http://localhost:9000';
-	const region = env.STORAGE_REGION || 'ap-southeast-1';
-	const accessKey = env.STORAGE_ACCESS_KEY || 'admin';
-	const secretKey = env.STORAGE_SECRET_KEY || 'qwertyui';
-
-
-	console.log('endpoint', endpoint);
-	console.log('region', region);
-	console.log('accessKey', accessKey);
-	console.log('secretKey', secretKey);
+	const endpoint = env.STORAGE_ENDPOINT;
+	const region = env.STORAGE_REGION;
+	const accessKey = env.STORAGE_ACCESS_KEY;
+	const secretKey = env.STORAGE_SECRET_KEY;
 
 	return new S3Client({
 		region,
@@ -26,7 +26,7 @@ function getS3Client(): S3Client {
 }
 
 export function getPresignedPutUrl(key: string, contentType: string): Promise<string> {
-	const bucket = env.STORAGE_BUCKET || 'gymbo';
+	const bucket = env.STORAGE_BUCKET;
 	const client = getS3Client();
 	return getSignedUrl(
 		client,
@@ -40,7 +40,17 @@ export function getPresignedPutUrl(key: string, contentType: string): Promise<st
 }
 
 export async function getPresignedPlayUrl(key: string): Promise<string> {
-	const bucket = env.STORAGE_BUCKET || 'gymbo';
+	return getPresignedGetUrl(key);
+}
+
+export function getPresignedGetUrl(
+	key: string,
+	options?: {
+		bucket?: string;
+		expiresIn?: number;
+	}
+): Promise<string> {
+	const bucket = options?.bucket || env.STORAGE_BUCKET;
 	const client = getS3Client();
 	return getSignedUrl(
 		client,
@@ -48,6 +58,39 @@ export async function getPresignedPlayUrl(key: string): Promise<string> {
 			Bucket: bucket,
 			Key: key
 		}),
-		{ expiresIn: PRESIGN_GET_EXPIRES_IN }
+		{ expiresIn: options?.expiresIn ?? PRESIGN_GET_EXPIRES_IN }
 	);
+}
+
+export async function getModelDownload(): Promise<{
+	version: string;
+	downloadUrl: string;
+	etag?: string;
+	contentLength?: number;
+}> {
+	const key = env.MODEL_KEY;
+	if (!key) {
+		throw new Error('MODEL_KEY is required');
+	}
+
+	const bucket = env.MODEL_BUCKET;
+	const client = getS3Client();
+	const head = await client.send(
+		new HeadObjectCommand({
+			Bucket: bucket,
+			Key: key
+		})
+	);
+
+	console.log(head)
+
+	return {
+		version: env.MODEL_VERSION || head.ETag || key,
+		downloadUrl: await getPresignedGetUrl(key, {
+			bucket,
+			expiresIn: MODEL_PRESIGN_GET_EXPIRES_IN
+		}),
+		etag: head.ETag ?? undefined,
+		contentLength: typeof head.ContentLength === 'number' ? head.ContentLength : undefined
+	};
 }

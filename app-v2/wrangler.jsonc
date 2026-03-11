@@ -6,6 +6,18 @@
 	"compatibility_date": "2026-03-05",
 	"assets": {
 		"binding": "ASSETS",
-		"directory": ".svelte-kit/cloudflare",
+		"directory": ".svelte-kit/cloudflare"
 	},
+	"vars": {
+		"MONGO_URI": "mongodb+srv://marcoleee:caOGw4yUSFmBqTL8@crypto-tracker.kjy3prt.mongodb.net/?retryWrites=true&w=majority&appName=crypto-tracker",
+		"MONGO_DB_NAME": "gymbo",
+		"STORAGE_ENDPOINT": "https://268adecdecc87f021913d88c8d0a9073.r2.cloudflarestorage.com",
+		"STORAGE_REGION": "ap-southeast-1",
+		"STORAGE_ACCESS_KEY": "3a9f51fc613bfd29c98d3ee58429743d",
+		"STORAGE_SECRET_KEY": "89465bb43c41df7b24617483aac769d1b878670d9d6fcc91c4c7eb7035c46453",
+		"STORAGE_BUCKET": "gymbo",
+		"MODEL_KEY": "yolo26s-pose.onnx",
+		"MODEL_BUCKET": "gymbo",
+		"MODEL_VERSION": "v1"
+	}
 }

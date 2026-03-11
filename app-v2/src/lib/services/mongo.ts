@@ -1,10 +1,10 @@
 import { MongoClient, ObjectId, type Collection, type WithId, type Filter } from 'mongodb';
 import { z } from 'zod';
-import { env } from '$env/dynamic/private';
+import { env } from '$lib/env';
 import { v7 as uuidv7 } from 'uuid';
 
-const MONGO_URI = env.MONGO_URI || 'mongodb://admin:local@localhost:27017';
-const DB_NAME = env.MONGO_DB_NAME || 'gymbo';
+const MONGO_URI = env.MONGO_URI;
+const DB_NAME = env.MONGO_DB_NAME;
 
 let client: MongoClient | null = null;
 
