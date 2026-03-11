@@ -32,8 +32,8 @@ export async function listClients(search?: string, limit = 20, offset = 0): Prom
 	return response.json();
 }
 
-export async function getClient(id: string): Promise<Client> {
-	const response = await fetch(`/api/clients/${id}`);
+export async function getClient(id: string, fetchFn: typeof fetch = fetch): Promise<Client> {
+	const response = await fetchFn(`/api/clients/${id}`);
 	if (!response.ok) {
 		throw new Error(`Failed to get client: ${response.statusText}`);
 	}

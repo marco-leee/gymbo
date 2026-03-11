@@ -7,12 +7,12 @@ export interface SessionPageData {
 	client: Client | null;
 }
 
-export const load: PageLoad = async ({ params }): Promise<SessionPageData> => {
-	const session = await getSession(params.id);
-	
+export const load: PageLoad = async ({ params, fetch }): Promise<SessionPageData> => {
+	const session = await getSession(params.id, fetch);
+
 	let client: Client | null = null;
 	try {
-		client = await getClient(session.client_id);
+		client = await getClient(session.client_id, fetch);
 	} catch {
 		// Client might not exist or be deleted
 		client = null;

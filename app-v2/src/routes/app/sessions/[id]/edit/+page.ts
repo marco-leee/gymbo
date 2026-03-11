@@ -7,11 +7,11 @@ export interface SessionEditPageData {
 	client: Client | null;
 }
 
-export const load: PageLoad = async ({ params }): Promise<SessionEditPageData> => {
-	const session = await getSession(params.id);
+export const load: PageLoad = async ({ params, fetch }): Promise<SessionEditPageData> => {
+	const session = await getSession(params.id, fetch);
 	let client: Client | null = null;
 	try {
-		client = await getClient(session.client_id);
+		client = await getClient(session.client_id, fetch);
 	} catch {
 		client = null;
 	}

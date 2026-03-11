@@ -261,7 +261,7 @@
 								<div class="text-muted-foreground text-sm">{formatTime(session.scheduled_at)}</div>
 							</Table.Cell>
 							<Table.Cell class="font-medium">
-								{session.client_name ?? session.client_id}
+								{session.client_name ||  session.client_id}
 							</Table.Cell>
 							<Table.Cell>
 								{getExerciseCount(session)} exercise{getExerciseCount(session) === 1 ? '' : 's'}

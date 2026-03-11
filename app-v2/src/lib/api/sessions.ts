@@ -19,6 +19,7 @@ export interface ExerciseSet {
 	weight_kg?: number;
 	rpe?: number;
 	video_url?: string;
+	video_play_url?: string;
 	status: 'pending' | 'completed' | 'processing';
 	notes?: string;
 }
@@ -77,8 +78,8 @@ export async function listSessions(params?: ListSessionsParams): Promise<ListSes
 	return response.json();
 }
 
-export async function getSession(id: string): Promise<Session> {
-	const response = await fetch(`/api/sessions/${id}`);
+export async function getSession(id: string, fetchFn: typeof fetch = fetch): Promise<Session> {
+	const response = await fetchFn(`/api/sessions/${id}`);
 	if (!response.ok) {
 		throw new Error(`Failed to get session: ${response.statusText}`);
 	}

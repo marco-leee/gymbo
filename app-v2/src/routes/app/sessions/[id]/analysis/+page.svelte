@@ -179,7 +179,19 @@
 											<Table.Cell>{set.weight_kg ?? '—'} kg</Table.Cell>
 											<Table.Cell>{set.rpe ?? '—'}</Table.Cell>
 											<Table.Cell>
-												{#if set.video_url}
+												{#if set.video_play_url}
+													<div class="flex flex-col gap-1">
+														<Badge variant="secondary">Recorded</Badge>
+														<video
+															src={set.video_play_url}
+															controls
+															class="max-h-24 w-full rounded border bg-muted"
+															muted
+															playsinline
+															preload="metadata"
+														></video>
+													</div>
+												{:else if set.video_url}
 													<Badge variant="secondary">Recorded</Badge>
 												{:else}
 													<span class="text-muted-foreground">—</span>
