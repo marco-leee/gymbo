@@ -1,4 +1,4 @@
-import { MongoClient, ObjectId, type Collection, type WithId, type Filter } from 'mongodb';
+import { MongoClient, ObjectId, type Collection, type WithId, type Filter, ServerApiVersion } from 'mongodb';
 import { z } from 'zod';
 import { env } from '$lib/env';
 import { v7 as uuidv7 } from 'uuid';
@@ -10,7 +10,14 @@ let client: MongoClient | null = null;
 
 export async function getMongoClient(): Promise<MongoClient> {
 	if (!client) {
-		client = new MongoClient(MONGO_URI);
+		console.log('MONGO_URI', MONGO_URI);
+		client = new MongoClient(MONGO_URI, {
+			serverApi: {
+				version: ServerApiVersion.v1,
+				strict: true,
+				deprecationErrors: true,
+			},
+		});
 		await client.connect();
 	}
 	return client;

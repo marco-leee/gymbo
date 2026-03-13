@@ -108,6 +108,8 @@
 	const MAX_VIDEO_SIZE = 200 * 1024 * 1024; // 200MB
 	const MAX_VIDEO_DURATION_SEC = 60;
 	const MODEL_INPUT_SIZE = 640;
+	const ANALYSIS_FPS = 5;
+	const VIDEO_SEEK_EPSILON_SEC = 0.001;
 	const POSE_CONFIDENCE_THRESHOLD = 0.25;
 	const RIGHT_SHOULDER_IDX = 6;
 	const RIGHT_HIP_IDX = 12;
@@ -490,6 +492,56 @@
 		];
 	}
 
+	function getSampleTimes(durationSec: number) {
+		if (!Number.isFinite(durationSec) || durationSec <= 0) {
+			return [0];
+		}
+
+		const intervalSec = 1 / ANALYSIS_FPS;
+		const times: number[] = [0];
+		for (let timestampSec = intervalSec; timestampSec < durationSec; timestampSec += intervalSec) {
+			times.push(timestampSec);
+		}
+
+		const lastFrameTime = Math.max(0, durationSec - VIDEO_SEEK_EPSILON_SEC);
+		if (Math.abs(times[times.length - 1] - lastFrameTime) > VIDEO_SEEK_EPSILON_SEC) {
+			times.push(lastFrameTime);
+		}
+
+		return times;
+	}
+
+	async function seekVideoToTime(video: HTMLVideoElement, timestampSec: number) {
+		const safeDuration = Number.isFinite(video.duration) ? video.duration : 0;
+		const targetTime = safeDuration > 0
+			? Math.max(0, Math.min(timestampSec, safeDuration - VIDEO_SEEK_EPSILON_SEC))
+			: 0;
+
+		if (Math.abs(video.currentTime - targetTime) <= VIDEO_SEEK_EPSILON_SEC) {
+			await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+			return;
+		}
+
+		await new Promise<void>((resolve, reject) => {
+			const handleSeeked = () => {
+				cleanup();
+				resolve();
+			};
+			const handleError = () => {
+				cleanup();
+				reject(new Error("Video seek failed"));
+			};
+			const cleanup = () => {
+				video.removeEventListener("seeked", handleSeeked);
+				video.removeEventListener("error", handleError);
+			};
+
+			video.addEventListener("seeked", handleSeeked);
+			video.addEventListener("error", handleError);
+			video.currentTime = targetTime;
+		});
+	}
+
 	async function processUploadedVideo(file: File) {
 		const worker = await ensureYoloWorkerReady();
 		const blobUrl = URL.createObjectURL(file);
@@ -502,7 +554,7 @@
 			chartData = [];
 
 			await new Promise<void>((resolve, reject) => {
-				video.onloadedmetadata = () => resolve();
+				video.onloadeddata = () => resolve();
 				video.onerror = () => reject(new Error("Cannot decode uploaded video"));
 				video.src = blobUrl;
 				video.load();
@@ -521,79 +573,28 @@
 				durationSec: video.duration,
 			});
 
-			await new Promise<void>((resolve, reject) => {
-				let settled = false;
-				let callbackId: number | null = null;
-
-				const finish = (error?: unknown) => {
-					if (settled) return;
-					settled = true;
-					if (
-						callbackId != null &&
-						typeof video.cancelVideoFrameCallback === "function"
-					) {
-						video.cancelVideoFrameCallback(callbackId);
-					}
-					video.pause();
-					video.onended = null;
-					video.onerror = null;
-					if (error) {
-						reject(error);
-						return;
-					}
-					resolve();
-				};
-
-				const processFrame = async (timestampSec: number, frameIndex: number) => {
-					ctx.drawImage(video, 0, 0, MODEL_INPUT_SIZE, MODEL_INPUT_SIZE);
-					const pose = await runPoseInference(
-						worker,
-						createModelInputFromCanvas(ctx),
-					);
-					const squatPoints = pose
-						? calculateSquatInterestPoints(
-								pose,
-								video.videoWidth,
-								video.videoHeight,
-							)
-						: null;
-					appendChartPoint(frameIndex, timestampSec, squatPoints);
-					logSquatInterestPoints(
-						file.name,
-						frameIndex,
-						timestampSec,
-						pose,
-						squatPoints,
-					);
-				};
-
-				const requestNextFrame = () => {
-					callbackId = video.requestVideoFrameCallback((_, metadata) => {
-						video.pause();
-						void processFrame(
-							metadata.mediaTime,
-							Math.max(0, metadata.presentedFrames - 1),
+			const sampleTimes = getSampleTimes(video.duration);
+			for (const [frameIndex, timestampSec] of sampleTimes.entries()) {
+				await seekVideoToTime(video, timestampSec);
+				ctx.drawImage(video, 0, 0, MODEL_INPUT_SIZE, MODEL_INPUT_SIZE);
+				const pose = await runPoseInference(worker, createModelInputFromCanvas(ctx));
+				const squatPoints = pose
+					? calculateSquatInterestPoints(
+							pose,
+							video.videoWidth,
+							video.videoHeight,
 						)
-							.then(() => {
-								if (
-									video.currentTime >= video.duration ||
-									metadata.mediaTime >= video.duration
-								) {
-									finish();
-									return;
-								}
-								requestNextFrame();
-								void video.play().catch(finish);
-							})
-							.catch(finish);
-					});
-				};
+					: null;
 
-				video.onended = () => finish();
-				video.onerror = () => finish(new Error("Video frame processing failed"));
-				requestNextFrame();
-				void video.play().catch(finish);
-			});
+				appendChartPoint(frameIndex, video.currentTime, squatPoints);
+				logSquatInterestPoints(
+					file.name,
+					frameIndex,
+					video.currentTime,
+					pose,
+					squatPoints,
+				);
+			}
 		} catch (error) {
 			uploadError =
 				error instanceof Error ? error.message : "Pose processing failed";

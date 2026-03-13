@@ -10,5 +10,6 @@ export const env = {
 	STORAGE_BUCKET: privateEnv.STORAGE_BUCKET || 'gymbo',
 	MODEL_KEY: privateEnv.MODEL_KEY || 'yolo26s-pose.onnx',
 	MODEL_BUCKET: privateEnv.MODEL_BUCKET || privateEnv.STORAGE_BUCKET || 'gymbo',
-	MODEL_VERSION: privateEnv.MODEL_VERSION || ''
+	MODEL_VERSION: privateEnv.MODEL_VERSION || 'v1'
 };
+console.log(env);

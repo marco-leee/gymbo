@@ -1,4 +1,4 @@
-import * as ort from "onnxruntime-web/wasm";
+import * as ort from "onnxruntime-web/webgpu";
 
 type WorkerScope = {
 	onmessage: ((event: MessageEvent<WorkerMessage>) => void | Promise<void>) | null;
@@ -52,6 +52,7 @@ let modelData: ArrayBuffer | null = null;
 function configureOrt() {
 	ort.env.wasm.wasmPaths = "/ort/";
 	ort.env.wasm.numThreads = 1;
+	ort.env.webgpu.device = "";
 }
 
 function getSession() {
