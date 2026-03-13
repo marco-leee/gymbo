@@ -14,7 +14,12 @@ const IdParamSchema = z.string().refine(val => ObjectId.isValid(val), {
 	message: 'Invalid session ID'
 });
 
-export const GET: RequestHandler = async ({ params }) => {
+function parseBooleanParam(value: string | null, fallback: boolean): boolean {
+	if (value == null) return fallback;
+	return value === '1' || value.toLowerCase() === 'true';
+}
+
+export const GET: RequestHandler = async ({ params, url }) => {
 	try {
 		const id = IdParamSchema.parse(params.id);
 
@@ -24,7 +29,12 @@ export const GET: RequestHandler = async ({ params }) => {
 			throw error(404, 'Session not found');
 		}
 
-		return json(await serializeSession(session));
+		return json(
+			await serializeSession(session, {
+				includePoseChartData: parseBooleanParam(url.searchParams.get('includePoseChartData'), true),
+				includeVideoPlayUrl: parseBooleanParam(url.searchParams.get('includeVideoPlayUrl'), true)
+			})
+		);
 	} catch (err) {
 		if (err instanceof z.ZodError) {
 			throw error(400, err.issues.map(e => e.message).join(', '));

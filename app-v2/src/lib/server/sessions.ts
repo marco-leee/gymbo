@@ -4,7 +4,17 @@ import { getPresignedPlayUrl } from '$lib/server/storage';
 
 export type SessionForSerialization = { _id: ObjectId } & SessionDoc;
 
-export async function serializeSession(session: SessionForSerialization) {
+type SerializeSessionOptions = {
+	includePoseChartData?: boolean;
+	includeVideoPlayUrl?: boolean;
+};
+
+export async function serializeSession(
+	session: SessionForSerialization,
+	options: SerializeSessionOptions = {}
+) {
+	const includePoseChartData = options.includePoseChartData ?? true;
+	const includeVideoPlayUrl = options.includeVideoPlayUrl ?? true;
 	const exercises = await Promise.all(
 		session.exercises.map(async (ex) => ({
 			id: ex._id?.toString(),
@@ -43,11 +53,13 @@ export async function serializeSession(session: SessionForSerialization) {
 						weight_kg: set.weight_kg,
 						rpe: set.rpe,
 						video_url: set.video_url,
-						pose_chart_data: set.pose_chart_data,
 						status: set.status,
 						notes: set.notes
 					};
-					if (set.video_url) {
+					if (includePoseChartData) {
+						setObj.pose_chart_data = set.pose_chart_data;
+					}
+					if (includeVideoPlayUrl && set.video_url) {
 						try {
 							setObj.video_play_url = await getPresignedPlayUrl(set.video_url);
 						} catch {

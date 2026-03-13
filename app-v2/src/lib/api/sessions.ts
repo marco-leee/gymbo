@@ -86,8 +86,24 @@ export async function listSessions(params?: ListSessionsParams): Promise<ListSes
 	return response.json();
 }
 
-export async function getSession(id: string, fetchFn: typeof fetch = fetch): Promise<Session> {
-	const response = await fetchFn(`/api/sessions/${id}`);
+export async function getSession(
+	id: string,
+	fetchFn: typeof fetch = fetch,
+	options?: {
+		includePoseChartData?: boolean;
+		includeVideoPlayUrl?: boolean;
+	}
+): Promise<Session> {
+	const searchParams = new URLSearchParams();
+	if (options?.includePoseChartData !== undefined) {
+		searchParams.set('includePoseChartData', String(options.includePoseChartData));
+	}
+	if (options?.includeVideoPlayUrl !== undefined) {
+		searchParams.set('includeVideoPlayUrl', String(options.includeVideoPlayUrl));
+	}
+
+	const queryString = searchParams.toString();
+	const response = await fetchFn(`/api/sessions/${id}${queryString ? `?${queryString}` : ''}`);
 	if (!response.ok) {
 		throw new Error(`Failed to get session: ${response.statusText}`);
 	}
