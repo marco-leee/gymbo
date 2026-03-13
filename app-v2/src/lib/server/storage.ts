@@ -73,7 +73,7 @@ export async function getModelDownload(): Promise<{
 		throw new Error('MODEL_KEY is required');
 	}
 
-	const bucket = env.MODEL_BUCKET;
+	const bucket = env.STORAGE_BUCKET;
 	const client = getS3Client();
 	const head = await client.send(
 		new HeadObjectCommand({

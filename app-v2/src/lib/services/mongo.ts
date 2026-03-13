@@ -4,7 +4,6 @@ import { env } from '$lib/env';
 import { v7 as uuidv7 } from 'uuid';
 
 const MONGO_URI = env.MONGO_URI;
-const DB_NAME = env.MONGO_DB_NAME;
 
 let client: MongoClient | null = null;
 
@@ -25,7 +24,7 @@ export async function getMongoClient(): Promise<MongoClient> {
 
 export async function getDb() {
 	const mongo = await getMongoClient();
-	return mongo.db(DB_NAME);
+	return mongo.db();
 }
 
 export function generateUUID(): string {
@@ -33,6 +32,13 @@ export function generateUUID(): string {
 }
 
 // Session Schemas
+
+export const PoseChartPointSchema = z.object({
+	frame: z.number().int().nonnegative(),
+	timestampSec: z.number().nonnegative(),
+	insideKnee: z.number(),
+	outsideHip: z.number()
+});
 
 export const ExerciseSetSchema = z.object({
 	_id: z.instanceof(ObjectId).optional(),
@@ -42,6 +48,7 @@ export const ExerciseSetSchema = z.object({
 	weight_kg: z.number().nonnegative().optional(),
 	rpe: z.number().int().min(1).max(10).optional(),
 	video_url: z.string().optional(),
+	pose_chart_data: z.array(PoseChartPointSchema).optional(),
 	status: z.enum(['pending', 'completed', 'processing']).default('pending'),
 	notes: z.string().optional(),
 	created_at: z.date(),
@@ -251,6 +258,7 @@ export async function updateSetInExercise(
 		weight_kg?: number;
 		rpe?: number;
 		video_url?: string;
+		pose_chart_data?: z.infer<typeof PoseChartPointSchema>[];
 		status?: 'pending' | 'completed' | 'processing';
 		notes?: string;
 	}
@@ -265,6 +273,7 @@ export async function updateSetInExercise(
 	if (data.weight_kg !== undefined) setObj['exercises.$[ex].sets.$[set].weight_kg'] = data.weight_kg;
 	if (data.rpe !== undefined) setObj['exercises.$[ex].sets.$[set].rpe'] = data.rpe;
 	if (data.video_url !== undefined) setObj['exercises.$[ex].sets.$[set].video_url'] = data.video_url;
+	if (data.pose_chart_data !== undefined) setObj['exercises.$[ex].sets.$[set].pose_chart_data'] = data.pose_chart_data;
 	if (data.status !== undefined) setObj['exercises.$[ex].sets.$[set].status'] = data.status;
 	if (data.notes !== undefined) setObj['exercises.$[ex].sets.$[set].notes'] = data.notes;
 	setObj['exercises.$[ex].sets.$[set].updated_at'] = now;

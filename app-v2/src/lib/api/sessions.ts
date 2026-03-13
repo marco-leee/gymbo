@@ -11,6 +11,13 @@ export interface SessionExercise {
 	sets?: ExerciseSet[];
 }
 
+export interface PoseChartPoint {
+	frame: number;
+	timestampSec: number;
+	insideKnee: number;
+	outsideHip: number;
+}
+
 export interface ExerciseSet {
 	id: string;
 	set_number: number;
@@ -19,6 +26,7 @@ export interface ExerciseSet {
 	weight_kg?: number;
 	rpe?: number;
 	video_url?: string;
+	pose_chart_data?: PoseChartPoint[];
 	video_play_url?: string;
 	status: 'pending' | 'completed' | 'processing';
 	notes?: string;
@@ -170,6 +178,7 @@ export async function recordSet(
 		weight_kg?: number;
 		rpe?: number;
 		video_url?: string;
+		pose_chart_data?: PoseChartPoint[];
 		status?: 'pending' | 'completed' | 'processing';
 		notes?: string;
 	}

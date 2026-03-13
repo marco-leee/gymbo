@@ -26,6 +26,12 @@ export async function serializeSession(session: SessionForSerialization) {
 						weight_kg?: number;
 						rpe?: number;
 						video_url?: string;
+						pose_chart_data?: {
+							frame: number;
+							timestampSec: number;
+							insideKnee: number;
+							outsideHip: number;
+						}[];
 						video_play_url?: string;
 						status: string;
 						notes?: string;
@@ -37,6 +43,7 @@ export async function serializeSession(session: SessionForSerialization) {
 						weight_kg: set.weight_kg,
 						rpe: set.rpe,
 						video_url: set.video_url,
+						pose_chart_data: set.pose_chart_data,
 						status: set.status,
 						notes: set.notes
 					};

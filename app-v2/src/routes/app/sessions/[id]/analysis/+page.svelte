@@ -3,13 +3,41 @@
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Badge } from '$lib/components/ui/badge/index.js';
 	import { Card, CardContent, CardHeader, CardTitle } from '$lib/components/ui/card/index.js';
+	import * as Sheet from '$lib/components/ui/sheet/index.js';
+	import * as Chart from '$lib/components/ui/chart/index.js';
 	import * as Table from '$lib/components/ui/table/index.js';
+	import { LineChart } from 'layerchart';
 	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
 	import BarChart3Icon from '@lucide/svelte/icons/bar-chart-3';
-	import type { SessionExercise } from '$lib/api/sessions';
+	import type { ExerciseSet, SessionExercise } from '$lib/api/sessions';
 
 	let { data } = $props();
 	const sessionId = $derived($page.params.id);
+	const chartPalette = [
+		{ inside: '#EF4444', outside: '#F97316' },
+		{ inside: '#7C3AED', outside: '#A78BFA' },
+		{ inside: '#2563EB', outside: '#06B6D4' },
+		{ inside: '#059669', outside: '#84CC16' },
+		{ inside: '#D97706', outside: '#EAB308' }
+	];
+
+	type CombinedChartRow = {
+		frame: number;
+		timestampSec: number;
+		[key: string]: number | undefined;
+	};
+
+	type CombinedChartLegendItem = {
+		key: string;
+		label: string;
+		color: string;
+	};
+
+	let analysisSheetOpen = $state(false);
+	let selectedAnalysisContext = $state<{
+		exerciseName: string;
+		setNumber: number;
+	} | null>(null);
 
 	function formatDate(dateStr: string): string {
 		return new Date(dateStr).toLocaleDateString(undefined, {
@@ -62,6 +90,80 @@
 		) ?? 0
 	);
 	const volume = $derived(totalVolume(data.session.exercises ?? []));
+	const combinedAnalysisChart = $derived.by(() => {
+		const rows = new Map<number, CombinedChartRow>();
+		const legend: CombinedChartLegendItem[] = [];
+		const config: Chart.ChartConfig = {};
+		const series: { key: string; color: string }[] = [];
+		let analyzedSetIndex = 0;
+
+		for (const exercise of data.session.exercises ?? []) {
+			for (const set of exercise.sets ?? []) {
+				if (!set.pose_chart_data?.length) continue;
+
+				const safeExerciseId = exercise.id.replace(/[^a-zA-Z0-9_]/g, '_');
+				const safeSetId = set.id.replace(/[^a-zA-Z0-9_]/g, '_');
+				const setKeyPrefix = `${safeExerciseId}_${safeSetId}_${set.set_number}`;
+				const palette = chartPalette[analyzedSetIndex % chartPalette.length];
+				const insideKey = `${setKeyPrefix}_insideKnee`;
+				const outsideKey = `${setKeyPrefix}_outsideHip`;
+				const insideLabel = `${exercise.name} - Set ${set.set_number} - Inside Knee`;
+				const outsideLabel = `${exercise.name} - Set ${set.set_number} - Outside Hip`;
+
+				legend.push(
+					{ key: insideKey, label: insideLabel, color: palette.inside },
+					{
+						key: outsideKey,
+						label: outsideLabel,
+						color: palette.outside
+					}
+				);
+				series.push(
+					{ key: insideKey, color: palette.inside },
+					{
+						key: outsideKey,
+						color: palette.outside
+					}
+				);
+				config[insideKey] = { label: insideLabel, color: palette.inside };
+				config[outsideKey] = {
+					label: outsideLabel,
+					color: palette.outside
+				};
+
+				for (const point of set.pose_chart_data) {
+					const row = rows.get(point.frame) ?? {
+						frame: point.frame,
+						timestampSec: point.timestampSec
+					};
+					row[insideKey] = point.insideKnee;
+					row[outsideKey] = point.outsideHip;
+					rows.set(point.frame, row);
+				}
+
+				analyzedSetIndex += 1;
+			}
+		}
+
+		const final = [...rows.values()].sort((a, b) => a.frame - b.frame);
+		console.log(final);
+
+		return {
+			data: final,
+			legend,
+			series: [...series].reverse(),
+			config
+		};
+	});
+	const hasCombinedAnalysisData = $derived(combinedAnalysisChart.series.length > 0);
+
+	function openCombinedAnalysisSheet(exerciseName: string, set: ExerciseSet) {
+		selectedAnalysisContext = {
+			exerciseName,
+			setNumber: set.set_number
+		};
+		analysisSheetOpen = true;
+	}
 </script>
 
 <div class="flex flex-1 flex-col gap-4 p-4 pt-0">
@@ -179,8 +281,8 @@
 											<Table.Cell>{set.weight_kg ?? '—'} kg</Table.Cell>
 											<Table.Cell>{set.rpe ?? '—'}</Table.Cell>
 											<Table.Cell>
-												{#if set.video_play_url}
-													<div class="flex flex-col gap-1">
+												<div class="flex flex-col gap-2">
+													{#if set.video_play_url}
 														<Badge variant="secondary">Recorded</Badge>
 														<video
 															src={set.video_play_url}
@@ -190,12 +292,23 @@
 															playsinline
 															preload="metadata"
 														></video>
-													</div>
-												{:else if set.video_url}
-													<Badge variant="secondary">Recorded</Badge>
-												{:else}
-													<span class="text-muted-foreground">—</span>
-												{/if}
+													{:else if set.video_url}
+														<Badge variant="secondary">Recorded</Badge>
+													{:else}
+														<span class="text-muted-foreground">—</span>
+													{/if}
+													<Button
+														type="button"
+														variant="outline"
+														size="sm"
+														class="w-full"
+														onclick={() => openCombinedAnalysisSheet(exercise.name, set)}
+														disabled={!hasCombinedAnalysisData}
+													>
+														<BarChart3Icon class="mr-2 h-4 w-4" />
+														View chart
+													</Button>
+												</div>
 											</Table.Cell>
 										</Table.Row>
 									{/each}
@@ -210,3 +323,60 @@
 		</CardContent>
 	</Card>
 </div>
+
+<Sheet.Root bind:open={analysisSheetOpen}>
+	<Sheet.Content
+		side="bottom"
+		class="flex h-[80vh] max-h-[80vh] flex-col overflow-hidden rounded-t-xl"
+	>
+		<Sheet.Header>
+			<Sheet.Title>Combined set analysis</Sheet.Title>
+			{#if selectedAnalysisContext}
+				<p class="text-muted-foreground text-sm">
+					Opened from {selectedAnalysisContext.exerciseName} set {selectedAnalysisContext.setNumber}.
+					Showing all saved analysis lines in this session.
+				</p>
+			{/if}
+		</Sheet.Header>
+		<div class="min-h-0 flex-1 overflow-y-auto p-4">
+			{#if hasCombinedAnalysisData}
+				<div class="space-y-4">
+					<div>
+						<h3 class="text-sm font-medium">All analysis data points</h3>
+						<p class="text-muted-foreground text-sm">
+							Each set contributes two lines: inside knee and outside hip.
+						</p>
+					</div>
+
+					<div class="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+						{#each combinedAnalysisChart.legend as item (item.key)}
+							<div class="flex items-center gap-2 rounded-md border px-3 py-2 text-sm">
+								<span
+									class="h-2.5 w-2.5 shrink-0 rounded-[2px]"
+									style={`background: ${item.color};`}
+								></span>
+								<span class="truncate">{item.label}</span>
+							</div>
+						{/each}
+					</div>
+
+					<Chart.Container config={combinedAnalysisChart.config} class="min-h-[320px] w-full">
+						<LineChart
+							data={combinedAnalysisChart.data}
+							x={(d) => d.timestampSec}
+							series={combinedAnalysisChart.series}
+							grid={true}
+							legend
+						/>
+					</Chart.Container>
+				</div>
+			{:else}
+				<div
+					class="text-muted-foreground flex min-h-[320px] items-center justify-center rounded-md border text-sm"
+				>
+					No saved pose analysis data yet.
+				</div>
+			{/if}
+		</div>
+	</Sheet.Content>
+</Sheet.Root>

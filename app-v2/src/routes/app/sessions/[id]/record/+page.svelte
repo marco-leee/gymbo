@@ -130,6 +130,8 @@
 	let videoBlobUrl = $state<string | null>(null);
 	let uploadError = $state("");
 	let isUploading = $state(false);
+	let isProcessingVideo = $state(false);
+	let isAutoSavingPose = $state(false);
 	let chartData = $state<ChartPoint[]>([]);
 	let videoInputEl = $state<HTMLInputElement | null>(null);
 	let durationCheckVideoEl = $state<HTMLVideoElement | null>(null);
@@ -181,9 +183,11 @@
 		};
 		videoUrlKey = set.video_url ?? null;
 		videoBlobUrl = null;
-		chartData = [];
+		chartData = set.pose_chart_data ? [...set.pose_chart_data] : [];
 		uploadError = "";
 		isUploading = false;
+		isProcessingVideo = false;
+		isAutoSavingPose = false;
 		drawerOpen = true;
 	}
 
@@ -475,14 +479,15 @@
 	}
 
 	function appendChartPoint(
+		points: ChartPoint[],
 		frameIndex: number,
 		timestampSec: number,
 		squatPoints: Record<"INSIDE_KNEE" | "OUTSIDE_HIP", SquatInterestPoint> | null,
 	) {
-		if (!squatPoints) return;
+		if (!squatPoints) return points;
 
-		chartData = [
-			...chartData,
+		return [
+			...points,
 			{
 				frame: frameIndex,
 				timestampSec,
@@ -542,8 +547,33 @@
 		});
 	}
 
-	async function processUploadedVideo(file: File) {
-		const worker = await ensureYoloWorkerReady();
+	async function autoSavePoseChartData(
+		exerciseId: string,
+		setId: string,
+		videoUrl: string,
+		poseChartData: ChartPoint[],
+	) {
+		if (!sessionId) return;
+
+		isAutoSavingPose = true;
+		try {
+			await recordSet(sessionId, exerciseId, setId, {
+				video_url: videoUrl,
+				pose_chart_data: poseChartData,
+			});
+			await invalidateAll();
+		} finally {
+			isAutoSavingPose = false;
+		}
+	}
+
+	async function processUploadedVideo(
+		file: File,
+		exerciseId: string,
+		setId: string,
+		videoUrl: string,
+	) {
+		isProcessingVideo = true;
 		const blobUrl = URL.createObjectURL(file);
 		const video = document.createElement("video");
 		video.muted = true;
@@ -551,7 +581,9 @@
 		video.preload = "auto";
 
 		try {
+			const worker = await ensureYoloWorkerReady();
 			chartData = [];
+			let nextChartData: ChartPoint[] = [];
 
 			await new Promise<void>((resolve, reject) => {
 				video.onloadeddata = () => resolve();
@@ -586,7 +618,13 @@
 						)
 					: null;
 
-				appendChartPoint(frameIndex, video.currentTime, squatPoints);
+				nextChartData = appendChartPoint(
+					nextChartData,
+					frameIndex,
+					video.currentTime,
+					squatPoints,
+				);
+				chartData = nextChartData;
 				logSquatInterestPoints(
 					file.name,
 					frameIndex,
@@ -595,11 +633,14 @@
 					squatPoints,
 				);
 			}
+
+			await autoSavePoseChartData(exerciseId, setId, videoUrl, nextChartData);
 		} catch (error) {
 			uploadError =
 				error instanceof Error ? error.message : "Pose processing failed";
 			console.error("Pose processing failed", error);
 		} finally {
+			isProcessingVideo = false;
 			video.pause();
 			video.removeAttribute("src");
 			video.load();
@@ -690,7 +731,7 @@
 			if (videoBlobUrl) URL.revokeObjectURL(videoBlobUrl);
 			videoUrlKey = key;
 			videoBlobUrl = URL.createObjectURL(file);
-			void processUploadedVideo(file);
+			void processUploadedVideo(file, selectedExercise.id, selectedSet.id, key);
 		} catch (err) {
 			uploadError = err instanceof Error ? err.message : "Upload failed";
 		} finally {
@@ -948,11 +989,15 @@
 							type="button"
 							variant="outline"
 							class="w-full"
-							disabled={isUploading}
+							disabled={isUploading || isProcessingVideo || isAutoSavingPose}
 							onclick={() => videoInputEl?.click()}
 						>
 							{#if isUploading}
 								Uploading…
+							{:else if isProcessingVideo}
+								Processing video…
+							{:else if isAutoSavingPose}
+								Saving analysis…
 							{:else}
 								<VideoIcon class="mr-2 h-4 w-4" />
 								Choose video
@@ -977,7 +1022,9 @@
 					<Button
 						class="w-full"
 						onclick={submitRecord}
-						disabled={recordSetMutation.isPending}
+						disabled={
+							recordSetMutation.isPending || isProcessingVideo || isAutoSavingPose
+						}
 					>
 						Save set
 					</Button>

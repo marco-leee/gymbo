@@ -9,8 +9,7 @@
 		"directory": ".svelte-kit/cloudflare"
 	},
 	"vars": {
-		"MONGO_URI": "mongodb+srv://marcoleee:caOGw4yUSFmBqTL8@crypto-tracker.kjy3prt.mongodb.net/?retryWrites=true&w=majority&appName=crypto-tracker",
-		"MONGO_DB_NAME": "gymbo",
+		"MONGO_URI": "mongodb+srv://gymbo:beUZNDXJs55lvgyU@personal.uvquk2e.mongodb.net/gymbo?appName=personal",
 		"STORAGE_ENDPOINT": "https://268adecdecc87f021913d88c8d0a9073.r2.cloudflarestorage.com",
 		"STORAGE_REGION": "ap-southeast-1",
 		"STORAGE_ACCESS_KEY": "3a9f51fc613bfd29c98d3ee58429743d",
@@ -19,5 +18,11 @@
 		"MODEL_KEY": "yolo26s-pose.onnx",
 		"MODEL_BUCKET": "gymbo",
 		"MODEL_VERSION": "v1"
-	}
+	},
+	"r2_buckets": [
+		{
+			"bucket_name": "gymbo",
+			"binding": "bucket",
+		}
+	]
 }

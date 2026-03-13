@@ -116,12 +116,10 @@
 				Record
 			</Button>
 		{/if}
-		{#if data.session.status === 'completed'}
-			<Button href="/app/sessions/{sessionId}/analysis">
-				<BarChart3Icon class="mr-2 h-4 w-4" />
-				Analysis
-			</Button>
-		{/if}
+		<Button href="/app/sessions/{sessionId}/analysis">
+			<BarChart3Icon class="mr-2 h-4 w-4" />
+			Analysis
+		</Button>
 		{#if canEdit}
 			<Button href="/app/sessions/{sessionId}/edit" variant="outline">
 				<PencilIcon class="mr-2 h-4 w-4" />

@@ -27,6 +27,12 @@ const UpdateSetSchema = z.object({
 	weight_kg: z.number().nonnegative().optional(),
 	rpe: z.number().int().min(1).max(10).optional(),
 	video_url: z.string().optional(),
+	pose_chart_data: z.array(z.object({
+		frame: z.number().int().nonnegative(),
+		timestampSec: z.number().nonnegative(),
+		insideKnee: z.number(),
+		outsideHip: z.number()
+	})).optional(),
 	status: z.enum(['pending', 'completed', 'processing']).optional(),
 	notes: z.string().optional()
 });
