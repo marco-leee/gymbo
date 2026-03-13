@@ -1,4 +1,8 @@
-import * as ort from "onnxruntime-web/webgpu";
+// This worker intentionally loads ORT from CDN to keep Vite from bundling its WASM.
+// @ts-expect-error URL import is resolved by the browser at runtime.
+import * as ort from "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.24.3/dist/ort.webgpu.min.mjs";
+
+const ORT_WASM_CDN = "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.24.3/dist/";
 
 type WorkerScope = {
 	onmessage: ((event: MessageEvent<WorkerMessage>) => void | Promise<void>) | null;
@@ -50,7 +54,7 @@ let sessionPromise: Promise<ort.InferenceSession> | null = null;
 let modelData: ArrayBuffer | null = null;
 
 function configureOrt() {
-	ort.env.wasm.wasmPaths = "/ort/";
+	ort.env.wasm.wasmPaths = ORT_WASM_CDN;
 	ort.env.wasm.numThreads = 1;
 	ort.env.webgpu.device = "";
 }
@@ -64,7 +68,7 @@ function getSession() {
 		configureOrt();
 		sessionPromise = ort.InferenceSession.create(new Uint8Array(modelData), {
 			executionProviders: ["webgpu", "wasm"],
-		}).catch((error) => {
+		}).catch((error: unknown) => {
 			sessionPromise = null;
 			throw error;
 		});
