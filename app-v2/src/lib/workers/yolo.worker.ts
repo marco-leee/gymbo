@@ -1,5 +1,7 @@
 import * as ort from "onnxruntime-web/webgpu";
 
+const ORT_WASM_CDN = "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.24.3/dist/";
+
 type WorkerScope = {
 	onmessage: ((event: MessageEvent<WorkerMessage>) => void | Promise<void>) | null;
 	postMessage: (message: unknown, transfer?: Transferable[]) => void;
@@ -50,7 +52,7 @@ let sessionPromise: Promise<ort.InferenceSession> | null = null;
 let modelData: ArrayBuffer | null = null;
 
 function configureOrt() {
-	ort.env.wasm.wasmPaths = "/ort/";
+	ort.env.wasm.wasmPaths = ORT_WASM_CDN;
 	ort.env.wasm.numThreads = 1;
 	ort.env.webgpu.device = "";
 }
