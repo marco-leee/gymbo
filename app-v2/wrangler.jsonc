@@ -23,5 +23,16 @@
 			"bucket_name": "gymbo",
 			"binding": "bucket",
 		}
-	]
+	],
+	"observability": {
+		"enabled": true,
+		"logs": {
+			"enabled": true,
+			"invocation_logs": true,
+		},
+		"traces": {
+			"enabled": true,
+			"persist": true
+		}
+	}
 }
