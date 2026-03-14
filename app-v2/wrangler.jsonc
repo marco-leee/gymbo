@@ -11,12 +11,11 @@
 	"vars": {
 		"MONGO_URI": "mongodb+srv://gymbo:beUZNDXJs55lvgyU@personal.uvquk2e.mongodb.net/gymbo?appName=personal",
 		"STORAGE_ENDPOINT": "https://268adecdecc87f021913d88c8d0a9073.r2.cloudflarestorage.com",
-		"STORAGE_REGION": "ap-southeast-1",
+		"STORAGE_REGION": "auto",
 		"STORAGE_ACCESS_KEY": "1ca621118f52b079e6f8f4b263ecb90b",
 		"STORAGE_SECRET_KEY": "062297878810846c7e1a34e198a7b168f5c28be8a0545550b23ace3794e96ab4",
 		"STORAGE_BUCKET": "gymbo",
 		"MODEL_KEY": "yolo26s-pose.onnx",
-		"MODEL_BUCKET": "gymbo",
 		"MODEL_VERSION": "v1"
 	},
 	"r2_buckets": [
