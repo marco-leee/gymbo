@@ -18,6 +18,11 @@ const ListQuerySchema = z.object({
 	offset: z.coerce.number().min(0).default(0)
 });
 
+function parseBooleanParam(value: string | null, fallback: boolean): boolean {
+	if (value == null) return fallback;
+	return value === '1' || value.toLowerCase() === 'true';
+}
+
 export const GET: RequestHandler = async ({ url }) => {
 	try {
 		const query = ListQuerySchema.parse({
@@ -48,9 +53,18 @@ export const GET: RequestHandler = async ({ url }) => {
 		const sessions = await listSessions(filter);
 		const total = sessions.length;
 		const paginated = sessions.slice(query.offset, query.offset + query.limit);
+		const includePoseChartData = parseBooleanParam(url.searchParams.get('includePoseChartData'), true);
+		const includeVideoPlayUrl = parseBooleanParam(url.searchParams.get('includeVideoPlayUrl'), true);
 
 		return json({
-			sessions: await Promise.all(paginated.map((s) => serializeSession(s))),
+			sessions: await Promise.all(
+				paginated.map((s) =>
+					serializeSession(s, {
+						includePoseChartData,
+						includeVideoPlayUrl
+					})
+				)
+			),
 			total
 		});
 	} catch (err) {

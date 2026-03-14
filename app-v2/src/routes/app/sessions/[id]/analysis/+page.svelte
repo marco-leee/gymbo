@@ -9,6 +9,7 @@
 	import { LineChart } from 'layerchart';
 	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
 	import BarChart3Icon from '@lucide/svelte/icons/bar-chart-3';
+	import { getMediaPlayUrl } from '$lib/api/media';
 	import type { ExerciseSet, SessionExercise } from '$lib/api/sessions';
 
 	let { data } = $props();
@@ -38,6 +39,8 @@
 		exerciseName: string;
 		setNumber: number;
 	} | null>(null);
+	let playUrls = $state<Record<string, string>>({});
+	let loadingVideoSetIds = $state<Record<string, boolean>>({});
 
 	function formatDate(dateStr: string): string {
 		return new Date(dateStr).toLocaleDateString(undefined, {
@@ -164,6 +167,28 @@
 		};
 		analysisSheetOpen = true;
 	}
+
+	function getSetVideoSrc(set: ExerciseSet): string | null {
+		return set.video_play_url ?? playUrls[set.id] ?? null;
+	}
+
+	function isVideoLoading(setId: string): boolean {
+		return Boolean(loadingVideoSetIds[setId]);
+	}
+
+	async function loadVideoPlayback(set: ExerciseSet) {
+		if (!set.video_url || getSetVideoSrc(set) || isVideoLoading(set.id)) return;
+
+		loadingVideoSetIds = { ...loadingVideoSetIds, [set.id]: true };
+		try {
+			const playUrl = await getMediaPlayUrl(set.video_url);
+			playUrls = { ...playUrls, [set.id]: playUrl };
+		} finally {
+			const nextLoadingVideoSetIds = { ...loadingVideoSetIds };
+			delete nextLoadingVideoSetIds[set.id];
+			loadingVideoSetIds = nextLoadingVideoSetIds;
+		}
+	}
 </script>
 
 <div class="flex flex-1 flex-col gap-4 p-4 pt-0">
@@ -282,10 +307,10 @@
 											<Table.Cell>{set.rpe ?? '—'}</Table.Cell>
 											<Table.Cell>
 												<div class="flex flex-col gap-2">
-													{#if set.video_play_url}
+													{#if getSetVideoSrc(set)}
 														<Badge variant="secondary">Recorded</Badge>
 														<video
-															src={set.video_play_url}
+															src={getSetVideoSrc(set) ?? undefined}
 															controls
 															class="max-h-24 w-full rounded border bg-muted"
 															muted
@@ -294,6 +319,16 @@
 														></video>
 													{:else if set.video_url}
 														<Badge variant="secondary">Recorded</Badge>
+														<Button
+															type="button"
+															variant="outline"
+															size="sm"
+															class="w-full"
+															onclick={() => loadVideoPlayback(set)}
+															disabled={isVideoLoading(set.id)}
+														>
+															{isVideoLoading(set.id) ? 'Loading video...' : 'Load video'}
+														</Button>
 													{:else}
 														<span class="text-muted-foreground">—</span>
 													{/if}

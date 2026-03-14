@@ -20,6 +20,7 @@
 	import VideoIcon from "@lucide/svelte/icons/video";
 	import CheckIcon from "@lucide/svelte/icons/check";
 	import Chart, { type ChartPoint } from "./chart.svelte";
+	import { getMediaPlayUrl } from "$lib/api/media";
 	import {
 		addSet,
 		recordSet,
@@ -128,10 +129,12 @@
 	});
 	let videoUrlKey = $state<string | null>(null);
 	let videoBlobUrl = $state<string | null>(null);
+	let existingVideoPlayUrl = $state<string | null>(null);
 	let uploadError = $state("");
 	let isUploading = $state(false);
 	let isProcessingVideo = $state(false);
 	let isAutoSavingPose = $state(false);
+	let isLoadingExistingVideo = $state(false);
 	let chartData = $state<ChartPoint[]>([]);
 	let videoInputEl = $state<HTMLInputElement | null>(null);
 	let durationCheckVideoEl = $state<HTMLVideoElement | null>(null);
@@ -169,7 +172,7 @@
 		return String(mins);
 	}
 
-	function openSetDrawer(exercise: SessionExercise, set: ExerciseSet) {
+	async function openSetDrawer(exercise: SessionExercise, set: ExerciseSet) {
 		if (videoBlobUrl) URL.revokeObjectURL(videoBlobUrl);
 		selectedExercise = exercise;
 		selectedSet = set;
@@ -183,16 +186,38 @@
 		};
 		videoUrlKey = set.video_url ?? null;
 		videoBlobUrl = null;
+		existingVideoPlayUrl = null;
 		chartData = set.pose_chart_data ? [...set.pose_chart_data] : [];
 		uploadError = "";
 		isUploading = false;
 		isProcessingVideo = false;
 		isAutoSavingPose = false;
+		isLoadingExistingVideo = false;
 		drawerOpen = true;
+
+		if (!set.video_url) return;
+
+		const selectedSetId = set.id;
+		isLoadingExistingVideo = true;
+		try {
+			const playUrl = await getMediaPlayUrl(set.video_url);
+			if (selectedSet?.id === selectedSetId) {
+				existingVideoPlayUrl = playUrl;
+			}
+		} catch (err) {
+			if (selectedSet?.id === selectedSetId) {
+				uploadError = err instanceof Error ? err.message : "Failed to load video preview";
+			}
+		} finally {
+			if (selectedSet?.id === selectedSetId) {
+				isLoadingExistingVideo = false;
+			}
+		}
 	}
 
 	function getVideoDisplaySrc(): string | null {
 		if (videoBlobUrl) return videoBlobUrl;
+		if (existingVideoPlayUrl) return existingVideoPlayUrl;
 		if (selectedSet?.video_play_url) return selectedSet.video_play_url;
 		return null;
 	}
@@ -1005,6 +1030,9 @@
 						</Button>
 						{#if uploadError}
 							<p class="text-destructive text-sm">{uploadError}</p>
+						{/if}
+						{#if isLoadingExistingVideo}
+							<p class="text-muted-foreground text-sm">Loading saved video...</p>
 						{/if}
 						{#if getVideoDisplaySrc()}
 							<div class="rounded-md border bg-muted/30 overflow-hidden">

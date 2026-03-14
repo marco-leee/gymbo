@@ -8,7 +8,9 @@ export interface SessionRecordPageData {
 }
 
 export const load: PageLoad = async ({ params, fetch }): Promise<SessionRecordPageData> => {
-	const session = await getSession(params.id, fetch);
+	const session = await getSession(params.id, fetch, {
+		includeVideoPlayUrl: false
+	});
 	let client: Client | null = null;
 	try {
 		client = await getClient(session.client_id, fetch);

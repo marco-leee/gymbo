@@ -63,7 +63,9 @@
 				from,
 				to,
 				limit: 20,
-				offset: 0
+				offset: 0,
+				includePoseChartData: false,
+				includeVideoPlayUrl: false
 			}),
 		};
 	});

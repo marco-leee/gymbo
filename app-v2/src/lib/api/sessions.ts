@@ -68,6 +68,8 @@ export interface ListSessionsParams {
 	status?: string;
 	limit?: number;
 	offset?: number;
+	includePoseChartData?: boolean;
+	includeVideoPlayUrl?: boolean;
 }
 
 export async function listSessions(params?: ListSessionsParams): Promise<ListSessionsResponse> {
@@ -78,6 +80,12 @@ export async function listSessions(params?: ListSessionsParams): Promise<ListSes
 	if (params?.status) searchParams.set('status', params.status);
 	searchParams.set('limit', String(params?.limit ?? 20));
 	searchParams.set('offset', String(params?.offset ?? 0));
+	if (params?.includePoseChartData !== undefined) {
+		searchParams.set('includePoseChartData', String(params.includePoseChartData));
+	}
+	if (params?.includeVideoPlayUrl !== undefined) {
+		searchParams.set('includeVideoPlayUrl', String(params.includeVideoPlayUrl));
+	}
 
 	const response = await fetch(`/api/sessions?${searchParams}`);
 	if (!response.ok) {
