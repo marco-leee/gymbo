@@ -1,4 +1,4 @@
-import { json, error } from '@sveltejs/kit';
+import { json, error, isHttpError } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { z } from 'zod';
 import {
@@ -81,7 +81,7 @@ export const PUT: RequestHandler = async ({ params, request }) => {
 		if (err instanceof z.ZodError) {
 			throw error(400, err.issues.map(e => e.message).join(', '));
 		}
-		if (err instanceof Error && 'status' in err) throw err;
+		if (isHttpError(err)) throw err;
 		console.error('Failed to update set:', err);
 		throw error(500, 'Failed to update set');
 	}
@@ -128,7 +128,7 @@ export const DELETE: RequestHandler = async ({ params }) => {
 		if (err instanceof z.ZodError) {
 			throw error(400, err.issues.map(e => e.message).join(', '));
 		}
-		if (err instanceof Error && 'status' in err) throw err;
+		if (isHttpError(err)) throw err;
 		console.error('Failed to delete set:', err);
 		throw error(500, 'Failed to delete set');
 	}

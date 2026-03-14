@@ -9,14 +9,21 @@ type SerializeSessionOptions = {
 	includeVideoPlayUrl?: boolean;
 };
 
+function serializeDate(value: unknown): string | undefined {
+	if (value == null) return undefined;
+	const date = value instanceof Date ? value : new Date(value as string | number);
+	return Number.isNaN(date.getTime()) ? undefined : date.toISOString();
+}
+
 export async function serializeSession(
 	session: SessionForSerialization,
 	options: SerializeSessionOptions = {}
 ) {
 	const includePoseChartData = options.includePoseChartData ?? true;
 	const includeVideoPlayUrl = options.includeVideoPlayUrl ?? true;
+	const exercisesSource = Array.isArray(session.exercises) ? session.exercises : [];
 	const exercises = await Promise.all(
-		session.exercises.map(async (ex) => ({
+		exercisesSource.map(async (ex) => ({
 			id: ex._id?.toString(),
 			name: ex.name,
 			type: ex.type,
@@ -27,7 +34,7 @@ export async function serializeSession(
 			rest_seconds: ex.rest_seconds,
 			order_index: ex.order_index,
 			sets: await Promise.all(
-				(ex.sets ?? []).map(async (set) => {
+				(Array.isArray(ex.sets) ? ex.sets : []).map(async (set) => {
 					const setObj: {
 						id: string | undefined;
 						set_number: number;
@@ -77,12 +84,12 @@ export async function serializeSession(
 		client_id: session.client_id,
 		trainer_id: session.trainer_id,
 		status: session.status,
-		scheduled_at: session.scheduled_at.toISOString(),
+		scheduled_at: serializeDate(session.scheduled_at) ?? new Date(0).toISOString(),
 		notes: session.notes,
-		started_at: session.started_at?.toISOString(),
-		completed_at: session.completed_at?.toISOString(),
-		created_at: session.created_at.toISOString(),
-		updated_at: session.updated_at.toISOString(),
+		started_at: serializeDate(session.started_at),
+		completed_at: serializeDate(session.completed_at),
+		created_at: serializeDate(session.created_at) ?? new Date(0).toISOString(),
+		updated_at: serializeDate(session.updated_at) ?? new Date(0).toISOString(),
 		exercises
 	};
 }

@@ -9,7 +9,6 @@ let client: MongoClient | null = null;
 
 export async function getMongoClient(): Promise<MongoClient> {
 	if (!client) {
-		console.log('MONGO_URI', MONGO_URI);
 		client = new MongoClient(MONGO_URI, {
 			serverApi: {
 				version: ServerApiVersion.v1,

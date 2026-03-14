@@ -82,8 +82,6 @@ export async function getModelDownload(): Promise<{
 		})
 	);
 
-	console.log(head)
-
 	return {
 		version: env.MODEL_VERSION || head.ETag || key,
 		downloadUrl: await getPresignedGetUrl(key, {

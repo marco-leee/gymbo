@@ -10,4 +10,3 @@ export const env = {
 	MODEL_KEY: privateEnv.MODEL_KEY || 'yolo26s-pose.onnx',
 	MODEL_VERSION: privateEnv.MODEL_VERSION || 'v1'
 };
-console.log(env);

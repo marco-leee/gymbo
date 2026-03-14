@@ -1,4 +1,4 @@
-import { json, error } from '@sveltejs/kit';
+import { json, error, isHttpError } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { z } from 'zod';
 import {
@@ -56,21 +56,28 @@ export const GET: RequestHandler = async ({ url }) => {
 		const includePoseChartData = parseBooleanParam(url.searchParams.get('includePoseChartData'), true);
 		const includeVideoPlayUrl = parseBooleanParam(url.searchParams.get('includeVideoPlayUrl'), true);
 
+		const serializedSessions = await Promise.allSettled(
+			paginated.map((s) =>
+				serializeSession(s, {
+					includePoseChartData,
+					includeVideoPlayUrl
+				})
+			)
+		);
+
 		return json({
-			sessions: await Promise.all(
-				paginated.map((s) =>
-					serializeSession(s, {
-						includePoseChartData,
-						includeVideoPlayUrl
-					})
-				)
-			),
+			sessions: serializedSessions.flatMap((result, index) => {
+				if (result.status === 'fulfilled') return [result.value];
+				console.error('Failed to serialize session:', paginated[index]?._id?.toString(), result.reason);
+				return [];
+			}),
 			total
 		});
 	} catch (err) {
 		if (err instanceof z.ZodError) {
 			throw error(400, err.issues.map(e => e.message).join(', '));
 		}
+		if (isHttpError(err)) throw err;
 		console.error('Failed to list sessions:', err);
 		throw error(500, 'Failed to list sessions');
 	}
@@ -108,6 +115,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		if (err instanceof z.ZodError) {
 			throw error(400, err.issues.map(e => e.message).join(', '));
 		}
+		if (isHttpError(err)) throw err;
 		console.error('Failed to create session:', err);
 		throw error(500, 'Failed to create session');
 	}

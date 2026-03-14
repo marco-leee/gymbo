@@ -1,4 +1,4 @@
-import { json, error } from '@sveltejs/kit';
+import { json, error, isHttpError } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getPresignedPlayUrl } from '$lib/server/storage';
 
@@ -12,7 +12,7 @@ export const GET: RequestHandler = async ({ url }) => {
 		const play_url = await getPresignedPlayUrl(key);
 		return json({ play_url });
 	} catch (err) {
-		if (err instanceof Error && 'status' in err) throw err;
+		if (isHttpError(err)) throw err;
 		console.error('Failed to sign media playback:', err);
 		throw error(500, 'Failed to sign media playback');
 	}

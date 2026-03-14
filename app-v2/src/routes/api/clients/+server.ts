@@ -53,8 +53,6 @@ export const GET: RequestHandler = async ({ url }) => {
 		const total = clients.length;
 		const paginated = clients.slice(query.offset, query.offset + query.limit);
 
-		console.log(clients)
-
 		return json({
 			clients: paginated.map(serializeClient),
 			total
