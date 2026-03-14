@@ -1,8 +1,10 @@
-// This worker intentionally loads ORT from CDN to keep Vite from bundling its WASM.
-// @ts-expect-error URL import is resolved by the browser at runtime.
-import * as ort from "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.24.3/dist/ort.webgpu.min.mjs";
-
 const ORT_WASM_CDN = "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.24.3/dist/";
+const ORT_WEBGPU_MODULE_CDN =
+	"https://cdn.jsdelivr.net/npm/onnxruntime-web@1.24.3/dist/ort.webgpu.min.mjs";
+
+type OrtModule = typeof import("onnxruntime-web/webgpu");
+type OrtTensor = InstanceType<OrtModule["Tensor"]>;
+type OrtSession = Awaited<ReturnType<OrtModule["InferenceSession"]["create"]>>;
 
 type WorkerScope = {
 	onmessage: ((event: MessageEvent<WorkerMessage>) => void | Promise<void>) | null;
@@ -50,34 +52,53 @@ type PoseDetection = {
 	keypoints: PoseKeypoint[];
 };
 
-let sessionPromise: Promise<ort.InferenceSession> | null = null;
+let ortPromise: Promise<OrtModule> | null = null;
+let sessionPromise: Promise<OrtSession> | null = null;
 let modelData: ArrayBuffer | null = null;
 
-function configureOrt() {
+async function getOrt() {
+	if (!ortPromise) {
+		ortPromise = import(/* @vite-ignore */ ORT_WEBGPU_MODULE_CDN)
+			.then((module) => module as OrtModule)
+			.catch((error: unknown) => {
+				ortPromise = null;
+				throw error;
+			});
+	}
+
+	return ortPromise;
+}
+
+function configureOrt(ort: OrtModule) {
 	ort.env.wasm.wasmPaths = ORT_WASM_CDN;
 	ort.env.wasm.numThreads = 1;
 	ort.env.webgpu.device = "";
 }
 
-function getSession() {
+async function getSession() {
 	if (!modelData) {
 		throw new Error("Pose model was not initialized");
 	}
 
 	if (!sessionPromise) {
-		configureOrt();
-		sessionPromise = ort.InferenceSession.create(new Uint8Array(modelData), {
-			executionProviders: ["webgpu", "wasm"],
-		}).catch((error: unknown) => {
-			sessionPromise = null;
-			throw error;
-		});
+		const sessionModelData = modelData;
+		sessionPromise = getOrt()
+			.then((ort) => {
+				configureOrt(ort);
+				return ort.InferenceSession.create(new Uint8Array(sessionModelData), {
+					executionProviders: ["webgpu", "wasm"],
+				});
+			})
+			.catch((error: unknown) => {
+				sessionPromise = null;
+				throw error;
+			});
 	}
 
 	return sessionPromise;
 }
 
-function decodePrimaryPose(output: ort.Tensor | undefined): PoseDetection | null {
+function decodePrimaryPose(output: OrtTensor | undefined): PoseDetection | null {
 	if (!output || output.dims.length !== 3) {
 		return null;
 	}
@@ -155,14 +176,11 @@ workerScope.onmessage = async (event: MessageEvent<WorkerMessage>) => {
 			return;
 		}
 
+		const ort = await getOrt();
 		const session = await getSession();
 		const inputName = session.inputNames[0] ?? "images";
 		const inputData = new Float32Array(message.input.data);
-		const inputTensor = new ort.Tensor(
-			message.input.type,
-			inputData,
-			message.input.dims,
-		);
+		const inputTensor = new ort.Tensor(message.input.type, inputData, message.input.dims);
 		const outputs = await session.run({ [inputName]: inputTensor });
 		const pose = decodePrimaryPose(outputs.output0);
 
