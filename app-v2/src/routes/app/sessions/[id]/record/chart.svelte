@@ -1,12 +1,8 @@
 <script lang="ts">
 	import * as Chart from "$lib/components/ui/chart/index.js";
+	import type { SquatChartPoint } from "$lib/pose/types";
 	import { LineChart } from "layerchart";
-	export type ChartPoint = {
-		frame: number;
-		timestampSec: number;
-		insideKnee: number;
-		outsideHip: number;
-	};
+	export type ChartPoint = SquatChartPoint;
 
 	let { data = [] }: { data?: ChartPoint[] } = $props();
 
