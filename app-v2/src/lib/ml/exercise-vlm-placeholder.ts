@@ -3,7 +3,7 @@
  * Replace `inferFrame` with a real `@huggingface/transformers` pipeline when ready.
  */
 export type VlmResult = {
-	label: "unknown" | "squat" | "not_exercising";
+	label: "unknown" | "exercising" | "not_exercising";
 	confidence: number;
 	/** Optional hint for the analysis state machine (future use). */
 	stateHint?: string;

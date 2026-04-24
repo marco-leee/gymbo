@@ -6,16 +6,33 @@
 
 ## Context
 
-This plan covers **Phase 1** of the [workout-session-phase-controller](./plan.md) feature: implementing the VLM Web Worker and client class for exercise classification.
+This plan covers **Phase 1** of the [workout-session-phase-controller](./plan.md) feature: implementing the VLM Web Worker and client class for repetition detection.
 
 **Related docs:**
 - [design.md](./design.md) — Full technical design and architecture
 - [plan.md](./plan.md) — Phased implementation checklist
 - [requirements.md](./requirements.md) — Requirements and acceptance criteria
 
+## Key Design Decision: VLM Role
+
+**The VLM detects repetition activity, NOT exercise type.**
+
+| Component | Responsibility |
+|-----------|---------------|
+| **VLM** | Answers: "Is the user performing repetitions?" → `exercising` / `not_exercising` |
+| **Pose Engine** | Answers: "What exercise and how well?" → `squat` / `push_up` + form analysis |
+| **Session Controller** | Knows exercise list, orchestrates VLM + pose + list progression |
+
+This separation allows:
+- VLM to be exercise-agnostic (simpler model, better generalization)
+- Pose engine to focus on form and mechanics
+- Single VLM model works across all exercise types
+
 ## Overview
 
-Implement a **client-side VLM** that runs in a Web Worker to classify exercise activity from video frames. The VLM will use **Transformers.js** with the **Gemma 4 Vision Language Model** (`onnx-community/gemma-4-E2B-it-ONNX`) to determine if the user is exercising, resting, or in an unknown state.
+Implement a **client-side VLM** that runs in a Web Worker to detect whether the user is performing a repetition from video frames. The VLM will use **Transformers.js** with the **Gemma 4 Vision Language Model** (`onnx-community/gemma-4-E2B-it-ONNX`) to determine if the user is actively exercising (performing reps), not exercising (resting), or in an unknown state.
+
+**Important:** The VLM only detects **repetition activity**, not specific exercise types. Exercise identification is handled separately by the pose engine.
 
 ## Architecture
 
@@ -49,7 +66,7 @@ flowchart TB
 
 ```typescript
 export type VlmResult = {
-  label: "unknown" | "squat" | "not_exercising";
+  label: "unknown" | "exercising" | "not_exercising";
   confidence: number;
   stateHint?: string;
   raw?: unknown;
@@ -236,7 +253,7 @@ async function inferFrame(bitmap: ImageBitmap): Promise<VlmResult> {
   // Convert ImageBitmap to format Transformers.js expects
   const image = await RawImage.fromBlob(await bitmap.convertToBlob());
   
-  // Create prompt for exercise classification
+  // Create prompt for repetition detection
   const messages = [
     {
       role: "user",
@@ -244,7 +261,7 @@ async function inferFrame(bitmap: ImageBitmap): Promise<VlmResult> {
         { type: "image", image },
         { 
           type: "text", 
-          text: "Is this person performing a squat exercise? Answer: exercising, not_exercising, or unknown."
+          text: "Is this person actively performing exercise repetitions? Answer: exercising, not_exercising, or unknown."
         }
       ]
     }
@@ -272,9 +289,9 @@ async function inferFrame(bitmap: ImageBitmap): Promise<VlmResult> {
 function parseVlmResponse(text: string): VlmResult {
   const lower = text.toLowerCase();
   
-  // Simple keyword matching
+  // Simple keyword matching for repetition activity
   if (lower.includes("exercising") && !lower.includes("not")) {
-    return { label: "squat", confidence: 0.8 };
+    return { label: "exercising", confidence: 0.8 };
   }
   if (lower.includes("not_exercising") || lower.includes("not exercising")) {
     return { label: "not_exercising", confidence: 0.8 };
@@ -331,15 +348,23 @@ Already defined in `exercise-vlm-placeholder.ts`:
 
 ```typescript
 export type VlmResult = {
-  label: "unknown" | "squat" | "not_exercising";
+  label: "unknown" | "exercising" | "not_exercising";
   confidence: number;
   stateHint?: string;
   raw?: unknown;
 };
 ```
 
+**Label Meanings:**
+- `"exercising"`: User is actively performing exercise repetitions
+- `"not_exercising"`: User is resting or not performing repetitions
+- `"unknown"`: Cannot determine (low confidence, ambiguous frame, etc.)
+
 **Unknown Label Policy:**  
 When `label === "unknown"`, the `SessionPhaseController` should **not** change `userExercising` state. This prevents spurious state changes from low-confidence or ambiguous frames.
+
+**Design Note:**  
+The VLM detects **repetition activity only**, not specific exercise types. Exercise identification is handled by the pose engine (squat, push-up, etc.). The VLM's job is to distinguish between "user is doing reps" vs "user is resting" regardless of exercise type.
 
 ## Implementation Steps
 
@@ -532,7 +557,8 @@ Always create fresh bitmap for each call.
 
 3. **Inference**
    - Returns valid `VlmResult`
-   - Classifications make sense
+   - Correctly identifies exercising vs resting states
+   - Does NOT identify specific exercise types (by design)
    - Confidence values reasonable
 
 4. **Error cases**
@@ -546,6 +572,9 @@ Always create fresh bitmap for each call.
 - [ ] Model loads with progress indicator
 - [ ] Camera feed → bitmap → worker → result
 - [ ] Results logged in console (1s intervals)
+- [ ] **Test exercising detection:** Perform any exercise → result is `exercising`
+- [ ] **Test resting detection:** Stand still / rest → result is `not_exercising`
+- [ ] **Exercise agnostic:** Squat, push-up, jumping jacks all detected as `exercising`
 - [ ] Main thread responsive during inference
 - [ ] DevTools: worker thread shows separately
 - [ ] Navigate away: worker terminated
