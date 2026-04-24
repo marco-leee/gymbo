@@ -7,21 +7,36 @@
 	import LayoutDashboardIcon from '@lucide/svelte/icons/layout-dashboard';
 	import UserIcon from '@lucide/svelte/icons/user';
 	import CalendarIcon from '@lucide/svelte/icons/calendar';
-	import Settings2Icon from '@lucide/svelte/icons/settings-2';
+	import ZapIcon from '@lucide/svelte/icons/zap';
 	import type { ComponentProps } from 'svelte';
 
 	const navMainConfig = [
 		{ title: 'Dashboard', url: '/app/dashboard', icon: LayoutDashboardIcon },
 		{ title: 'Clients', url: '/app/clients', icon: UserIcon },
 		{ title: 'Sessions', url: '/app/sessions', icon: CalendarIcon },
+		{ title: 'Sessions hub', url: '/app/sessions/v2', icon: CalendarIcon },
+		{ title: 'App v2', url: '/app-v2/sessions', icon: ZapIcon },
 		// { title: 'Settings', url: '/app/settings', icon: Settings2Icon },
 	];
 
 	const filteredNavMain = $derived(
-		navMainConfig.map((item) => ({
-			...item,
-			isActive: $page.url.pathname === item.url || $page.url.pathname.startsWith(item.url + '/'),
-		}))
+		navMainConfig.map((item) => {
+			const path = $page.url.pathname;
+			let isActive =
+				path === item.url || (item.url !== '/' && path.startsWith(item.url + '/'));
+			if (item.url === '/app/sessions') {
+				isActive =
+					path === '/app/sessions' ||
+					(path.startsWith('/app/sessions/') && !path.startsWith('/app/sessions/v2'));
+			}
+			if (item.url === '/app/sessions/v2') {
+				isActive = path === '/app/sessions/v2' || path.startsWith('/app/sessions/v2/');
+			}
+			if (item.url === '/app-v2/sessions') {
+				isActive = path.startsWith('/app-v2');
+			}
+			return { ...item, isActive };
+		})
 	);
 
 	let { ref = $bindable(null), ...restProps }: ComponentProps<typeof Sidebar.Root> = $props();

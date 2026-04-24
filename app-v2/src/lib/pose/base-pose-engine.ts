@@ -83,6 +83,57 @@ export abstract class BasePoseEngine<TAnalysis, TChartPoint> {
 		}
 	}
 
+	/**
+	 * Live inference from a playing {@link HTMLVideoElement} (e.g. camera `MediaStream`).
+	 * Throttles processing to `targetFps` (defaults to {@link PoseEngineDeps.analysisFps}).
+	 * Does not invoke {@link logIteration} to avoid console spam.
+	 */
+	async *analyzeLiveVideo(
+		video: HTMLVideoElement,
+		options: { signal: AbortSignal; targetFps?: number },
+	): AsyncGenerator<PoseEngineIteration<TAnalysis>, void, void> {
+		const ctx =
+			this.deps.createCanvasContext?.(this.deps.modelInputSize) ??
+			createCanvasContext(this.deps.modelInputSize);
+
+		const worker = await this.deps.ensureWorkerReady();
+		const fps = options.targetFps ?? this.deps.analysisFps;
+		const minIntervalMs = 1000 / Math.max(1, fps);
+		let frameIndex = 0;
+		let lastProcessMs = 0;
+
+		while (!options.signal.aborted) {
+			await new Promise<void>((resolve) => {
+				requestAnimationFrame(() => resolve());
+			});
+			if (options.signal.aborted) break;
+			if (video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) continue;
+			if (video.videoWidth === 0 || video.videoHeight === 0) continue;
+
+			const now = performance.now();
+			if (now - lastProcessMs < minIntervalMs) continue;
+			lastProcessMs = now;
+
+			ctx.drawImage(video, 0, 0, this.deps.modelInputSize, this.deps.modelInputSize);
+			const inputTensor = this.deps.createModelInput(ctx, this.deps.modelInputSize);
+			const pose = await this.deps.runPoseInference(worker, inputTensor);
+
+			const frame: PoseFrame = {
+				frameIndex,
+				timestampSec: Number.isFinite(video.currentTime) ? video.currentTime : now / 1000,
+				sourceWidth: video.videoWidth,
+				sourceHeight: video.videoHeight,
+				pose,
+			};
+			const analysis = this.analyzeFrame(frame);
+			yield {
+				...frame,
+				analysis,
+			};
+			frameIndex += 1;
+		}
+	}
+
 	chartPointFromIteration?(
 		_iteration: PoseEngineIteration<TAnalysis>,
 	): TChartPoint | null;
