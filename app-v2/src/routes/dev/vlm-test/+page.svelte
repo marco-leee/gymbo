@@ -11,28 +11,55 @@
 	let stream: MediaStream | null = null;
 	let inferenceCount = $state(0);
 	let lastInferenceTime = $state<string>('—');
+	let logs = $state<string[]>([]);
+
+	function addLog(message: string) {
+		const timestamp = new Date().toLocaleTimeString();
+		logs = [...logs, `[${timestamp}] ${message}`].slice(-20); // Keep last 20 logs
+		console.log(message);
+	}
 
 	async function initVlm() {
 		try {
 			status = 'Initializing VLM worker...';
+			addLog('Starting VLM worker initialization...');
+			addLog('⚠️ First load: downloading ~3GB model (30-60s)');
+			
 			client = new VlmWorkerClient();
+			
+			// Hook into worker messages for logging
+			client.onWorkerMessage = (msg) => {
+				if (msg.type === 'ready') {
+					addLog('📦 Worker ready');
+				} else if (msg.type === 'error') {
+					addLog(`❌ Worker error: ${msg.message}`);
+				} else if (msg.type === 'log') {
+					addLog(msg.message);
+				}
+			};
+			
 			await client.init();
 			status = 'VLM worker ready';
+			addLog('✅ VLM worker ready - you can now use the camera');
 		} catch (error) {
 			status = `Error: ${error instanceof Error ? error.message : 'Unknown error'}`;
+			addLog(`❌ VLM init error: ${error instanceof Error ? error.message : 'Unknown error'}`);
 			console.error('VLM init error:', error);
 		}
 	}
 
 	async function startCamera() {
 		try {
-			stream = await navigator.mediaDevices.getUserMedia({ video: true });
+			addLog('Requesting camera access...');
+			stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
 			if (videoElement) {
 				videoElement.srcObject = stream;
 			}
 			status = 'Camera started';
+			addLog('✅ Camera started');
 		} catch (error) {
 			status = `Camera error: ${error instanceof Error ? error.message : 'Unknown error'}`;
+			addLog(`❌ Camera error: ${error instanceof Error ? error.message : 'Unknown error'}`);
 			console.error('Camera error:', error);
 		}
 	}
@@ -40,11 +67,13 @@
 	async function runInference() {
 		if (!client || !videoElement || !canvasElement) {
 			status = 'Missing client, video, or canvas';
+			addLog('❌ Missing client, video, or canvas');
 			return;
 		}
 
 		if (videoElement.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) {
 			status = 'Video not ready';
+			addLog('⚠️ Video not ready');
 			return;
 		}
 
@@ -66,6 +95,7 @@
 			const bitmap = await createImageBitmap(canvasElement);
 
 			// Run inference
+			addLog('🔄 Running inference...');
 			const vlmResult = await client.run(bitmap);
 
 			const duration = Math.round(performance.now() - startTime);
@@ -75,11 +105,14 @@
 				inferenceCount++;
 				lastInferenceTime = `${duration}ms`;
 				status = `Inference completed in ${duration}ms`;
+				addLog(`✅ Result: ${vlmResult.label} (${vlmResult.confidence.toFixed(2)}) in ${duration}ms`);
 			} else {
 				status = 'Inference dropped (single-flight)';
+				addLog('⚠️ Inference dropped (already in progress)');
 			}
 		} catch (error) {
 			status = `Inference error: ${error instanceof Error ? error.message : 'Unknown error'}`;
+			addLog(`❌ Inference error: ${error instanceof Error ? error.message : 'Unknown error'}`);
 			console.error('Inference error:', error);
 		} finally {
 			isInferring = false;
@@ -106,6 +139,7 @@
 	}
 
 	async function cleanup() {
+		addLog('Cleaning up...');
 		if (stream) {
 			stream.getTracks().forEach(track => track.stop());
 			stream = null;
@@ -115,6 +149,7 @@
 			client = null;
 		}
 		status = 'Cleaned up';
+		addLog('✅ Cleaned up');
 	}
 
 	onMount(() => {
@@ -247,6 +282,28 @@
 				</div>
 			</div>
 		{/if}
+
+		<!-- Logs (for mobile debugging) -->
+		<div class="p-4 bg-gray-100 rounded-lg dark:bg-gray-800">
+			<div class="flex items-center justify-between mb-2">
+				<div class="font-semibold">Live Logs</div>
+				<button
+					onclick={() => logs = []}
+					class="text-xs px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300"
+				>
+					Clear
+				</button>
+			</div>
+			<div class="text-xs font-mono space-y-1 max-h-64 overflow-y-auto bg-black/5 dark:bg-black/20 p-2 rounded">
+				{#if logs.length === 0}
+					<div class="text-gray-500 dark:text-gray-400">No logs yet...</div>
+				{:else}
+					{#each logs as log}
+						<div class="whitespace-pre-wrap break-all">{log}</div>
+					{/each}
+				{/if}
+			</div>
+		</div>
 	</div>
 </div>
 

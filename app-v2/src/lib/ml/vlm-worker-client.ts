@@ -43,7 +43,12 @@ type ErrorMessage = {
 	message: string;
 };
 
-type WorkerOutputMessage = ReadyMessage | ResultMessage | ErrorMessage;
+type LogMessage = {
+	type: "log";
+	message: string;
+};
+
+type WorkerOutputMessage = ReadyMessage | ResultMessage | ErrorMessage | LogMessage;
 
 // Request tracking
 
@@ -225,9 +230,17 @@ export class VlmWorkerClient {
 	}
 
 	/**
+	 * Optional callback for worker messages (for debugging/logging).
+	 */
+	onWorkerMessage?: (message: WorkerOutputMessage) => void;
+
+	/**
 	 * Handle messages from the worker.
 	 */
 	private handleWorkerMessage(message: WorkerOutputMessage): void {
+		// Call optional callback for external logging
+		this.onWorkerMessage?.(message);
+
 		if (message.type === "ready") {
 			this._isReady = true;
 			this.readyResolver?.();
@@ -259,6 +272,12 @@ export class VlmWorkerClient {
 				console.error("[VLM Client] Worker error:", message.message);
 				this.rejectAllPending(error);
 			}
+			return;
+		}
+
+		if (message.type === "log") {
+			// Forward log to callback if provided
+			// (onWorkerMessage will handle it)
 			return;
 		}
 	}

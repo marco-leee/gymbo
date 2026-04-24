@@ -65,7 +65,12 @@ type ErrorMessage = {
 	message: string;
 };
 
-type WorkerOutputMessage = ReadyMessage | ResultMessage | ErrorMessage;
+type LogMessage = {
+	type: "log";
+	message: string;
+};
+
+type WorkerOutputMessage = ReadyMessage | ResultMessage | ErrorMessage | LogMessage;
 
 // Model configuration
 const MODEL_ID = "onnx-community/gemma-4-E2B-it-ONNX";
@@ -76,6 +81,14 @@ let model: PreTrainedModel | null = null;
 let isReady = false;
 
 /**
+ * Helper to send log messages to main thread.
+ */
+function postLog(message: string): void {
+	workerScope.postMessage({ type: "log", message } satisfies LogMessage);
+	console.log(message);
+}
+
+/**
  * Load Gemma 4 VLM model.
  * Reports progress via console during download.
  */
@@ -84,7 +97,7 @@ async function loadModel(): Promise<void> {
 		return;
 	}
 
-	console.log("[VLM Worker] Loading Gemma 4 model...");
+	postLog("[VLM Worker] Loading Gemma 4 model...");
 
 	try {
 		const [loadedProcessor, loadedModel] = await Promise.all([
@@ -96,11 +109,11 @@ async function loadModel(): Promise<void> {
 					if (info.status === "progress" && info.progress !== undefined) {
 						const progress = Math.round(info.progress);
 						if (progress % 10 === 0) {
-							console.log(`[VLM Worker] Loading model: ${progress}%`);
+							postLog(`[VLM Worker] Loading: ${progress}%`);
 						}
 					}
 					if (info.status === "download" && info.file) {
-						console.log(`[VLM Worker] Downloading: ${info.file}`);
+						postLog(`[VLM Worker] Downloading: ${info.file}`);
 					}
 				},
 			}),
@@ -110,9 +123,9 @@ async function loadModel(): Promise<void> {
 		model = loadedModel;
 		isReady = true;
 
-		console.log("[VLM Worker] Model loaded successfully");
+		postLog("[VLM Worker] ✅ Model loaded successfully");
 	} catch (error) {
-		console.error("[VLM Worker] Model load error:", error);
+		postLog(`[VLM Worker] ❌ Model load error: ${error instanceof Error ? error.message : String(error)}`);
 		throw error;
 	}
 }
@@ -228,7 +241,7 @@ function disposeModel(): void {
 	processor = null;
 	model = null;
 	isReady = false;
-	console.log("[VLM Worker] Model disposed");
+	postLog("[VLM Worker] Model disposed");
 }
 
 // Message handler
