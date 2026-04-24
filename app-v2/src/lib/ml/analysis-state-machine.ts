@@ -1,8 +1,16 @@
 import type { SquatFrameAnalysis } from "$lib/pose/types";
 import type { VlmResult } from "./exercise-vlm-placeholder";
 
-/** High-level phase for UI; rep counting uses squat knee angle heuristics. */
+/** 
+ * High-level phase for UI; rep counting uses squat knee angle heuristics.
+ * 
+ * @deprecated Use RepPhase from $lib/ml/rep instead.
+ * This is kept for backward compatibility only.
+ */
 export type AnalysisPhase = "idle" | "exercising" | "rep_peak" | "rest";
+
+// Re-export new types for backward compatibility
+export type { RepPhase } from "./rep/types";
 
 export type AnalysisMachineInput = {
 	nowMs: number;
@@ -27,6 +35,14 @@ const MIN_TOP_FRAMES = 2;
 /**
  * Combines pose iterations and optional VLM labels.
  * Phase B: when VLM is confident and says `not_exercising`, rep counting is gated off.
+ * 
+ * @deprecated Use SquatRepAnalyzer from $lib/ml/rep instead.
+ * This class will be retired after migration to the new architecture.
+ * 
+ * Key differences in new approach:
+ * - VLM removed from rep analyzer input (gating via userExercising)
+ * - Hooks passed via constructor
+ * - Readonly engine reference for chart delegation
  */
 export class AnalysisStateMachine {
 	private depthStreak = 0;
