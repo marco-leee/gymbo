@@ -14,6 +14,7 @@ import {
 	type Processor,
 	type PreTrainedModel,
 } from "@huggingface/transformers";
+import { buildExerciseDetectionPrompt } from "$lib/ml/gemma4-vlm-prompt";
 
 type WorkerScope = {
 	onmessage: ((event: MessageEvent<WorkerInputMessage>) => void | Promise<void>) | null;
@@ -130,6 +131,15 @@ async function loadModel(): Promise<void> {
 	}
 }
 
+async function blobToBase64(blob: Blob): Promise<string> {
+	return new Promise((resolve, reject) => {
+		const reader = new FileReader();
+		reader.onloadend = () => resolve(reader.result as string);
+		reader.onerror = reject;
+		reader.readAsDataURL(blob);
+	});
+}
+
 /**
  * Run inference on a video frame using Gemma 2.
  * 
@@ -156,14 +166,13 @@ async function inferFrame(bitmap: ImageBitmap): Promise<VlmResult> {
 
 		const image = await RawImage.fromBlob(blob);
 
-		// Create prompt for repetition detection
-		const prompt = `<start_of_turn>user
-<image>
-Is this person actively performing exercise repetitions? Answer with one word: "exercising", "not_exercising", or "unknown".<end_of_turn>
-<start_of_turn>model`;
+		// Let Gemma 4's chat template inject the multimodal placeholder tokens.
+		const prompt = buildExerciseDetectionPrompt(processor);
 
 		// Process inputs
-		const inputs = await processor(prompt, image);
+		const inputs = await processor(prompt, image, null, {
+			add_special_tokens: false,
+		});
 
 		// Generate response
 		const outputs = await model.generate({
