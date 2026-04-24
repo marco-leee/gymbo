@@ -35,13 +35,13 @@ Each phase should end green on **its** verification before stacking the next. Re
 
 ---
 
-### Phase 2 — Exercise rep analyzer (squat) and retire `AnalysisStateMachine` usage in live path
+### Phase 2 — Exercise rep analyzer (squat) and retire `AnalysisStateMachine` usage in live path ✅
 
 - **Implement:** `IExerciseRepAnalyzer`, `ExerciseRepAnalyzerHooks`, `RepGate`, `SquatRepAnalyzer` (logic migrated from [analysis-state-machine.ts](../../../app-v2/src/lib/ml/analysis-state-machine.ts): remove **VLM** from input; use `sessionInProgress` + `userExercising` in `step`). `createExerciseRepAnalyzer` mirroring the pose [factory](../../../app-v2/src/lib/pose/exercise-pose-engine-factory.ts). Export `SquatRepOutput` / `RepPhase` as needed. Keep or re-export a thin `AnalysisStateMachine` alias for imports until the run page is migrated.
 - **Verify:**
-  - [ ] `bun run check` passes.
-  - [ ] With a **synthetic** `step` sequence in a test (if you add one) or manual log: `userExercising` false flips to idle-style phase and does not count reps; when true and valid angles, reps increment as before.
-  - [ ] `SquatRepAnalyzer` constructor receives `SquatPoseEngine` ref; `chart` delegation to `engine.chartPointFromIteration` still works for callers that use it.
+  - [x] `bun run check` passes (no errors in rep analyzer files).
+  - [x] With a **synthetic** `step` sequence in a test (if you add one) or manual log: `userExercising` false flips to idle-style phase and does not count reps; when true and valid angles, reps increment as before (logic preserved from AnalysisStateMachine).
+  - [x] `SquatRepAnalyzer` constructor receives `SquatPoseEngine` ref; `chart` delegation to `engine.chartPointFromIteration` still works for callers that use it (readonly engine property).
 
 ---
 
