@@ -227,12 +227,13 @@
 		<div class="p-4 bg-blue-50 rounded-lg dark:bg-blue-900/20">
 			<h2 class="font-semibold mb-2">About This Test</h2>
 			<ul class="text-sm space-y-1 list-disc list-inside">
-				<li>This page tests the VLM worker and client implementation</li>
-				<li>Currently using placeholder (always returns "unknown")</li>
-				<li>Tests worker initialization, message passing, and single-flight logic</li>
-				<li>Run "Continuous" to simulate SessionPhaseController behavior (1s intervals)</li>
-				<li>Check DevTools console for worker messages</li>
-				<li>Check DevTools Performance tab to verify worker thread usage</li>
+				<li>This page tests the VLM worker with Gemma 4 model</li>
+				<li>First load will download ~3GB model (cached after)</li>
+				<li>Model loading takes 30-60s on first run</li>
+				<li>Detects if user is performing repetitions (exercise-agnostic)</li>
+				<li>Run "Continuous" to simulate SessionPhaseController (1s intervals)</li>
+				<li>Check DevTools console for worker messages and inference results</li>
+				<li>WebGPU required for best performance</li>
 			</ul>
 		</div>
 

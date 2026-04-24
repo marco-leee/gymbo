@@ -1,12 +1,19 @@
 /**
  * VLM (Vision Language Model) Web Worker for exercise repetition detection.
  * 
- * Placeholder implementation for Phase 1A.
- * This will be upgraded to use Transformers.js + Gemma 4 VLM in Phase 1B.
+ * Uses Transformers.js + Gemma 4 VLM for inference.
  * 
  * The VLM detects whether the user is performing repetitions (exercising),
  * NOT the specific exercise type. Exercise identification is handled by the pose engine.
  */
+
+import {
+	AutoProcessor,
+	Gemma4ForConditionalGeneration,
+	RawImage,
+	type Processor,
+	type PreTrainedModel,
+} from "@huggingface/transformers";
 
 type WorkerScope = {
 	onmessage: ((event: MessageEvent<WorkerInputMessage>) => void | Promise<void>) | null;
@@ -60,47 +67,168 @@ type ErrorMessage = {
 
 type WorkerOutputMessage = ReadyMessage | ResultMessage | ErrorMessage;
 
+// Model configuration
+const MODEL_ID = "onnx-community/gemma-4-E2B-it-ONNX";
+
 // Worker state
+let processor: Processor | null = null;
+let model: PreTrainedModel | null = null;
 let isReady = false;
 
 /**
- * Placeholder initialization.
- * In Phase 1B, this will load Transformers.js + Gemma 4 VLM model.
+ * Load Gemma 4 VLM model.
+ * Reports progress via console during download.
  */
-async function initializePlaceholder(): Promise<void> {
-	if (isReady) return;
-	
-	// Simulate model loading delay
-	await new Promise(resolve => setTimeout(resolve, 100));
-	
-	console.log("[VLM Worker] Placeholder initialized");
-	isReady = true;
+async function loadModel(): Promise<void> {
+	if (isReady && processor && model) {
+		return;
+	}
+
+	console.log("[VLM Worker] Loading Gemma 4 model...");
+
+	try {
+		const [loadedProcessor, loadedModel] = await Promise.all([
+			AutoProcessor.from_pretrained(MODEL_ID),
+			Gemma4ForConditionalGeneration.from_pretrained(MODEL_ID, {
+				dtype: "q4f16",
+				device: "webgpu",
+				progress_callback: (info: { status: string; progress?: number; file?: string }) => {
+					if (info.status === "progress" && info.progress !== undefined) {
+						const progress = Math.round(info.progress);
+						if (progress % 10 === 0) {
+							console.log(`[VLM Worker] Loading model: ${progress}%`);
+						}
+					}
+					if (info.status === "download" && info.file) {
+						console.log(`[VLM Worker] Downloading: ${info.file}`);
+					}
+				},
+			}),
+		]);
+
+		processor = loadedProcessor;
+		model = loadedModel;
+		isReady = true;
+
+		console.log("[VLM Worker] Model loaded successfully");
+	} catch (error) {
+		console.error("[VLM Worker] Model load error:", error);
+		throw error;
+	}
 }
 
 /**
- * Placeholder inference.
- * In Phase 1B, this will use Gemma 4 to detect repetition activity.
+ * Run inference on a video frame using Gemma 2.
  * 
  * @param bitmap - ImageBitmap from video frame
  * @returns VlmResult with exercising/not_exercising/unknown
  */
-async function inferFramePlaceholder(_bitmap: ImageBitmap): Promise<VlmResult> {
-	// Placeholder: always return unknown
-	// Real implementation will analyze the image and return exercising/not_exercising
-	
-	return {
-		label: "unknown",
-		confidence: 0.0,
-	};
+async function inferFrame(bitmap: ImageBitmap): Promise<VlmResult> {
+	if (!processor || !model) {
+		throw new Error("VLM model not initialized");
+	}
+
+	try {
+		// Convert ImageBitmap to format Transformers.js expects
+		const blob = await new Promise<Blob>((resolve, reject) => {
+			const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+			const ctx = canvas.getContext("2d");
+			if (!ctx) {
+				reject(new Error("Cannot get canvas context"));
+				return;
+			}
+			ctx.drawImage(bitmap, 0, 0);
+			canvas.convertToBlob({ type: "image/jpeg", quality: 0.8 }).then(resolve).catch(reject);
+		});
+
+		const image = await RawImage.fromBlob(blob);
+
+		// Create prompt for repetition detection
+		const prompt = `<start_of_turn>user
+<image>
+Is this person actively performing exercise repetitions? Answer with one word: "exercising", "not_exercising", or "unknown".<end_of_turn>
+<start_of_turn>model`;
+
+		// Process inputs
+		const inputs = await processor(prompt, image);
+
+		// Generate response
+		const outputs = await model.generate({
+			...inputs,
+			max_new_tokens: 10,
+			do_sample: false,
+			temperature: 0.0,
+		});
+
+		// Extract tensor data from output
+		// The output can be a Tensor or ModelOutput with sequences
+		let outputIds: number[][];
+		if (Array.isArray(outputs)) {
+			outputIds = outputs;
+		} else if ('sequences' in outputs) {
+			// ModelOutput has sequences property
+			const sequences = (outputs as any).sequences;
+			outputIds = sequences.tolist ? sequences.tolist() : [[]]
+;
+		} else {
+			// Fallback: try tolist on the output directly
+			outputIds = (outputs as any).tolist ? (outputs as any).tolist() : [[]];
+		}
+
+		// Decode output
+		const outputText = processor.batch_decode(outputIds, {
+			skip_special_tokens: true,
+		})[0] || "";
+
+		// Parse response
+		return parseVlmResponse(outputText);
+	} catch (error) {
+		console.error("[VLM Worker] Inference error:", error);
+		return {
+			label: "unknown",
+			confidence: 0.0,
+			raw: error instanceof Error ? error.message : String(error),
+		};
+	}
 }
 
 /**
- * Cleanup placeholder state.
- * In Phase 1B, this will dispose the Transformers.js model.
+ * Parse VLM model response into VlmResult.
+ * 
+ * @param text - Raw model output text
+ * @returns Parsed VlmResult
  */
-function disposePlaceholder(): void {
+function parseVlmResponse(text: string): VlmResult {
+	const lower = text.toLowerCase().trim();
+
+	// Extract the response after the model turn marker
+	const responseStart = lower.indexOf("<start_of_turn>model");
+	const responseText = responseStart >= 0 ? lower.substring(responseStart + 20).trim() : lower;
+
+	// Look for keywords
+	if (responseText.includes("exercising") && !responseText.includes("not_exercising")) {
+		// Check confidence based on response clarity
+		const confidence = responseText === "exercising" ? 0.9 : 0.7;
+		return { label: "exercising", confidence };
+	}
+
+	if (responseText.includes("not_exercising") || responseText.includes("not exercising")) {
+		const confidence = responseText === "not_exercising" || responseText === "not exercising" ? 0.9 : 0.7;
+		return { label: "not_exercising", confidence };
+	}
+
+	// Unknown or unclear response
+	return { label: "unknown", confidence: 0.0, raw: text };
+}
+
+/**
+ * Cleanup model state.
+ */
+function disposeModel(): void {
+	processor = null;
+	model = null;
 	isReady = false;
-	console.log("[VLM Worker] Placeholder disposed");
+	console.log("[VLM Worker] Model disposed");
 }
 
 // Message handler
@@ -109,7 +237,7 @@ workerScope.onmessage = async (event: MessageEvent<WorkerInputMessage>) => {
 
 	try {
 		if (message.type === "init") {
-			await initializePlaceholder();
+			await loadModel();
 			workerScope.postMessage({ type: "ready" } satisfies ReadyMessage);
 			return;
 		}
@@ -119,7 +247,7 @@ workerScope.onmessage = async (event: MessageEvent<WorkerInputMessage>) => {
 				throw new Error("VLM worker not initialized. Call init() first.");
 			}
 
-			const vlm = await inferFramePlaceholder(message.bitmap);
+			const vlm = await inferFrame(message.bitmap);
 			
 			workerScope.postMessage({
 				type: "result",
@@ -130,7 +258,7 @@ workerScope.onmessage = async (event: MessageEvent<WorkerInputMessage>) => {
 		}
 
 		if (message.type === "dispose") {
-			disposePlaceholder();
+			disposeModel();
 			return;
 		}
 	} catch (error) {

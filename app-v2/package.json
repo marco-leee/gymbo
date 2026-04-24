@@ -45,6 +45,7 @@
 		"@connectrpc/connect": "^2.1.1",
 		"@connectrpc/connect-query": "^2.2.0",
 		"@connectrpc/connect-web": "^2.1.1",
+		"@huggingface/transformers": "^4.2.0",
 		"@sveltejs/adapter-vercel": "^6.3.3",
 		"@tanstack/svelte-query": "^6.0.18",
 		"@tanstack/svelte-table": "^8.21.3",
