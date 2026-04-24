@@ -1,6 +1,6 @@
 # workout-session-phase-controller
 
-Current status: Phases 1, 2, and 3 are implemented. Phase 3 automated verification passed; the manual `run` and `record` route checks were waived for this slice.
+Current status: Phases 1, 2, 3, and 4 are implemented. Phase 4 automated verification passed; the manual temporary route/harness check for the live analyser is still pending.
 
 | File | Purpose |
 | --- | --- |

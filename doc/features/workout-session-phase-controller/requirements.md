@@ -18,7 +18,7 @@ A **workout session phase layer** for the run screen: a **SessionPhaseController
 - [ ] VLM runs in a dedicated Web Worker; main thread only schedules snapshots and message I/O; single-flight inference on client; placeholder `VlmResult` until model wired.
 - [ ] **Unknown VLM label policy** documented: e.g. do not flip `userExercising` on `unknown` (or explicit alternative).
 - [ ] Live analyser: `start` / `stop` / `applyCommand`; `getUserExercising` and `getSessionInProgress` from page; one shared canvas: analyser does pose loop; controller samples same canvas for VLM; at most one `drawImage` from `<video>` per analysis frame.
-- [ ] `SquatRepAnalyzer` (replaces in-place VLM+pose merge in `AnalysisStateMachine` `tick`): gates `sessionInProgress` and `userExercising` only, **no `vlm` in `step`**; `ExerciseRepAnalyzerHooks` only via **constructor**; `readonly engine` from [SquatPoseEngine](../../../app-v2/src/lib/pose/squat-pose-engine.ts); factory extensible for future `push_up`.
+- [x] `SquatRepAnalyzer` (replaces in-place VLM+pose merge in `AnalysisStateMachine` `tick`): gates `sessionInProgress` and `userExercising` only, **no `vlm` in `step`**; `ExerciseRepAnalyzerHooks` only via **constructor**; `readonly engine` from [SquatPoseEngine](../../../app-v2/src/lib/pose/squat-pose-engine.ts); factory extensible for future `push_up`.
 - [ ] Run page [+page.svelte](../../../app-v2/src/routes/app-v2/sessions/%5Bid%5D/run/+page.svelte) wires session exercise list, controller + live analyser lifecycle, cleanup on destroy.
 
 ## Non-goals

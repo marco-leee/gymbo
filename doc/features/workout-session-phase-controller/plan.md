@@ -56,13 +56,13 @@ Each phase should end green on **its** verification before stacking the next. Re
 
 ---
 
-### Phase 4 — `LiveSessionAnalyser`
+### Phase 4 — `LiveSessionAnalyser` ✅
 
 - **Implement:** `LiveSessionAnalyser` module: `start` / `stop` / `applyCommand`, own capture canvas, call `createExercisePoseEngine` + `createExerciseRepAnalyzer` on `analyse` + `ExerciseRef`, drive rep `step` each frame, optional `orchestrationHooks` only for raw frame / errors; `createRepHooks` or equivalent from config; `resetForExerciseChange`.
 - **Verify:**
-  - [ ] `bun run check` passes.
-  - [ ] (Manual) Temporary wiring (dev-only buttons or a minimal test route) can start/stop: when `analyse` + squat, `onOutput` from rep hooks fires; when `idle`, loop stops or does not run pose.
-  - [ ] Gating: `getUserExercising` return value changes are reflected in rep output (mock getter in a test or manual log).
+  - [x] `bun run check` passes.
+  - [ ] (Manual) Temporary wiring (dev-only buttons or a minimal test route) can start/stop: when `analyse` + squat, `onOutput` from rep hooks fires; when `idle`, loop stops or does not run pose. Automated coverage added in `src/lib/ml/live-session-analyser.test.ts`; manual route wiring still pending.
+  - [x] Gating: `getUserExercising` return value changes are reflected in rep output (mock getter in `src/lib/ml/live-session-analyser.test.ts`).
 
 ---
 
