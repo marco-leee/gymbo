@@ -40,6 +40,13 @@ function createCanvasContext(modelInputSize: number) {
 export abstract class BasePoseEngine<TAnalysis, TChartPoint> {
 	constructor(protected deps: PoseEngineDeps) {}
 
+	async analyzeLiveFrameAfterDraw(
+		worker: Worker,
+		input: LivePoseFrameInput,
+	): Promise<PoseEngineIteration<TAnalysis>> {
+		return this.processLiveFrameAfterDraw(worker, input);
+	}
+
 	protected async processLiveFrameAfterDraw(
 		worker: Worker,
 		input: LivePoseFrameInput,
@@ -139,7 +146,7 @@ export abstract class BasePoseEngine<TAnalysis, TChartPoint> {
 			lastProcessMs = now;
 
 			ctx.drawImage(video, 0, 0, this.deps.modelInputSize, this.deps.modelInputSize);
-			yield await this.processLiveFrameAfterDraw(worker, {
+			yield await this.analyzeLiveFrameAfterDraw(worker, {
 				frameIndex,
 				timestampSec: Number.isFinite(video.currentTime) ? video.currentTime : now / 1000,
 				sourceWidth: video.videoWidth,

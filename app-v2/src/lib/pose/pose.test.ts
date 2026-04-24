@@ -130,6 +130,34 @@ describe("squat helpers", () => {
 });
 
 describe("BasePoseEngine", () => {
+	test("exposes a public live-frame API for already-drawn canvases", async () => {
+		class TestEngine extends BasePoseEngine<string, never> {
+			protected analyzeFrame(frame: PoseFrame): string | null {
+				return frame.pose ? `frame-${frame.frameIndex}` : null;
+			}
+		}
+
+		const engine = new TestEngine({
+			...createTestDeps(),
+			createModelInput: () => new Float32Array([11]),
+			runPoseInference: async (_worker, input) => ({
+				...createPoseWithConfidence(),
+				classId: input[0] ?? 0,
+			}),
+		});
+
+		const iteration = await engine.analyzeLiveFrameAfterDraw({} as Worker, {
+			frameIndex: 5,
+			timestampSec: 2.5,
+			sourceWidth: 640,
+			sourceHeight: 480,
+			ctx: {} as CanvasRenderingContext2D,
+		});
+
+		assert.equal(iteration.frameIndex, 5);
+		assert.equal(iteration.analysis, "frame-5");
+	});
+
 	test("processes a live frame from an already-drawn canvas", async () => {
 		class TestEngine extends BasePoseEngine<string, never> {
 			runAfterDraw(worker: Worker, input: LivePoseFrameInput) {

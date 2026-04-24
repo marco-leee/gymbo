@@ -63,6 +63,7 @@ export class SquatRepAnalyzer implements IExerciseRepAnalyzer<SquatFrameAnalysis
 
 	step(input: RepGate & { analysis: SquatFrameAnalysis | null }): void {
 		const { nowMs, sessionInProgress, userExercising, analysis } = input;
+		const prevPhase = this.phase;
 
 		try {
 			// Handle rep peak reset from previous frame
@@ -77,21 +78,21 @@ export class SquatRepAnalyzer implements IExerciseRepAnalyzer<SquatFrameAnalysis
 			// Gate 1: Session not in progress (paused)
 			if (!sessionInProgress) {
 				this.phase = "rest";
-				this.emitOutput(nowMs);
+				this.emitOutput(nowMs, prevPhase);
 				return;
 			}
 
 			// Gate 2: User not exercising (from VLM via controller)
 			if (!userExercising) {
 				this.phase = "idle";
-				this.emitOutput(nowMs);
+				this.emitOutput(nowMs, prevPhase);
 				return;
 			}
 
 			// Gate 3: Pose not valid
 			if (!poseValid) {
 				this.phase = "idle";
-				this.emitOutput(nowMs);
+				this.emitOutput(nowMs, prevPhase);
 				return;
 			}
 
@@ -130,21 +131,19 @@ export class SquatRepAnalyzer implements IExerciseRepAnalyzer<SquatFrameAnalysis
 				this.topStreak = 0;
 			}
 
-			this.emitOutput(nowMs);
+			this.emitOutput(nowMs, prevPhase);
 		} catch (error) {
 			this.hooks.onError?.(error instanceof Error ? error : new Error(String(error)));
 		}
 	}
 
-	private emitOutput(nowMs: number): void {
+	private emitOutput(nowMs: number, prevPhase: RepPhase): void {
 		const output: SquatRepOutput = {
 			phase: this.phase,
 			repsInSet: this.reps,
 			lastRepAtMs: this.lastRepAt,
 		};
 
-		// Check for phase change
-		const prevPhase = this.phase;
 		if (prevPhase !== this.phase) {
 			this.hooks.onPhaseChange?.(prevPhase, this.phase);
 		}
