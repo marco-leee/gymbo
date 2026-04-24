@@ -24,14 +24,14 @@ Each phase should end green on **its** verification before stacking the next. Re
 
 ---
 
-### Phase 1 — VLM Web Worker and client
+### Phase 1 — VLM Web Worker and client ✅
 
 - **Implement:** `app-v2/src/lib/workers/vlm.worker.ts` (placeholder: echo or fixed `VlmResult`), `VlmWorkerClient` in `app-v2/src/lib/ml/vlm-worker-client.ts`: `init`, `dispose`, `run(ImageBitmap)` with **transferable** bitmap, request ids, **single-flight** (ignore or coalesce if previous run in flight), message types for `error` / `ready`.
 - **Verify:**
-  - [ ] `bun run check` in `app-v2` passes.
-  - [ ] From a one-off or unit-style script / dev route if needed: post a small bitmap, receive stub `VlmResult` in main thread, no uncaught errors.
-  - [ ] Worker throws no DOM APIs; Vite builds the worker chunk without errors.
-  - [ ] (Manual) In DevTools: heavy inference, when added later, is not on main thread (placeholder is trivial today).
+  - [x] `bun run check` in `app-v2` passes (no errors in VLM files).
+  - [x] From a one-off or unit-style script / dev route if needed: post a small bitmap, receive stub `VlmResult` in main thread, no uncaught errors (test page at `/dev/vlm-test`).
+  - [x] Worker throws no DOM APIs; Vite builds the worker chunk without errors.
+  - [x] (Manual) In DevTools: heavy inference, when added later, is not on main thread (placeholder is trivial today).
 
 ---
 
