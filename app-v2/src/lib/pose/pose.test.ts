@@ -9,6 +9,7 @@ import { BasePoseEngine } from "./base-pose-engine";
 import {
 	calculateSquatInterestPoints,
 	classifySquatAngle,
+	type LivePoseFrameInput,
 	type PoseDetection,
 	type PoseEngineDeps,
 	type PoseFrame,
@@ -129,6 +130,44 @@ describe("squat helpers", () => {
 });
 
 describe("BasePoseEngine", () => {
+	test("processes a live frame from an already-drawn canvas", async () => {
+		class TestEngine extends BasePoseEngine<string, never> {
+			runAfterDraw(worker: Worker, input: LivePoseFrameInput) {
+				return this.processLiveFrameAfterDraw(worker, input);
+			}
+
+			protected analyzeFrame(frame: PoseFrame): string | null {
+				return frame.pose ? `frame-${frame.frameIndex}` : null;
+			}
+		}
+
+		let createModelInputCalls = 0;
+		const engine = new TestEngine({
+			...createTestDeps(),
+			createModelInput: () => {
+				createModelInputCalls += 1;
+				return new Float32Array([7]);
+			},
+			runPoseInference: async (_worker, input) => ({
+				...createPoseWithConfidence(),
+				classId: input[0] ?? 0,
+			}),
+		});
+
+		const iteration = await engine.runAfterDraw({} as Worker, {
+			frameIndex: 3,
+			timestampSec: 1.25,
+			sourceWidth: 1280,
+			sourceHeight: 720,
+			ctx: {} as CanvasRenderingContext2D,
+		});
+
+		assert.equal(createModelInputCalls, 1);
+		assert.equal(iteration.frameIndex, 3);
+		assert.equal(iteration.timestampSec, 1.25);
+		assert.equal(iteration.analysis, "frame-3");
+	});
+
 	test("streams frame iterations in sampling order", async () => {
 		class TestEngine extends BasePoseEngine<string, never> {
 			protected analyzeFrame(frame: PoseFrame): string | null {

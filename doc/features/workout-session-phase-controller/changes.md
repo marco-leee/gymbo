@@ -8,3 +8,7 @@
 - Added [design.md](./design.md): architecture, layer table, TypeScript contracts, mermaid diagrams, VLM worker sketch, `userExercising` gating, run page integration, out of scope. Linked from [requirements.md](./requirements.md) and [plan.md](./plan.md).
 - Added [README.md](./README.md) index for this feature folder.
 - Expanded [plan.md](./plan.md) with **Phase 0–7**: implementation focus and **per-phase verification** (checklists, `bun run check`, manual criteria).
+- Completed **Phase 3** of the implementation plan: extracted a post-draw live pose seam in [base-pose-engine.ts](../../../app-v2/src/lib/pose/base-pose-engine.ts) so live inference can consume an already-populated canvas while `analyzeLiveVideo()` remains backward compatible.
+- Added Phase 3 regression coverage in [pose.test.ts](../../../app-v2/src/lib/pose/pose.test.ts) for `processLiveFrameAfterDraw(...)` and re-ran the existing recorded sampling test.
+- Cleared unrelated typecheck blockers encountered during Phase 3 verification in [clients.ts](../../../app-v2/src/lib/api/clients.ts), [+server.ts](../../../app-v2/src/routes/api/sessions/+server.ts), [app.d.ts](../../../app-v2/src/app.d.ts), and [+page.svelte](../../../app-v2/src/routes/app/clients/new/+page.svelte) so `bun run check` is green again.
+- Phase 3 automated verification passed: `bun run check` returned 0 errors and `bun test src/lib/pose/pose.test.ts` passed. The manual `run` and `record` route checks were waived for this slice.

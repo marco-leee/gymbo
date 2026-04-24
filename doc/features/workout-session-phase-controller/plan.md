@@ -45,13 +45,14 @@ Each phase should end green on **its** verification before stacking the next. Re
 
 ---
 
-### Phase 3 — Base live loop: single `drawImage` and pose after draw
+### Phase 3 — Base live loop: single `drawImage` and pose after draw ✅
 
 - **Implement:** Refactor [base-pose-engine.ts](../../../app-v2/src/lib/pose/base-pose-engine.ts) so live inference can use **`ctx` already filled** (e.g. `processLiveFrameAfterDraw` or `analyzeLiveVideo` with `preDraw: false` + `drawImage` only in one outer loop). The invariant is: **at most one** `drawImage(video, …)` per throttled frame on the model input canvas.
 - **Verify:**
-  - [ ] `bun run check` passes.
-  - [ ] **Recorded** video analysis path (upload flow) still works if it used `analyzeVideo` (no regression).
-  - [ ] (Manual) If the run page is still on the old call path: live chart still populates for squat; after Phase 4, re-verify with the new analyser.
+  - [x] `bun run check` passes.
+  - [x] Focused pose regression test passes: `bun test src/lib/pose/pose.test.ts`.
+  - [ ] **Recorded** video analysis path (upload flow) still works if it used `analyzeVideo` (no regression). Manual route check was waived for this slice.
+  - [ ] (Manual) If the run page is still on the old call path: live chart still populates for squat; after Phase 4, re-verify with the new analyser. Manual route check was waived for this slice.
 
 ---
 

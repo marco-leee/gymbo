@@ -30,6 +30,14 @@ export type PoseEngineIteration<TAnalysis> = PoseFrame & {
 	analysis: TAnalysis | null;
 };
 
+export type LivePoseFrameInput = {
+	frameIndex: number;
+	timestampSec: number;
+	sourceWidth: number;
+	sourceHeight: number;
+	ctx: CanvasRenderingContext2D;
+};
+
 export type VideoAnalysisInput = {
 	file: File;
 };

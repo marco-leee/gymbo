@@ -23,6 +23,11 @@ function parseBooleanParam(value: string | null, fallback: boolean): boolean {
 	return value === '1' || value.toLowerCase() === 'true';
 }
 
+type ScheduledAtRange = {
+	$gte?: Date;
+	$lte?: Date;
+};
+
 export const GET: RequestHandler = async ({ url }) => {
 	try {
 		const query = ListQuerySchema.parse({
@@ -45,9 +50,10 @@ export const GET: RequestHandler = async ({ url }) => {
 		}
 
 		if (query.from || query.to) {
-			filter['scheduled_at'] = {};
-			if (query.from) filter['scheduled_at']['$gte'] = new Date(query.from);
-			if (query.to) filter['scheduled_at']['$lte'] = new Date(query.to);
+			const scheduledAt: ScheduledAtRange = {};
+			if (query.from) scheduledAt.$gte = new Date(query.from);
+			if (query.to) scheduledAt.$lte = new Date(query.to);
+			filter['scheduled_at'] = scheduledAt;
 		}
 
 		const sessions = await listSessions(filter);

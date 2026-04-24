@@ -1,4 +1,4 @@
-import type { CreateClientInput, UpdateClientInput } from '$lib/services/mongo';
+import type { CreateClientInput, UpdateClientInput } from '$lib/services/models/client';
 
 export interface Client {
 	id: string;

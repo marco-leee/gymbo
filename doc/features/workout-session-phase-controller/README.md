@@ -1,5 +1,7 @@
 # workout-session-phase-controller
 
+Current status: Phases 1, 2, and 3 are implemented. Phase 3 automated verification passed; the manual `run` and `record` route checks were waived for this slice.
+
 | File | Purpose |
 | --- | --- |
 | [design.md](./design.md) | **Technical design** — architecture, TypeScript-style interfaces, mermaid, VLM + live analyser + rep analyzer, run page integration |

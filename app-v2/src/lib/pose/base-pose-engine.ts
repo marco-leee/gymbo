@@ -1,4 +1,5 @@
 import type {
+	LivePoseFrameInput,
 	PoseEngineDeps,
 	PoseEngineIteration,
 	PoseFrame,
@@ -38,6 +39,29 @@ function createCanvasContext(modelInputSize: number) {
 
 export abstract class BasePoseEngine<TAnalysis, TChartPoint> {
 	constructor(protected deps: PoseEngineDeps) {}
+
+	protected async processLiveFrameAfterDraw(
+		worker: Worker,
+		input: LivePoseFrameInput,
+	): Promise<PoseEngineIteration<TAnalysis>> {
+		const inputTensor = this.deps.createModelInput(
+			input.ctx,
+			this.deps.modelInputSize,
+		);
+		const pose = await this.deps.runPoseInference(worker, inputTensor);
+		const frame: PoseFrame = {
+			frameIndex: input.frameIndex,
+			timestampSec: input.timestampSec,
+			sourceWidth: input.sourceWidth,
+			sourceHeight: input.sourceHeight,
+			pose,
+		};
+
+		return {
+			...frame,
+			analysis: this.analyzeFrame(frame),
+		};
+	}
 
 	async *analyzeVideo(
 		input: VideoAnalysisInput,
@@ -115,21 +139,13 @@ export abstract class BasePoseEngine<TAnalysis, TChartPoint> {
 			lastProcessMs = now;
 
 			ctx.drawImage(video, 0, 0, this.deps.modelInputSize, this.deps.modelInputSize);
-			const inputTensor = this.deps.createModelInput(ctx, this.deps.modelInputSize);
-			const pose = await this.deps.runPoseInference(worker, inputTensor);
-
-			const frame: PoseFrame = {
+			yield await this.processLiveFrameAfterDraw(worker, {
 				frameIndex,
 				timestampSec: Number.isFinite(video.currentTime) ? video.currentTime : now / 1000,
 				sourceWidth: video.videoWidth,
 				sourceHeight: video.videoHeight,
-				pose,
-			};
-			const analysis = this.analyzeFrame(frame);
-			yield {
-				...frame,
-				analysis,
-			};
+				ctx,
+			});
 			frameIndex += 1;
 		}
 	}
