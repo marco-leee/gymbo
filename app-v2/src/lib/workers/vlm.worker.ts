@@ -104,7 +104,7 @@ async function loadModel(): Promise<void> {
 		const [loadedProcessor, loadedModel] = await Promise.all([
 			AutoProcessor.from_pretrained(MODEL_ID),
 			Gemma4ForConditionalGeneration.from_pretrained(MODEL_ID, {
-				dtype: "q4f16",
+				dtype: "fp32",
 				device: "webgpu",
 				progress_callback: (info: { status: string; progress?: number; file?: string }) => {
 					if (info.status === "progress" && info.progress !== undefined) {

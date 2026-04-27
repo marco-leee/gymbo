@@ -85,10 +85,12 @@ export function createLiveSessionAnalyser(
 	let lastProcessMs = 0;
 
 	function reportError(error: unknown) {
-		config.orchestrationHooks?.onError?.(normalizeError(error));
+		const normalizedError = normalizeError(error);
+		config.orchestrationHooks?.onError?.(normalizedError);
 	}
 
 	function clearActiveState() {
+		console.debug("[LiveSessionAnalyser] clearActiveState");
 		activeState = null;
 		frameIndex = 0;
 		lastProcessMs = 0;
@@ -115,12 +117,18 @@ export function createLiveSessionAnalyser(
 			engine,
 			repAnalyzer,
 		};
+		console.debug(
+			"[LiveSessionAnalyser] buildActiveState",
+			exercise.id,
+			exercise.name,
+		);
 		frameIndex = 0;
 		lastProcessMs = 0;
 	}
 
 	async function runLoop() {
 		loopRunning = true;
+		console.debug("[LiveSessionAnalyser] runLoop started");
 
 		try {
 			while (started && !config.signal.aborted) {
@@ -133,6 +141,7 @@ export function createLiveSessionAnalyser(
 				}
 
 				if (currentCommand.kind !== "analyse" || !activeState) {
+					// RAF hot path: do not log here (idle / waiting for command).
 					continue;
 				}
 
@@ -190,17 +199,31 @@ export function createLiveSessionAnalyser(
 					});
 
 					frameIndex += 1;
+					if (frameIndex === 1 || frameIndex % 30 === 0) {
+						console.debug(
+							"[LiveSessionAnalyser] frame",
+							frameIndex,
+							"exercise",
+							activeState.exercise.id,
+						);
+					}
 				} catch (error) {
 					reportError(error);
 				}
 			}
 		} finally {
 			loopRunning = false;
+			console.debug("[LiveSessionAnalyser] runLoop ended");
 		}
 	}
 
 	return {
 		applyCommand(cmd) {
+			console.debug(
+				"[LiveSessionAnalyser] applyCommand",
+				cmd.kind,
+				cmd.kind === "analyse" ? cmd.exercise.id : undefined,
+			);
 			currentCommand = cmd;
 
 			if (cmd.kind === "idle") {
@@ -237,9 +260,14 @@ export function createLiveSessionAnalyser(
 
 		start() {
 			if (started || config.signal.aborted) {
+				console.debug(
+					"[LiveSessionAnalyser] start skipped",
+					{ started, aborted: config.signal.aborted },
+				);
 				return;
 			}
 
+			console.debug("[LiveSessionAnalyser] start");
 			started = true;
 			if (!loopRunning) {
 				void runLoop();
@@ -247,10 +275,12 @@ export function createLiveSessionAnalyser(
 		},
 
 		stop() {
+			console.debug("[LiveSessionAnalyser] stop");
 			started = false;
 		},
 
 		resetForExerciseChange() {
+			console.debug("[LiveSessionAnalyser] resetForExerciseChange");
 			frameIndex = 0;
 			lastProcessMs = 0;
 			activeState?.repAnalyzer.reset();

@@ -68,21 +68,21 @@ Each phase should end green on **its** verification before stacking the next. Re
 
 ### Phase 5 — `SessionPhaseController`
 
-- **Implement:** `SessionPhaseController` with exercise list, `VlmWorkerClient` on interval, `getCaptureContext`, `onAnalyserCommand`, `onUserExercisingChange` / `mapVlmToUserExercising`, `AbortSignal` cleanup, optional `onProgress` stub.
+- **Implement:** `SessionPhaseController` with exercise list, `VlmWorkerClient` on interval, background webcam capture via `getVideo`, `onAnalyserCommand`, `onUserExercisingChange` / `mapVlmToUserExercising`, `AbortSignal` cleanup, optional `onProgress` stub.
 - **Verify:**
-  - [ ] `bun run check` passes.
-  - [ ] (Manual) With video + shared canvas: ~1s cadence to worker, `onVlmResult` or equivalent updates gating, `onAnalyserCommand` receives `idle` / `analyse` transitions according to a minimal v1 list rule.
+  - [x] `bun run check` passes.
+  - [ ] (Manual) With webcam: ~1s background capture cadence to worker, `onVlmResult` or equivalent updates gating, `onAnalyserCommand` receives `idle` / `analyse` transitions according to VLM exercising/resting labels.
   - [ ] Stopping the controller (abort) clears timers and disposes the VLM path without worker leaks in DevTools (best-effort check).
 
 ---
 
 ### Phase 6 — Run page integration and cleanup
 
-- **Implement:** [+page.svelte](../../../app-v2/src/routes/app-v2/sessions/%5Bid%5D/run/+page.svelte): build `ExerciseRef[]`, plumb `userExercising` state, `SessionPhaseController` + `LiveSessionAnalyser` lifecycle, remove in-loop [ExerciseVlmPlaceholder](../../../app-v2/src/lib/ml/exercise-vlm-placeholder.ts) from the live rAF path, delete or narrow dead imports. **Unknown VLM label policy** applied (see [requirements.md](./requirements.md)). Remove `AnalysisStateMachine` from run page in favour of `SquatRepAnalyzer` via the live analyser.
+- **Implement:** [+page.svelte](../../../app-v2/src/routes/app-v2/sessions/%5Bid%5D/run/+page.svelte): build `ExerciseRef[]`, plumb `userExercising` state, `SessionPhaseController` + `LiveSessionAnalyser` lifecycle, remove in-loop [ExerciseVlmPlaceholder](../../../app-v2/src/lib/ml/exercise-vlm-placeholder.ts) from the live rAF path, remove recorded-video upload from the run page, delete or narrow dead imports. **Unknown VLM label policy** applied (see [requirements.md](./requirements.md)). Remove `AnalysisStateMachine` from run page in favour of `SquatRepAnalyzer` via the live analyser.
 - **Verify:**
-  - [ ] `bun run check` passes.
+  - [x] `bun run check` passes.
   - [ ] (Manual) Start session, start camera, in-progress: scoreboard and live chart behaviour match expectations for squat; rest / idle from VLM policy does not spuriously reset reps (per your chosen unknown rule).
-  - [ ] No duplicate `drawImage` from the same video element for the same frame for pose and VLM snapshot (one compositor, two consumers).
+  - [ ] VLM background capture remains hidden from UI; pose inference pauses on `idle` while ~1s VLM capture continues.
   - [ ] Teardown: navigate away, camera off, no runaway rAF, workers disposed.
 
 ---
@@ -90,8 +90,8 @@ Each phase should end green on **its** verification before stacking the next. Re
 ### Phase 7 — Final product verification (end of feature slice)
 
 - **Verify (full checklist):**
-  - [ ] `bun run check` in `app-v2`.
-  - [ ] [requirements.md](./requirements.md) checkboxes for implemented items are **checked**; document any deferred items in [changes.md](./changes.md) and [log.md](./log.md).
+  - [x] `bun run check` in `app-v2`.
+  - [x] [requirements.md](./requirements.md) checkboxes for implemented items are **checked**; document any deferred items in [changes.md](./changes.md) and [log.md](./log.md).
   - [ ] All design invariants in [design.md](./design.md) re-read: controller has no pose imports; VLM in worker; rep hooks via `SquatRepAnalyzer` constructor.
 
 ## Legacy: single list of work items (summary)

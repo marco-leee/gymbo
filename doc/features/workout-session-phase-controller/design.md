@@ -22,7 +22,7 @@ A **session-level orchestrator**. It must **not** import or call any pose engine
 - **`onAnalyserCommand`** to the live analyser contract.
 
 1. **Input:** ordered **exercise list** (align with session data / `resolveExercisePoseEngineKey`).
-2. **Capture:** sample the shared canvas for VLM (no second `drawImage` from `<video>` when the analyser already drew once per frame).
+2. **Capture:** sample the webcam in the background for VLM using an internal, non-rendered controller canvas at low cadence (~1s). This lets VLM detect the user starting again while pose analysis is idle.
 3. **Judge:** on a configurable interval (e.g. 1s), send a canvas snapshot to the **VLM worker**; map to exercising vs resting (and list logic later).
 4. **Progress** through the list (v1: hooks + simple cursor; full rules TBD).
 5. **Manipulate analyser:** `idle` vs `analyse` + **`ExerciseRef`** so the **type of exercise** is passed down without the controller knowing pose class names.
@@ -35,7 +35,7 @@ flowchart TB
   subgraph main [Main thread]
     spc[SessionPhaseController]
     las[LiveSessionAnalyser]
-    capture[Shared capture canvas or frame hook]
+    vlmCap[VLM background capture canvas]
   end
   subgraph workers [Workers]
     yolo[YOLO pose worker]
@@ -44,9 +44,9 @@ flowchart TB
   list[Ordered exercise list plus progress state]
   video[HTMLVideoElement]
   list --> spc
-  video --> capture
-  capture --> las
-  capture -->|1s snapshot transfer| vlmW
+  video --> vlmCap
+  video --> las
+  vlmCap -->|1s snapshot transfer| vlmW
   las -->|pose tensor| yolo
   vlmW -->|VlmResult| spc
   spc -->|idle or analyse with ExerciseRef| las
@@ -56,13 +56,13 @@ flowchart TB
 
 | Layer | Owns | Must not |
 | --- | --- | --- |
-| `SessionPhaseController` | `exercises[]`, progress cursor, VLM timing, in-flight, `VlmWorkerClient` only, **analyser commands** | Pose engines, YOLO, `IExerciseRepAnalyzer` |
+| `SessionPhaseController` | `exercises[]`, progress cursor, VLM timing, hidden webcam capture canvas, in-flight, `VlmWorkerClient` only, **analyser commands** | Pose engines, YOLO, `IExerciseRepAnalyzer`, rendered UI |
 | `LiveSessionAnalyser` | [createExercisePoseEngine](../../../app-v2/src/lib/pose/exercise-pose-engine-factory.ts) + `createExerciseRepAnalyzer` in `app-v2/src/lib/ml/rep/` (new), shared canvas, rAF loop | VLM, list policy; rep **hooks** come from **rep analyzer constructor** only |
 | `IExerciseRepAnalyzer` / `SquatRepAnalyzer` | streaks, rep count, UI phase, **call ctor hooks** from `step` / `reset`; **`readonly engine`** (same ref as live loop) | VLM, exercise list |
 | `VlmWorkerClient` | `postMessage` to `vlm.worker`, init, **single-flight**, transferable `ImageBitmap` | — |
 | `vlm.worker` | Transformers.js + Gemma (later), `VlmResult` | DOM, Svelte |
 
-**Invariant (performance):** at most **one** `drawImage` from the `<video>` per analysis frame. The analyser is the high-frequency path; the controller’s VLM path samples **the same** canvas (e.g. `createImageBitmap` then transfer to worker).
+**Invariant (performance):** the VLM capture canvas is background-only and not rendered in UI. It draws from the webcam at low cadence (~1s). The analyser draws from the webcam only when `analyse` is active, so pose inference can pause while VLM continues checking whether the user has started exercising again.
 
 ## Gating: `userExercising` without coupling
 

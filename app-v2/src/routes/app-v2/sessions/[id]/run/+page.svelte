@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { page } from "$app/stores";
-	import { goto, invalidateAll } from "$app/navigation";
+	import { goto as navigateTo, invalidateAll } from "$app/navigation";
 	import { onDestroy, onMount, tick, untrack } from "svelte";
 	import { Button } from "$lib/components/ui/button/index.js";
 	import { Badge } from "$lib/components/ui/badge/index.js";
@@ -8,27 +8,18 @@
 	import { Label } from "$lib/components/ui/label/index.js";
 	import * as Sheet from "$lib/components/ui/sheet/index.js";
 	import ChevronLeftIcon from "@lucide/svelte/icons/chevron-left";
-	import VideoIcon from "@lucide/svelte/icons/video";
 	import CheckIcon from "@lucide/svelte/icons/check";
 	import CameraIcon from "@lucide/svelte/icons/camera";
 	import Chart, { type ChartPoint } from "./chart.svelte";
 	import SessionExerciseTimeline from "./session-exercise-timeline.svelte";
 	import SessionRunCountingBoard from "./session-run-counting-board.svelte";
-	import {
-		AnalysisStateMachine,
-		type AnalysisMachineOutput,
-	} from "$lib/ml/analysis-state-machine";
-	import {
-		ExerciseVlmPlaceholder,
-		type VlmResult,
-	} from "$lib/ml/exercise-vlm-placeholder";
-	import { getMediaPlayUrl } from "$lib/api/media";
+	import { createLiveSessionAnalyser } from "$lib/ml/live-session-analyser";
+	import { SessionPhaseController } from "$lib/ml/session-phase-controller";
+	import { VlmWorkerClient } from "$lib/ml/vlm-worker-client";
+	import type { SquatRepOutput } from "$lib/ml/rep";
 	import { resolveExercisePoseEngineKey } from "$lib/pose/exercise-key";
-	import {
-		createExercisePoseEngine,
-		UnsupportedPoseEngineError,
-	} from "$lib/pose/exercise-pose-engine-factory";
 	import { createPoseEngineRuntime } from "$lib/pose/pose-runtime";
+	import type { SquatFrameAnalysis } from "$lib/pose/types";
 	import {
 		addSet,
 		recordSet,
@@ -53,7 +44,7 @@
 		mutationFn: () => completeSession(sessionId!),
 		onSuccess: async () => {
 			await invalidateAll();
-			await goto(`/app-v2/sessions/${sessionId}?view=analysis`);
+			await navigateTo(`/app-v2/sessions/${sessionId}?view=analysis`);
 		},
 	}));
 
@@ -75,19 +66,21 @@
 		},
 	}));
 
-	const MAX_VIDEO_SIZE = 200 * 1024 * 1024; // 200MB
-	const MAX_VIDEO_DURATION_SEC = 60;
 	const MODEL_INPUT_SIZE = 640;
 	const ANALYSIS_FPS = 5;
 	const VIDEO_SEEK_EPSILON_SEC = 0.001;
+	const VLM_INTERVAL_MS = 1000;
+	const MAX_LIVE_CHART_POINTS = 400;
+	const LIVE_MACHINE_IDLE_OUTPUT: SquatRepOutput = {
+		phase: "idle",
+		repsInSet: 0,
+		lastRepAtMs: null,
+	};
 	const poseRuntime = createPoseEngineRuntime({
 		modelInputSize: MODEL_INPUT_SIZE,
 		analysisFps: ANALYSIS_FPS,
 		videoSeekEpsilonSec: VIDEO_SEEK_EPSILON_SEC,
 	});
-
-	const exerciseVlm = new ExerciseVlmPlaceholder();
-	const analysisMachine = new AnalysisStateMachine();
 
 	let drawerOpen = $state(false);
 	let selectedExercise = $state<SessionExercise | null>(null);
@@ -99,17 +92,6 @@
 		rpe: "",
 		notes: "",
 	});
-	let videoUrlKey = $state<string | null>(null);
-	let videoBlobUrl = $state<string | null>(null);
-	let existingVideoPlayUrl = $state<string | null>(null);
-	let uploadError = $state("");
-	let isUploading = $state(false);
-	let isProcessingVideo = $state(false);
-	let isAutoSavingPose = $state(false);
-	let isLoadingExistingVideo = $state(false);
-	let chartData = $state<ChartPoint[]>([]);
-	let videoInputEl = $state<HTMLInputElement | null>(null);
-	let durationCheckVideoEl = $state<HTMLVideoElement | null>(null);
 
 	/** Ordered steps for the session timeline (synced from server in $effect). */
 	let timelineExercises = $state<SessionExercise[]>([]);
@@ -123,11 +105,8 @@
 	let selectedDeviceId = $state("");
 	let liveChartData = $state<ChartPoint[]>([]);
 	let prefersReducedMotion = $state(false);
-	let machineOutput = $state<AnalysisMachineOutput>({
-		phase: "idle",
-		repsInSet: 0,
-		lastRepAtMs: null,
-	});
+	let userExercising = $state(false);
+	let machineOutput = $state<SquatRepOutput>({ ...LIVE_MACHINE_IDLE_OUTPUT });
 
 	$effect(() => {
 		const sorted = [...(session?.exercises ?? [])].sort(
@@ -149,6 +128,7 @@
 	});
 
 	const liveTarget = $derived.by(() => {
+		// return { exercise: SessionEx, set: null }
 		if (drawerOpen && selectedExercise && selectedSet) {
 			return { exercise: selectedExercise, set: selectedSet };
 		}
@@ -168,6 +148,12 @@
 
 	const livePoseKey = $derived(
 		liveTarget ? resolveExercisePoseEngineKey(liveTarget.exercise) : null,
+	);
+
+	const controllerExercises = $derived.by(() =>
+		timelineExercises.filter(
+			(exercise) => resolveExercisePoseEngineKey(exercise) !== null,
+		),
 	);
 
 	const setsCompletedTotal = $derived(
@@ -202,6 +188,37 @@
 		return () => mq.removeEventListener("change", onChange);
 	});
 
+	function resetLiveAnalysisState() {
+		userExercising = false;
+		liveChartData = [];
+		machineOutput = { ...LIVE_MACHINE_IDLE_OUTPUT };
+	}
+
+	function appendLiveChartPoint(point: ChartPoint) {
+		const next = [...liveChartData, point];
+		liveChartData =
+			next.length > MAX_LIVE_CHART_POINTS
+				? next.slice(-MAX_LIVE_CHART_POINTS)
+				: next;
+	}
+
+	function chartPointFromSquatAnalysis(
+		frameIndex: number,
+		timestampSec: number,
+		analysis: SquatFrameAnalysis | null,
+	): ChartPoint | null {
+		if (!analysis) {
+			return null;
+		}
+
+		return {
+			frame: frameIndex,
+			timestampSec,
+			insideKnee: analysis.INSIDE_KNEE.angle,
+			outsideHip: analysis.OUTSIDE_HIP.angle,
+		};
+	}
+
 	async function refreshVideoDevices() {
 		try {
 			const devices = await navigator.mediaDevices.enumerateDevices();
@@ -217,9 +234,7 @@
 		cameraActive = false;
 		cameraError = "";
 		if (liveVideoEl) liveVideoEl.srcObject = null;
-		liveChartData = [];
-		analysisMachine.reset();
-		machineOutput = { phase: "idle", repsInSet: 0, lastRepAtMs: null };
+		resetLiveAnalysisState();
 	}
 
 	async function startCamera() {
@@ -266,8 +281,7 @@
 		return String(mins);
 	}
 
-	async function openSetDrawer(exercise: SessionExercise, set: ExerciseSet) {
-		if (videoBlobUrl) URL.revokeObjectURL(videoBlobUrl);
+	function openSetDrawer(exercise: SessionExercise, set: ExerciseSet) {
 		selectedExercise = exercise;
 		selectedSet = set;
 		const synced = timelineExercises.find((e) => e.id === exercise.id);
@@ -280,280 +294,107 @@
 			rpe: set.rpe != null ? String(set.rpe) : "",
 			notes: set.notes ?? "",
 		};
-		videoUrlKey = set.video_url ?? null;
-		videoBlobUrl = null;
-		existingVideoPlayUrl = null;
-		chartData = set.pose_chart_data ? [...set.pose_chart_data] : [];
-		uploadError = "";
-		isUploading = false;
-		isProcessingVideo = false;
-		isAutoSavingPose = false;
-		isLoadingExistingVideo = false;
 		drawerOpen = true;
-
-		if (!set.video_url) return;
-
-		const selectedSetId = set.id;
-		isLoadingExistingVideo = true;
-		try {
-			const playUrl = await getMediaPlayUrl(set.video_url);
-			if (selectedSet?.id === selectedSetId) {
-				existingVideoPlayUrl = playUrl;
-			}
-		} catch (err) {
-			if (selectedSet?.id === selectedSetId) {
-				uploadError =
-					err instanceof Error ? err.message : "Failed to load video preview";
-			}
-		} finally {
-			if (selectedSet?.id === selectedSetId) {
-				isLoadingExistingVideo = false;
-			}
-		}
-	}
-
-	function getVideoDisplaySrc(): string | null {
-		if (videoBlobUrl) return videoBlobUrl;
-		if (existingVideoPlayUrl) return existingVideoPlayUrl;
-		if (selectedSet?.video_play_url) return selectedSet.video_play_url;
-		return null;
-	}
-
-	async function autoSavePoseChartData(
-		exerciseId: string,
-		setId: string,
-		videoUrl: string,
-		poseChartData: ChartPoint[],
-	) {
-		if (!sessionId) return;
-
-		isAutoSavingPose = true;
-		try {
-			await recordSet(sessionId, exerciseId, setId, {
-				video_url: videoUrl,
-				pose_chart_data: poseChartData,
-			});
-			await invalidateAll();
-		} finally {
-			isAutoSavingPose = false;
-		}
-	}
-
-	async function processUploadedVideo(
-		file: File,
-		exerciseId: string,
-		setId: string,
-		videoUrl: string,
-	) {
-		isProcessingVideo = true;
-
-		try {
-			if (!selectedExercise) {
-				console.error("No selected exercise");
-				return;
-			}
-			const exerciseKey = resolveExercisePoseEngineKey(selectedExercise);
-			if (!exerciseKey) {
-				console.error("No exercise key");
-				return;
-			}
-
-			const engine = createExercisePoseEngine(exerciseKey, poseRuntime);
-			chartData = [];
-			let nextChartData: ChartPoint[] = [];
-
-			for await (const iteration of engine.analyzeVideo({ file })) {
-				const point = engine.chartPointFromIteration?.(iteration);
-				if (!point) continue;
-
-				nextChartData = [...nextChartData, point];
-				chartData = nextChartData;
-			}
-
-			await autoSavePoseChartData(exerciseId, setId, videoUrl, nextChartData);
-		} catch (error) {
-			if (error instanceof UnsupportedPoseEngineError) {
-				return;
-			}
-			uploadError =
-				error instanceof Error ? error.message : "Pose processing failed";
-			console.error("Pose processing failed", error);
-		} finally {
-			isProcessingVideo = false;
-		}
 	}
 
 	$effect(() => {
-		if (!cameraActive || !liveVideoEl || !mediaStream || isProcessingVideo)
-			return;
-		if (livePoseKey !== "squat") {
-			liveChartData = [];
-			analysisMachine.reset();
-			machineOutput = { phase: "idle", repsInSet: 0, lastRepAtMs: null };
-			return;
-		}
+		const currentExercise = liveTarget?.exercise ?? null;
+
+		if (!cameraActive || !liveVideoEl || !mediaStream) return;
 
 		const video = liveVideoEl;
-		const sessionStatus = session?.status;
+		if (!livePoseKey || !currentExercise) {
+			resetLiveAnalysisState();
+			return;
+		}
 		const ac = new AbortController();
 		const { signal } = ac;
+		const targetFps = prefersReducedMotion ? 2 : ANALYSIS_FPS;
+		let controller: SessionPhaseController | null = null;
+		resetLiveAnalysisState();
+		const analyser = createLiveSessionAnalyser({
+			getVideo: () => video,
+			poseRuntime,
+			modelInputSize: MODEL_INPUT_SIZE,
+			targetFps,
+			getSessionInProgress: () => session?.status === "in-progress",
+			getUserExercising: () => userExercising,
+			orchestrationHooks: {
+				onAnalysisFrame: ({ exercise, iteration }) => {
+					if (resolveExercisePoseEngineKey(exercise) !== "squat") {
+						return;
+					}
 
-		void (async () => {
-			await exerciseVlm.init();
-			try {
-				const targetFps = prefersReducedMotion ? 2 : ANALYSIS_FPS;
-				const engine = createExercisePoseEngine("squat", poseRuntime);
-				analysisMachine.reset();
-				let chartBuf: ChartPoint[] = [];
-				liveChartData = [];
-
-				let vlmEvery = 0;
-				let lastVlm: VlmResult = { label: "unknown", confidence: 0 };
-
-				for await (const iteration of engine.analyzeLiveVideo(video, {
-					signal,
-					targetFps,
-				})) {
-					if (signal.aborted) break;
-
-					const point = engine.chartPointFromIteration?.(iteration);
+					const point = chartPointFromSquatAnalysis(
+						iteration.frameIndex,
+						iteration.timestampSec,
+						iteration.analysis as SquatFrameAnalysis | null,
+					);
 					if (point) {
-						chartBuf = [...chartBuf, point];
-						if (chartBuf.length > 400) chartBuf = chartBuf.slice(-400);
-						liveChartData = chartBuf;
+						appendLiveChartPoint(point);
 					}
-
-					if (vlmEvery++ % 20 === 0) {
-						try {
-							const bmp = await createImageBitmap(video);
-							lastVlm = await exerciseVlm.inferFrame(bmp);
-							bmp.close();
-						} catch {
-							/* ignore frame grab errors */
-						}
+				},
+				onError: (error) => {
+					if (!signal.aborted) {
+						console.error("[run/live] analyser error", error);
+						resetLiveAnalysisState();
 					}
+				},
+			},
+			signal,
+			createRepHooks: () => ({
+				onOutput: (output) => {
+					machineOutput = output;
+				},
+				onError: (error) => {
+					if (!signal.aborted) {
+						console.error("[run/live] rep error", error);
+						resetLiveAnalysisState();
+					}
+				},
+			}),
+		});
 
-					machineOutput = analysisMachine.tick({
-						nowMs: performance.now(),
-						pose: iteration.analysis,
-						vlm: lastVlm,
-						repCountingEnabled: sessionStatus === "in-progress",
-					});
+		analyser.start();
+		console.debug("[run/live] live analysis start", {
+			exerciseId: currentExercise.id,
+			vlmIntervalMs: VLM_INTERVAL_MS,
+		});
+		controller = new SessionPhaseController({
+			signal,
+			exercises: controllerExercises,
+			currentExerciseId: currentExercise.id,
+			vlm: new VlmWorkerClient(),
+			vlmIntervalMs: VLM_INTERVAL_MS,
+			getSessionInProgress: () => session?.status === "in-progress",
+			getVideo: () => liveVideoEl,
+			onAnalyserCommand: (command) => {
+				analyser.applyCommand(command);
+			},
+			mapVlmToUserExercising: (result) => result.label === "exercising",
+			onUserExercisingChange: (value) => {
+				userExercising = value;
+			},
+			onError: (error) => {
+				if (!signal.aborted) {
+					console.error("[run/live] controller error", error);
+					resetLiveAnalysisState();
 				}
-			} catch (e) {
-				if (!signal.aborted) console.error("Live pose loop", e);
-			} finally {
-				await exerciseVlm.dispose();
-			}
-		})();
+			},
+		});
 
 		return () => {
+			console.debug("[run/live] live analysis stop");
+			analyser.stop();
 			ac.abort();
+			void controller?.dispose();
+			resetLiveAnalysisState();
 		};
 	});
 
 	onDestroy(() => {
 		stopCamera();
 		poseRuntime.dispose();
-	});
-
-	async function handleVideoFileSelect(e: Event) {
-		const input = e.target as HTMLInputElement;
-		const file = input.files?.[0];
-		if (!file || !selectedExercise || !selectedSet || !sessionId) return;
-
-		uploadError = "";
-		if (file.type !== "video/mp4") {
-			uploadError = "Only MP4 video is allowed.";
-			input.value = "";
-			return;
-		}
-		if (file.size > MAX_VIDEO_SIZE) {
-			uploadError = `File must be under ${MAX_VIDEO_SIZE / (1024 * 1024)}MB.`;
-			input.value = "";
-			return;
-		}
-
-		const blobUrl = URL.createObjectURL(file);
-		const videoEl = durationCheckVideoEl;
-		if (!videoEl) {
-			URL.revokeObjectURL(blobUrl);
-			uploadError = "Cannot check video duration.";
-			return;
-		}
-
-		const durationOk = await new Promise<boolean>((resolve) => {
-			videoEl.src = blobUrl;
-			videoEl.onloadedmetadata = () => {
-				const dur = videoEl.duration;
-				URL.revokeObjectURL(blobUrl);
-				videoEl.src = "";
-				resolve(!Number.isNaN(dur) && dur > 0 && dur <= MAX_VIDEO_DURATION_SEC);
-			};
-			videoEl.onerror = () => {
-				URL.revokeObjectURL(blobUrl);
-				videoEl.src = "";
-				resolve(false);
-			};
-		});
-
-		if (!durationOk) {
-			uploadError = `Video must be under ${MAX_VIDEO_DURATION_SEC} seconds.`;
-			input.value = "";
-			return;
-		}
-
-		isUploading = true;
-		try {
-			const signRes = await fetch("/api/media/sign", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
-					session_id: sessionId,
-					exercise_id: selectedExercise.id,
-					set_id: selectedSet.id,
-					file_name: file.name,
-					file_type: file.type,
-					file_size: file.size,
-				}),
-			});
-			if (!signRes.ok) {
-				const err = await signRes.text();
-				throw new Error(err || signRes.statusText);
-			}
-			const { upload_url, key } = (await signRes.json()) as {
-				upload_url: string;
-				key: string;
-			};
-
-			const putRes = await fetch(upload_url, {
-				method: "PUT",
-				headers: { "Content-Type": "video/mp4" },
-				body: file,
-			});
-			if (!putRes.ok) throw new Error("Upload failed");
-
-			if (videoBlobUrl) URL.revokeObjectURL(videoBlobUrl);
-			videoUrlKey = key;
-			videoBlobUrl = URL.createObjectURL(file);
-			void processUploadedVideo(file, selectedExercise.id, selectedSet.id, key);
-		} catch (err) {
-			uploadError = err instanceof Error ? err.message : "Upload failed";
-		} finally {
-			isUploading = false;
-			input.value = "";
-		}
-	}
-
-	$effect(() => {
-		if (!drawerOpen && videoBlobUrl) {
-			const url = videoBlobUrl;
-			videoBlobUrl = null;
-			URL.revokeObjectURL(url);
-		}
-		if (!drawerOpen && chartData.length > 0) {
-			chartData = [];
-		}
 	});
 
 	function submitRecord() {
@@ -575,7 +416,6 @@
 			payload.weight_kg = parseFloat(recordForm.weight_kg);
 		if (recordForm.rpe)
 			payload.rpe = Math.min(10, Math.max(1, parseInt(recordForm.rpe, 10)));
-		if (videoUrlKey) payload.video_url = videoUrlKey;
 		recordSetMutation.mutate({
 			exerciseId: selectedExercise.id,
 			setId: selectedSet.id,
@@ -768,145 +608,4 @@
 			</div>
 		</div>
 	</div>
-
-	<!-- Set recorder drawer -->
-	<Sheet.Root bind:open={drawerOpen}>
-		<Sheet.Content
-			side="bottom"
-			class="flex h-[80vh] max-h-[80vh] flex-col overflow-hidden rounded-t-xl"
-		>
-			<Sheet.Header>
-				<Sheet.Title>
-					{selectedExercise?.name} — Set {selectedSet?.set_number}
-				</Sheet.Title>
-			</Sheet.Header>
-			<div class="min-h-0 flex-1 overflow-y-auto">
-				<div class="space-y-4 p-4 py-4">
-					{#if selectedExercise?.measurement === "reps"}
-						<div class="space-y-2">
-							<Label for="reps">Reps</Label>
-							<Input
-								id="reps"
-								type="number"
-								min="0"
-								bind:value={recordForm.actual_reps}
-								placeholder="Actual reps"
-							/>
-						</div>
-					{:else}
-						<div class="space-y-2">
-							<Label for="duration">Duration (seconds)</Label>
-							<Input
-								id="duration"
-								type="number"
-								min="0"
-								bind:value={recordForm.actual_duration}
-								placeholder="Seconds"
-							/>
-						</div>
-					{/if}
-					<div class="space-y-2">
-						<Label for="weight">Weight (kg)</Label>
-						<Input
-							id="weight"
-							type="number"
-							step="0.5"
-							min="0"
-							bind:value={recordForm.weight_kg}
-							placeholder="0"
-						/>
-					</div>
-					<div class="space-y-2">
-						<Label for="rpe">RPE (1–10)</Label>
-						<Input
-							id="rpe"
-							type="number"
-							min="1"
-							max="10"
-							bind:value={recordForm.rpe}
-							placeholder="1-10"
-						/>
-					</div>
-					<div class="space-y-2">
-						<Label for="notes">Notes</Label>
-						<Input
-							id="notes"
-							bind:value={recordForm.notes}
-							placeholder="Optional notes"
-						/>
-					</div>
-					<!-- Hidden video for duration check -->
-					<video
-						bind:this={durationCheckVideoEl}
-						class="hidden"
-						muted
-						playsinline
-						preload="metadata"
-					></video>
-					<div class="space-y-2">
-						<Label>Video (MP4, under 1 min, max 200MB)</Label>
-						<input
-							bind:this={videoInputEl}
-							type="file"
-							accept="video/mp4,.mp4"
-							class="hidden"
-							onchange={handleVideoFileSelect}
-						/>
-						<Button
-							type="button"
-							variant="outline"
-							class="w-full"
-							disabled={isUploading || isProcessingVideo || isAutoSavingPose}
-							onclick={() => videoInputEl?.click()}
-						>
-							{#if isUploading}
-								Uploading…
-							{:else if isProcessingVideo}
-								Processing video…
-							{:else if isAutoSavingPose}
-								Saving analysis…
-							{:else}
-								<VideoIcon class="mr-2 h-4 w-4" />
-								Choose video
-							{/if}
-						</Button>
-						{#if uploadError}
-							<p class="text-destructive text-sm">{uploadError}</p>
-						{/if}
-						{#if isLoadingExistingVideo}
-							<p class="text-muted-foreground text-sm">
-								Loading saved video...
-							</p>
-						{/if}
-						{#if getVideoDisplaySrc()}
-							<div class="rounded-md border bg-muted/30 overflow-hidden">
-								<video
-									src={getVideoDisplaySrc()!}
-									controls
-									class="w-full max-h-48"
-									muted
-									playsinline
-									preload="metadata"
-								></video>
-							</div>
-						{/if}
-					</div>
-					<Button
-						class="w-full"
-						onclick={submitRecord}
-						disabled={recordSetMutation.isPending ||
-							isProcessingVideo ||
-							isAutoSavingPose}
-					>
-						Save set
-					</Button>
-				</div>
-
-				<div class="space-y-2 border-t p-4 pt-4">
-					<h3 class="text-sm font-medium">Set analysis (angle over time)</h3>
-					<Chart data={chartData} />
-				</div>
-			</div>
-		</Sheet.Content>
-	</Sheet.Root>
 </div>

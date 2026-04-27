@@ -5,7 +5,7 @@
 		CardHeader,
 		CardTitle,
 	} from "$lib/components/ui/card/index.js";
-	import type { AnalysisPhase } from "$lib/ml/analysis-state-machine";
+	import type { RepPhase } from "$lib/ml/rep";
 
 	let {
 		phase,
@@ -19,7 +19,7 @@
 		setsDoneTotal,
 		class: className = "",
 	}: {
-		phase: AnalysisPhase;
+		phase: RepPhase;
 		prefersReducedMotion?: boolean;
 		exerciseName: string;
 		setNumber: string | number;
@@ -31,7 +31,7 @@
 		class?: string;
 	} = $props();
 
-	function phaseLabel(p: AnalysisPhase): string {
+	function phaseLabel(p: RepPhase): string {
 		switch (p) {
 			case "idle":
 				return "Idle";

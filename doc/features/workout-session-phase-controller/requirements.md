@@ -5,7 +5,7 @@
 
 ## Summary
 
-A **workout session phase layer** for the run screen: a **SessionPhaseController** that drives an ordered exercise list, classifies the user as exercising or resting (client **VLM in a Web Worker**, Transformers.js + Gemma 4 when wired, placeholder at first), and issues **`idle` / `analyse` + ExerciseRef** commands to a **LiveSessionAnalyser** that runs pose. **No duplicate `drawImage`** from the camera: one shared capture surface, pose at analysis FPS, VLM at ~1s. Rep counting and UI phase come from a **per-exercise rep analyzer** (v1: `SquatRepAnalyzer` from today’s `AnalysisStateMachine` logic) with **hooks in the constructor** and a **`createExerciseRepAnalyzer` factory** aligned with the pose engine factory.
+A **workout session phase layer** for the run screen: a **SessionPhaseController** that drives an ordered exercise list, classifies the user as exercising or resting (client **VLM in a Web Worker**, Transformers.js + Gemma 4 when wired, placeholder at first), and issues **`idle` / `analyse` + ExerciseRef** commands to a **LiveSessionAnalyser** that runs pose. The controller samples the webcam in the background at ~1s using a hidden internal canvas for VLM; the live analyser draws from the webcam only while pose analysis is commanded. Rep counting and UI phase come from a **per-exercise rep analyzer** (v1: `SquatRepAnalyzer` from today’s `AnalysisStateMachine` logic) with **hooks in the constructor** and a **`createExerciseRepAnalyzer` factory** aligned with the pose engine factory.
 
 ## Scope boundaries
 
@@ -14,12 +14,12 @@ A **workout session phase layer** for the run screen: a **SessionPhaseController
 
 ## Requirements
 
-- [ ] Session phase controller: ordered exercise list, VLM on configurable interval, progress hooks (policy TBD), `AnalyserCommand` to live analyser, no imports of pose engines or YOLO.
-- [ ] VLM runs in a dedicated Web Worker; main thread only schedules snapshots and message I/O; single-flight inference on client; placeholder `VlmResult` until model wired.
-- [ ] **Unknown VLM label policy** documented: e.g. do not flip `userExercising` on `unknown` (or explicit alternative).
-- [ ] Live analyser: `start` / `stop` / `applyCommand`; `getUserExercising` and `getSessionInProgress` from page; one shared canvas: analyser does pose loop; controller samples same canvas for VLM; at most one `drawImage` from `<video>` per analysis frame.
+- [x] Session phase controller: ordered exercise input, VLM on configurable interval, background webcam capture canvas, progress hook stub, `AnalyserCommand` to live analyser, no imports of pose engines or YOLO. v1 run-page wiring currently drives it from the active live target exercise rather than full list auto-progress.
+- [x] VLM runs in a dedicated Web Worker; main thread only schedules hidden webcam snapshots and message I/O; single-flight inference on client; `SessionPhaseController` now drives `VlmWorkerClient` from the run page.
+- [x] **Unknown VLM label policy** documented and implemented: when `label === "unknown"`, leave `userExercising` unchanged.
+- [x] Live analyser: `start` / `stop` / `applyCommand`; `getUserExercising` and `getSessionInProgress` from page; controller emits `idle` when VLM says not exercising and `analyse` when VLM says exercising, so pose inference pauses while the low-rate VLM webcam capture continues in the background.
 - [x] `SquatRepAnalyzer` (replaces in-place VLM+pose merge in `AnalysisStateMachine` `tick`): gates `sessionInProgress` and `userExercising` only, **no `vlm` in `step`**; `ExerciseRepAnalyzerHooks` only via **constructor**; `readonly engine` from [SquatPoseEngine](../../../app-v2/src/lib/pose/squat-pose-engine.ts); factory extensible for future `push_up`.
-- [ ] Run page [+page.svelte](../../../app-v2/src/routes/app-v2/sessions/%5Bid%5D/run/+page.svelte) wires session exercise list, controller + live analyser lifecycle, cleanup on destroy.
+- [x] Run page [+page.svelte](../../../app-v2/src/routes/app-v2/sessions/%5Bid%5D/run/+page.svelte) wires session exercise list/current live target, controller + live analyser lifecycle, and cleanup on destroy.
 
 ## Non-goals
 
