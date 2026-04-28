@@ -1,35 +1,24 @@
 <script lang="ts">
 	import { page } from "$app/stores";
 	import { goto, invalidateAll } from "$app/navigation";
-	import { onDestroy } from "svelte";
+	import { untrack } from "svelte";
 	import { Button } from "$lib/components/ui/button/index.js";
 	import { Badge } from "$lib/components/ui/badge/index.js";
-	import {
-		Card,
-		CardContent,
-		CardHeader,
-		CardTitle,
-	} from "$lib/components/ui/card/index.js";
+	import { Card, CardContent } from "$lib/components/ui/card/index.js";
 	import { Input } from "$lib/components/ui/input/index.js";
 	import { Label } from "$lib/components/ui/label/index.js";
-	import * as Table from "$lib/components/ui/table/index.js";
-	import * as Sheet from "$lib/components/ui/sheet/index.js";
+	import { Textarea } from "$lib/components/ui/textarea/index.js";
 	import * as Collapsible from "$lib/components/ui/collapsible/index.js";
 	import ChevronLeftIcon from "@lucide/svelte/icons/chevron-left";
+	import ChevronDownIcon from "@lucide/svelte/icons/chevron-down";
 	import PlusIcon from "@lucide/svelte/icons/plus";
-	import VideoIcon from "@lucide/svelte/icons/video";
 	import CheckIcon from "@lucide/svelte/icons/check";
-	import Chart, { type ChartPoint } from "./chart.svelte";
+	import VideoIcon from "@lucide/svelte/icons/video";
+	import { Dialog } from "bits-ui";
+	import SessionExerciseTimeline from "../run/session-exercise-timeline.svelte";
 	import { getMediaPlayUrl } from "$lib/api/media";
-	import { resolveExercisePoseEngineKey } from "$lib/pose/exercise-key";
-	import {
-		createExercisePoseEngine,
-		UnsupportedPoseEngineError,
-	} from "$lib/pose/exercise-pose-engine-factory";
-	import { createPoseEngineRuntime } from "$lib/pose/pose-runtime";
 	import {
 		addSet,
-		exerciseTypeLabel,
 		recordSet,
 		startSession,
 		completeSession,
@@ -37,7 +26,6 @@
 		type ExerciseSet,
 	} from "$lib/api/sessions";
 	import { createMutation } from "@tanstack/svelte-query";
-	// import { LineChart } from "layerchart";
 
 	let { data } = $props();
 	const sessionId = $derived($page.params.id);
@@ -59,7 +47,6 @@
 	const addSetMutation = createMutation(() => ({
 		mutationFn: ({ exerciseId }: { exerciseId: string }) =>
 			addSet(sessionId!, exerciseId),
-		onSuccess: () => invalidateAll(),
 	}));
 
 	const recordSetMutation = createMutation(() => ({
@@ -68,196 +55,284 @@
 			setId: string;
 			payload: Parameters<typeof recordSet>[3];
 		}) => recordSet(sessionId!, vars.exerciseId, vars.setId, vars.payload),
-		onSuccess: () => {
-			drawerOpen = false;
-			invalidateAll();
-		},
+		onSuccess: () => invalidateAll(),
 	}));
 
 	const MAX_VIDEO_SIZE = 200 * 1024 * 1024; // 200MB
 	const MAX_VIDEO_DURATION_SEC = 60;
-	const MODEL_INPUT_SIZE = 640;
-	const ANALYSIS_FPS = 5;
-	const VIDEO_SEEK_EPSILON_SEC = 0.001;
-	const poseRuntime = createPoseEngineRuntime({
-		modelInputSize: MODEL_INPUT_SIZE,
-		analysisFps: ANALYSIS_FPS,
-		videoSeekEpsilonSec: VIDEO_SEEK_EPSILON_SEC,
-	});
 
-	let drawerOpen = $state(false);
-	let selectedExercise = $state<SessionExercise | null>(null);
-	let selectedSet = $state<ExerciseSet | null>(null);
-	let recordForm = $state({
+	let durationCheckVideoEl = $state<HTMLVideoElement | null>(null);
+	let uploadingVideoSetId = $state<string | null>(null);
+	let videoUploadError = $state("");
+
+	let videoPreviewOpen = $state(false);
+	let videoPreviewUrl = $state<string | null>(null);
+	let videoPreviewLoading = $state(false);
+	let videoPreviewError = $state("");
+
+	async function openVideoPreview(key: string) {
+		videoPreviewError = "";
+		videoPreviewUrl = null;
+		videoPreviewLoading = true;
+		videoPreviewOpen = true;
+		try {
+			videoPreviewUrl = await getMediaPlayUrl(key);
+		} catch (e) {
+			videoPreviewError =
+				e instanceof Error ? e.message : "Could not load video";
+		} finally {
+			videoPreviewLoading = false;
+		}
+	}
+
+	function setFieldsLocked(set: ExerciseSet): boolean {
+		return set.status === "completed" || set.status === "processing";
+	}
+
+	const canCreateSets = $derived(
+		session?.status === "scheduled" || session?.status === "in-progress",
+	);
+
+	let timelineExercises = $state<SessionExercise[]>([]);
+	let currentExercise = $state<SessionExercise | null>(null);
+	let openedSetId = $state<string | null>(null);
+
+	type InlineSetDraft = {
+		exerciseId: string;
+		setId: string;
+		actual_reps: string;
+		actual_duration: string;
+		weight_kg: string;
+		notes: string;
+	};
+
+	type InlineFields = Omit<
+		InlineSetDraft,
+		"setId" | "exerciseId"
+	>;
+
+	const EMPTY_INLINE_FIELDS: InlineFields = {
 		actual_reps: "",
 		actual_duration: "",
 		weight_kg: "",
-		rpe: "",
 		notes: "",
-	});
-	let videoUrlKey = $state<string | null>(null);
-	let videoBlobUrl = $state<string | null>(null);
-	let existingVideoPlayUrl = $state<string | null>(null);
-	let uploadError = $state("");
-	let isUploading = $state(false);
-	let isProcessingVideo = $state(false);
-	let isAutoSavingPose = $state(false);
-	let isLoadingExistingVideo = $state(false);
-	let chartData = $state<ChartPoint[]>([]);
-	let videoInputEl = $state<HTMLInputElement | null>(null);
-	let durationCheckVideoEl = $state<HTMLVideoElement | null>(null);
+	};
 
-	function formatTime(dateStr: string): string {
-		return new Date(dateStr).toLocaleTimeString(undefined, {
-			hour: "2-digit",
-			minute: "2-digit",
+	function seedNewSetFormFromExercise(
+		ex: SessionExercise | null,
+	): InlineFields {
+		if (!ex?.measurement) return { ...EMPTY_INLINE_FIELDS };
+		return {
+			actual_reps:
+				ex.measurement === "reps" && ex.target_reps != null
+					? String(ex.target_reps)
+					: "",
+			actual_duration:
+				ex.measurement === "duration" && ex.target_duration != null
+					? String(ex.target_duration)
+					: "",
+			weight_kg:
+				ex.target_weight_kg != null ? String(ex.target_weight_kg) : "",
+			notes: "",
+		};
+	}
+
+	let openedSetDraft = $state<InlineSetDraft | null>(null);
+
+	let newSetForm = $state<InlineFields>({ ...EMPTY_INLINE_FIELDS });
+
+	let createFormAnchoredExerciseId = $state<string | null>(null);
+
+	let creatingNewSet = $state(false);
+
+	$effect(() => {
+		void openedSetId;
+		videoUploadError = "";
+	});
+
+	/** Pre-fill Create set from exercise targets whenever the selected exercise changes. */
+	$effect(() => {
+		const ex = currentExercise;
+		if (!ex) {
+			createFormAnchoredExerciseId = null;
+			return;
+		}
+		if (createFormAnchoredExerciseId === ex.id) return;
+		createFormAnchoredExerciseId = ex.id;
+		untrack(() => {
+			newSetForm = seedNewSetFormFromExercise(ex);
+		});
+	});
+
+	$effect(() => {
+		const sorted = [...(session?.exercises ?? [])].sort(
+			(a, b) => a.order_index - b.order_index,
+		);
+		timelineExercises = sorted;
+		if (sorted.length === 0) {
+			currentExercise = null;
+			return;
+		}
+		untrack(() => {
+			const curId = currentExercise?.id;
+			if (!curId || !sorted.some((e) => e.id === curId)) {
+				openedSetId = null;
+				currentExercise = sorted[0];
+			} else {
+				currentExercise = sorted.find((e) => e.id === curId) ?? sorted[0];
+			}
+		});
+	});
+
+	const sortedSetsForCurrent = $derived.by(() => {
+		const ex = currentExercise;
+		if (!ex) return [];
+		return [...(ex.sets ?? [])].sort((a, b) => a.set_number - b.set_number);
+	});
+
+	const openSetLive = $derived.by(() => {
+		if (!openedSetId || !currentExercise) return null;
+		return (
+			(currentExercise.sets ?? []).find((s) => s.id === openedSetId) ?? null
+		);
+	});
+
+	const openSetFinger = $derived.by(() => {
+		const os = openSetLive;
+		if (!os)
+			return "";
+		return `${os.id}:${String(os.actual_reps ?? "")}:${String(os.actual_duration ?? "")}:${String(os.weight_kg ?? "")}:${String(os.notes ?? "")}:${os.status}`;
+	});
+
+	/** Sync accordion inline form from server when selection or persisted set snapshot changes — not while local draft diverges unless server updates fingerprint. */
+	$effect(() => {
+		if (
+			!openedSetId ||
+			!currentExercise ||
+			!openSetLive ||
+			openSetLive.id !== openedSetId
+		) {
+			openedSetDraft = null;
+			return;
+		}
+		void openSetFinger;
+		const os = openSetLive;
+		const ex = currentExercise;
+		openedSetDraft = {
+			exerciseId: ex.id,
+			setId: os.id,
+			actual_reps:
+				os.actual_reps != null
+					? String(os.actual_reps)
+					: ex.measurement === "reps" && ex.target_reps != null
+						? String(ex.target_reps)
+						: "",
+			actual_duration:
+				os.actual_duration != null
+					? String(os.actual_duration)
+					: ex.measurement === "duration" && ex.target_duration != null
+						? String(ex.target_duration)
+						: "",
+			weight_kg:
+				os.weight_kg != null
+					? String(os.weight_kg)
+					: ex.target_weight_kg != null
+						? String(ex.target_weight_kg)
+						: "",
+			notes: os.notes ?? "",
+		};
+	});
+
+	function buildRecordPayload(
+		exercise: SessionExercise,
+		fields: InlineFields,
+	): Parameters<typeof recordSet>[3] {
+		const payload: Parameters<typeof recordSet>[3] = {};
+
+		const n = fields.notes?.trim();
+		if (n) payload.notes = n;
+
+		if (exercise.measurement === "reps" && fields.actual_reps.trim() !== "") {
+			payload.actual_reps = parseInt(fields.actual_reps, 10);
+		}
+		if (
+			exercise.measurement === "duration" &&
+			fields.actual_duration.trim() !== ""
+		) {
+			payload.actual_duration = parseInt(fields.actual_duration, 10);
+		}
+		if (fields.weight_kg.trim() !== "") {
+			payload.weight_kg = parseFloat(fields.weight_kg);
+		}
+
+		return payload;
+	}
+
+	function saveAccordionDraft() {
+		const ex = currentExercise;
+		const draft = openedSetDraft;
+		if (!ex || !draft || !sessionId) return;
+		const target = (ex.sets ?? []).find((s) => s.id === draft.setId);
+		if (!target || setFieldsLocked(target)) return;
+
+		const fields: InlineFields = {
+			actual_reps: draft.actual_reps,
+			actual_duration: draft.actual_duration,
+			weight_kg: draft.weight_kg,
+			notes: draft.notes,
+		};
+		recordSetMutation.mutate({
+			exerciseId: ex.id,
+			setId: draft.setId,
+			payload: buildRecordPayload(ex, fields),
 		});
 	}
 
-	function elapsedMinutes(): string {
-		if (!session?.started_at) return "0";
-		const end = session.completed_at
-			? new Date(session.completed_at)
-			: new Date();
-		const mins = Math.floor(
-			(end.getTime() - new Date(session.started_at).getTime()) / 60000,
-		);
-		return String(mins);
-	}
-
-	async function openSetDrawer(exercise: SessionExercise, set: ExerciseSet) {
-		if (videoBlobUrl) URL.revokeObjectURL(videoBlobUrl);
-		selectedExercise = exercise;
-		selectedSet = set;
-		recordForm = {
-			actual_reps: set.actual_reps != null ? String(set.actual_reps) : "",
-			actual_duration:
-				set.actual_duration != null ? String(set.actual_duration) : "",
-			weight_kg: set.weight_kg != null ? String(set.weight_kg) : "",
-			rpe: set.rpe != null ? String(set.rpe) : "",
-			notes: set.notes ?? "",
-		};
-		videoUrlKey = set.video_url ?? null;
-		videoBlobUrl = null;
-		existingVideoPlayUrl = null;
-		chartData = set.pose_chart_data ? [...set.pose_chart_data] : [];
-		uploadError = "";
-		isUploading = false;
-		isProcessingVideo = false;
-		isAutoSavingPose = false;
-		isLoadingExistingVideo = false;
-		drawerOpen = true;
-
-		if (!set.video_url) return;
-
-		const selectedSetId = set.id;
-		isLoadingExistingVideo = true;
+	async function submitNewSetFromBottom() {
+		const ex = currentExercise;
+		if (!sessionId || !ex || creatingNewSet || !canCreateSets) return;
+		creatingNewSet = true;
 		try {
-			const playUrl = await getMediaPlayUrl(set.video_url);
-			if (selectedSet?.id === selectedSetId) {
-				existingVideoPlayUrl = playUrl;
-			}
-		} catch (err) {
-			if (selectedSet?.id === selectedSetId) {
-				uploadError = err instanceof Error ? err.message : "Failed to load video preview";
-			}
-		} finally {
-			if (selectedSet?.id === selectedSetId) {
-				isLoadingExistingVideo = false;
-			}
-		}
-	}
-
-	function getVideoDisplaySrc(): string | null {
-		if (videoBlobUrl) return videoBlobUrl;
-		if (existingVideoPlayUrl) return existingVideoPlayUrl;
-		if (selectedSet?.video_play_url) return selectedSet.video_play_url;
-		return null;
-	}
-
-	async function autoSavePoseChartData(
-		exerciseId: string,
-		setId: string,
-		videoUrl: string,
-		poseChartData: ChartPoint[],
-	) {
-		if (!sessionId) return;
-
-		isAutoSavingPose = true;
-		try {
-			await recordSet(sessionId, exerciseId, setId, {
-				video_url: videoUrl,
-				pose_chart_data: poseChartData,
+			const sess = await addSetMutation.mutateAsync({
+				exerciseId: ex.id,
 			});
-			await invalidateAll();
+			const synced = sess.exercises.find((e) => e.id === ex.id);
+			const setsSorted = [...(synced?.sets ?? [])].sort(
+				(a, b) => a.set_number - b.set_number,
+			);
+			const newSet = setsSorted.at(-1);
+			if (!newSet) throw new Error("Added set missing from session response.");
+
+			await recordSetMutation.mutateAsync({
+				exerciseId: ex.id,
+				setId: newSet.id,
+				payload: buildRecordPayload(ex, newSetForm),
+			});
+
+			newSetForm = seedNewSetFormFromExercise(ex);
+			openedSetId = newSet.id;
+		} catch (e) {
+			console.error(e);
 		} finally {
-			isAutoSavingPose = false;
+			creatingNewSet = false;
 		}
 	}
 
-	async function processUploadedVideo(
-		file: File,
-		exerciseId: string,
-		setId: string,
-		videoUrl: string,
-	) {
-		isProcessingVideo = true;
-
-		try {
-			if (!selectedExercise) {
-				console.error("No selected exercise");
-				return;
-			}
-			// const exerciseKey = resolveExercisePoseEngineKey(selectedExercise);
-			const exerciseKey = "squat";
-			if (!exerciseKey) {
-				console.error("No exercise key");
-				return;
-			}
-
-			const engine = createExercisePoseEngine(exerciseKey, poseRuntime);
-			chartData = [];
-			let nextChartData: ChartPoint[] = [];
-
-			for await (const iteration of engine.analyzeVideo({ file })) {
-				const point = engine.chartPointFromIteration?.(iteration);
-				if (!point) continue;
-
-				nextChartData = [...nextChartData, point];
-				chartData = nextChartData;
-			}
-
-			await autoSavePoseChartData(exerciseId, setId, videoUrl, nextChartData);
-		} catch (error) {
-			if (error instanceof UnsupportedPoseEngineError) {
-				return;
-			}
-			uploadError =
-				error instanceof Error ? error.message : "Pose processing failed";
-			console.error("Pose processing failed", error);
-		} finally {
-			isProcessingVideo = false;
-		}
-	}
-
-	onDestroy(() => {
-		poseRuntime.dispose();
-	});
-
-	async function handleVideoFileSelect(e: Event) {
+	async function handleSetVideoUpload(set: ExerciseSet, e: Event) {
 		const input = e.target as HTMLInputElement;
 		const file = input.files?.[0];
-		if (!file || !selectedExercise || !selectedSet || !sessionId) return;
+		const ex = currentExercise;
+		videoUploadError = "";
+		input.value = "";
+		if (!file || !ex || !sessionId) return;
+		if (setFieldsLocked(set)) return;
 
-		uploadError = "";
 		if (file.type !== "video/mp4") {
-			uploadError = "Only MP4 video is allowed.";
-			input.value = "";
+			videoUploadError = "Only MP4 video is allowed.";
 			return;
 		}
 		if (file.size > MAX_VIDEO_SIZE) {
-			uploadError = `File must be under ${MAX_VIDEO_SIZE / (1024 * 1024)}MB.`;
-			input.value = "";
+			videoUploadError = `File must be under ${MAX_VIDEO_SIZE / (1024 * 1024)}MB.`;
 			return;
 		}
 
@@ -265,7 +340,7 @@
 		const videoEl = durationCheckVideoEl;
 		if (!videoEl) {
 			URL.revokeObjectURL(blobUrl);
-			uploadError = "Cannot check video duration.";
+			videoUploadError = "Cannot check video duration.";
 			return;
 		}
 
@@ -285,20 +360,19 @@
 		});
 
 		if (!durationOk) {
-			uploadError = `Video must be under ${MAX_VIDEO_DURATION_SEC} seconds.`;
-			input.value = "";
+			videoUploadError = `Video must be under ${MAX_VIDEO_DURATION_SEC} seconds.`;
 			return;
 		}
 
-		isUploading = true;
+		uploadingVideoSetId = set.id;
 		try {
 			const signRes = await fetch("/api/media/sign", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
 					session_id: sessionId,
-					exercise_id: selectedExercise.id,
-					set_id: selectedSet.id,
+					exercise_id: ex.id,
+					set_id: set.id,
 					file_name: file.name,
 					file_type: file.type,
 					file_size: file.size,
@@ -320,321 +394,623 @@
 			});
 			if (!putRes.ok) throw new Error("Upload failed");
 
-			if (videoBlobUrl) URL.revokeObjectURL(videoBlobUrl);
-			videoUrlKey = key;
-			videoBlobUrl = URL.createObjectURL(file);
-			void processUploadedVideo(file, selectedExercise.id, selectedSet.id, key);
+			await recordSetMutation.mutateAsync({
+				exerciseId: ex.id,
+				setId: set.id,
+				payload: { video_url: key },
+			});
 		} catch (err) {
-			uploadError = err instanceof Error ? err.message : "Upload failed";
+			videoUploadError =
+				err instanceof Error ? err.message : "Upload failed.";
 		} finally {
-			isUploading = false;
-			input.value = "";
+			uploadingVideoSetId = null;
 		}
 	}
 
-	$effect(() => {
-		if (!drawerOpen && videoBlobUrl) {
-			const url = videoBlobUrl;
-			videoBlobUrl = null;
-			URL.revokeObjectURL(url);
-		}
-		if (!drawerOpen && chartData.length > 0) {
-			chartData = [];
-		}
-	});
-
-	function submitRecord() {
-		if (!selectedExercise || !selectedSet) return;
-		const payload: Parameters<typeof recordSet>[3] = {
-			status: "completed",
-			notes: recordForm.notes || undefined,
-		};
-		if (selectedExercise.measurement === "reps" && recordForm.actual_reps) {
-			payload.actual_reps = parseInt(recordForm.actual_reps, 10);
-		}
-		if (
-			selectedExercise.measurement === "duration" &&
-			recordForm.actual_duration
-		) {
-			payload.actual_duration = parseInt(recordForm.actual_duration, 10);
-		}
-		if (recordForm.weight_kg)
-			payload.weight_kg = parseFloat(recordForm.weight_kg);
-		if (recordForm.rpe)
-			payload.rpe = Math.min(10, Math.max(1, parseInt(recordForm.rpe, 10)));
-		if (videoUrlKey) payload.video_url = videoUrlKey;
-		recordSetMutation.mutate({
-			exerciseId: selectedExercise.id,
-			setId: selectedSet.id,
-			payload,
+	function formatTime(dateStr: string): string {
+		return new Date(dateStr).toLocaleTimeString(undefined, {
+			hour: "2-digit",
+			minute: "2-digit",
 		});
 	}
 
-	function targetLabel(ex: SessionExercise): string {
-		if (ex.measurement === "reps") return `${ex.target_reps ?? "—"} reps`;
-		return `${ex.target_duration ?? "—"}s`;
+	function elapsedMinutes(): string {
+		if (!session?.started_at) return "0";
+		const end = session.completed_at
+			? new Date(session.completed_at)
+			: new Date();
+		const mins = Math.floor(
+			(end.getTime() - new Date(session.started_at).getTime()) / 60000,
+		);
+		return String(mins);
 	}
+
+	function mergedVolumeLabel(ex: SessionExercise): string {
+		return ex.measurement === "reps" ? "Reps" : "Duration";
+	}
+
+	function volumeActualPrimary(
+		ex: SessionExercise,
+		set: ExerciseSet,
+	): string {
+		if (ex.measurement === "reps") {
+			return set.actual_reps != null ? `${set.actual_reps} reps` : "—";
+		}
+		return set.actual_duration != null ? `${set.actual_duration}s` : "—";
+	}
+
+	function volumePlanSecondary(ex: SessionExercise): string | null {
+		if (ex.measurement === "reps") {
+			if (ex.target_reps != null) return `plan ${ex.target_reps} reps`;
+			return null;
+		}
+		if (ex.target_duration != null) return `plan ${ex.target_duration}s`;
+		return null;
+	}
+
+	function restDisplayPrimary(ex: SessionExercise): string {
+		if (ex.rest_seconds != null && ex.rest_seconds > 0) {
+			return `${ex.rest_seconds}s`;
+		}
+		return "—";
+	}
+
+	function setAccordionSummaryTitle(
+		ex: SessionExercise,
+		set: ExerciseSet,
+	): string {
+		const loadPrimary =
+			set.weight_kg != null ? `${set.weight_kg} kg` : "—";
+		const notesPart = set.notes?.trim()
+			? ` · Notes: ${set.notes.trim()}`
+			: "";
+		const planSecondary = volumePlanSecondary(ex);
+		const volumePart = `${volumeActualPrimary(ex, set)}${
+			planSecondary ? ` · ${planSecondary}` : ""
+		}`;
+		return `Set ${set.set_number} · ${mergedVolumeLabel(ex)} ${volumePart} · Load ${loadPrimary}${
+			ex.target_weight_kg != null ? ` (plan ${ex.target_weight_kg} kg)` : ""
+		} · Rest ${restDisplayPrimary(ex)}${notesPart}`;
+	}
+
 </script>
 
-<div class="flex flex-1 flex-col gap-4 p-4 pt-0">
-	<!-- Header -->
-	<div class="flex items-center justify-between">
-		<div class="flex items-center gap-2">
-			<Button href="/app-v2/sessions/{sessionId}?view=session" variant="ghost" size="icon">
-				<ChevronLeftIcon class="h-4 w-4" />
+<div
+	class="app-v2-run fixed inset-0 z-[200] flex flex-col gap-3 overflow-hidden p-3 pt-[max(0.75rem,env(safe-area-inset-top))] pb-[max(0.75rem,env(safe-area-inset-bottom))] md:p-4"
+>
+	<div
+		class="flex w-full shrink-0 items-center justify-between gap-2 border-b border-white/10 pb-3"
+	>
+		<div class="flex min-w-0 items-center gap-2">
+			<Button
+				href="/app-v2/sessions/{sessionId}?view=session"
+				variant="ghost"
+				size="icon"
+				class="shrink-0 text-zinc-300 hover:bg-white/10 hover:text-white"
+				aria-label="Back to session hub"
+			>
+				<ChevronLeftIcon class="h-5 w-5" />
 			</Button>
-			<div>
-				<h1 class="text-xl font-semibold">
+			<div class="min-w-0">
+				<p
+					class="truncate text-xs font-medium uppercase tracking-wider text-zinc-500"
+				>
+					Recording
+				</p>
+				<h1 class="truncate text-lg font-bold text-white md:text-xl">
 					{data.client?.full_name ?? session?.client_name ?? session?.client_id}
 				</h1>
-				<p class="text-muted-foreground text-sm">
+				<p class="text-xs text-zinc-400">
 					{formatTime(session?.scheduled_at ?? "")}
 					{#if session?.status === "in-progress"}
-						· {elapsedMinutes()} min
+						· {elapsedMinutes()} min elapsed
 					{/if}
 				</p>
 			</div>
 		</div>
-		<div class="flex items-center gap-2">
+		<div class="flex shrink-0 flex-wrap items-center justify-end gap-2">
 			<Badge
 				variant={session?.status === "in-progress" ? "default" : "outline"}
+				class="capitalize border-white/20 bg-white/5 text-zinc-200"
 			>
-				{session?.status ?? "scheduled"}
+				{session?.status?.replace("-", " ") ?? "scheduled"}
 			</Badge>
 			{#if session?.status === "scheduled"}
 				<Button
+					class="app-v2-cta rounded-lg"
 					onclick={() => startMutation.mutate()}
 					disabled={startMutation.isPending}
 				>
-					Start Session
+					Start
 				</Button>
 			{/if}
 			{#if session?.status === "in-progress"}
 				<Button
-					variant="default"
+					class="app-v2-cta rounded-lg"
 					onclick={() => completeMutation.mutate()}
 					disabled={completeMutation.isPending}
 				>
 					<CheckIcon class="mr-2 h-4 w-4" />
-					Complete Session
+					Done
 				</Button>
 			{/if}
 		</div>
 	</div>
 
-	<!-- Exercise cards -->
-	<div class="space-y-4">
-		{#each (session?.exercises ?? []).sort((a, b) => a.order_index - b.order_index) as exercise (exercise.id)}
-			<Collapsible.Root open={true}>
-				<Card>
-					<CardHeader class="pb-2">
-						<Collapsible.Trigger
-							class="flex w-full items-start justify-between gap-2 text-left"
-						>
-							<div class="min-w-0 flex-1">
-								<CardTitle class="text-base">{exercise.name}</CardTitle>
-								{#if exercise.notes?.trim()}
-									<p class="text-muted-foreground mt-1 text-xs">{exercise.notes}</p>
-								{/if}
-							</div>
-							<Badge variant="outline" class="shrink-0 capitalize">{exerciseTypeLabel(exercise.type)}</Badge>
-						</Collapsible.Trigger>
-					</CardHeader>
-					<CardContent class="space-y-3">
-						<Table.Root>
-							<Table.Header>
-								<Table.Row>
-									<Table.Head>Set</Table.Head>
-									<Table.Head>Target</Table.Head>
-									<Table.Head>Actual</Table.Head>
-									<Table.Head>Weight</Table.Head>
-									<Table.Head class="w-[100px]"></Table.Head>
-								</Table.Row>
-							</Table.Header>
-							<Table.Body>
-								{#each (exercise.sets ?? []).sort((a, b) => a.set_number - b.set_number) as set (set.id)}
-									<Table.Row
-										class="cursor-pointer hover:bg-muted/50"
-										onclick={() => openSetDrawer(exercise, set)}
-									>
-										<Table.Cell class="font-medium">{set.set_number}</Table.Cell
-										>
-										<Table.Cell>{targetLabel(exercise)}</Table.Cell>
-										<Table.Cell>
-											{#if exercise.measurement === "reps"}
-												{set.actual_reps ?? "—"}
-											{:else}
-												{set.actual_duration ?? "—"}s
-											{/if}
-										</Table.Cell>
-										<Table.Cell>{set.weight_kg ?? "—"}</Table.Cell>
-										<Table.Cell>
-											{#if set.status === "completed"}
-												<Badge variant="secondary">Done</Badge>
-											{:else}
-												<Button variant="ghost" size="sm">
-													<VideoIcon class="h-4 w-4" />
-												</Button>
-											{/if}
-										</Table.Cell>
-									</Table.Row>
-								{/each}
-							</Table.Body>
-						</Table.Root>
-						{#if session?.status === "in-progress"}
-							<Button
-								variant="outline"
-								size="sm"
-								onclick={() =>
-									addSetMutation.mutate({ exerciseId: exercise.id })}
-								disabled={addSetMutation.isPending}
-							>
-								<PlusIcon class="mr-2 h-4 w-4" />
-								Add set
-							</Button>
-						{/if}
-					</CardContent>
-				</Card>
-			</Collapsible.Root>
-		{/each}
-	</div>
-
-	<!-- Set recorder drawer -->
-	<Sheet.Root bind:open={drawerOpen}>
-		<Sheet.Content
-			side="bottom"
-			class="flex h-[80vh] max-h-[80vh] flex-col overflow-hidden rounded-t-xl"
+	<div
+		class="flex w-full min-h-0 flex-1 flex-col gap-3 overflow-hidden"
+	>
+		<Card
+			class="w-full shrink-0 gap-0 rounded-xl border-white/15 bg-black/30 py-0 text-zinc-100 shadow-none"
 		>
-			<Sheet.Header>
-				<Sheet.Title>
-					{selectedExercise?.name} — Set {selectedSet?.set_number}
-				</Sheet.Title>
-			</Sheet.Header>
-			<div class="min-h-0 flex-1 overflow-y-auto">
-				<div class="space-y-4 p-4 py-4">
-					{#if selectedExercise?.measurement === "reps"}
-						<div class="space-y-2">
-							<Label for="reps">Reps</Label>
-							<Input
-								id="reps"
-								type="number"
-								min="0"
-								bind:value={recordForm.actual_reps}
-								placeholder="Actual reps"
-							/>
+			<CardContent class="p-3 sm:p-4">
+				{#if timelineExercises.length}
+					<SessionExerciseTimeline
+						exercises={timelineExercises}
+						currentExercise={currentExercise}
+						hideExerciseActions={true}
+						omitOuterTimelineChrome={true}
+						onSelectExercise={(id) => {
+							const ex = timelineExercises.find((e) => e.id === id);
+							if (ex) {
+								if (currentExercise?.id !== ex.id) openedSetId = null;
+								currentExercise = ex;
+							}
+						}}
+					/>
+				{:else}
+					<p class="text-sm text-zinc-400">No exercises in this session.</p>
+				{/if}
+			</CardContent>
+		</Card>
+
+		<div class="min-h-0 w-full flex-1 space-y-4 overflow-y-auto">
+			{#if currentExercise}
+				<!-- Used only to read duration before upload -->
+				<video
+					bind:this={durationCheckVideoEl}
+					class="pointer-events-none fixed left-0 top-0 h-px w-px opacity-0"
+					muted
+					playsinline
+					preload="metadata"
+					aria-hidden="true"
+				></video>
+				{#if sortedSetsForCurrent.length === 0}
+					<p class="text-center text-sm" style="color: var(--app-v2-muted);">
+						No sets yet. Add one below.
+					</p>
+				{/if}
+
+				{#each sortedSetsForCurrent as set (set.id)}
+					{@const summaryTitle = setAccordionSummaryTitle(currentExercise, set)}
+					{@const planVol = volumePlanSecondary(currentExercise)}
+					<Collapsible.Root
+						open={openedSetId === set.id}
+						onOpenChange={(open) => {
+							if (open) openedSetId = set.id;
+							else if (openedSetId === set.id) openedSetId = null;
+						}}
+					>
+						<div class="app-v2-card overflow-hidden p-0">
+								<div
+									class="flex items-start gap-2 border-b px-4 py-3"
+									style="border-color: var(--app-v2-border);"
+								>
+									<Collapsible.Trigger
+										class="flex min-w-0 flex-1 gap-3 text-left hover:opacity-90"
+										style="color: var(--app-v2-text);"
+										aria-expanded={openedSetId === set.id}
+										title={summaryTitle}
+									>
+									<ChevronDownIcon
+										class={`h-5 w-5 shrink-0 translate-y-0.5 transition-transform ${openedSetId === set.id ? "rotate-180" : ""}`}
+										style="color: var(--app-v2-muted);"
+										aria-hidden="true"
+									/>
+									<div class="min-w-0 flex-1">
+										<div class="flex flex-wrap items-center gap-x-2 gap-y-1">
+											<span class="text-lg font-bold leading-tight">
+												Set {set.set_number}
+											</span>
+											{#if set.status === "completed"}
+												<Badge variant="secondary" class="text-xs">Done</Badge>
+											{:else if set.status === "processing"}
+												<Badge variant="outline" class="text-xs border-amber-500/40 bg-amber-950/40 text-amber-100">
+													Processing
+												</Badge>
+											{:else}
+												<Badge
+													variant="outline"
+													class="border-[var(--app-v2-border)] bg-white/5 text-xs"
+												>
+													Pending
+												</Badge>
+											{/if}
+										</div>
+										<div class="mt-2 space-y-2">
+											<div
+												class="grid grid-cols-3 gap-x-3 gap-y-2 text-xs"
+											>
+												<div class="min-w-0">
+													<div
+														class="font-medium"
+														style="color: var(--app-v2-muted);"
+													>
+														{mergedVolumeLabel(currentExercise)}
+													</div>
+													<div
+														class="mt-0.5 text-sm font-semibold tabular-nums text-zinc-100"
+													>
+														{volumeActualPrimary(currentExercise, set)}
+													</div>
+													{#if planVol}
+														<span
+															class="mt-0.5 block text-[11px] font-normal"
+															style="color: var(--app-v2-muted);"
+														>
+															{planVol}
+														</span>
+													{/if}
+												</div>
+												<div class="min-w-0">
+													<div
+														class="font-medium"
+														style="color: var(--app-v2-muted);"
+													>
+														Load
+													</div>
+													<div
+														class="mt-0.5 text-sm font-semibold tabular-nums text-zinc-100"
+													>
+														{#if set.weight_kg != null}
+															{set.weight_kg} kg
+														{:else}
+															—
+														{/if}
+														{#if currentExercise.target_weight_kg != null}
+															<span
+																class="mt-0.5 block text-[11px] font-normal"
+																style="color: var(--app-v2-muted);"
+															>
+																plan {currentExercise.target_weight_kg} kg
+															</span>
+														{/if}
+													</div>
+												</div>
+												<div class="min-w-0">
+													<div
+														class="font-medium"
+														style="color: var(--app-v2-muted);"
+													>
+														Rest
+													</div>
+													<div
+														class="mt-0.5 text-sm font-semibold tabular-nums text-zinc-100"
+													>
+														{restDisplayPrimary(currentExercise)}
+													</div>
+												</div>
+											</div>
+											{#if set.notes?.trim()}
+												<p
+													class="text-xs leading-snug break-words"
+													style="color: var(--app-v2-muted);"
+												>
+													{set.notes.trim()}
+												</p>
+											{/if}
+										</div>
+									</div>
+								</Collapsible.Trigger>
+									{#if set.video_url}
+										<Button
+											type="button"
+											variant="outline"
+											size="sm"
+											class="shrink-0 rounded-lg border-[var(--app-v2-border)] bg-white/5 px-2.5 text-xs text-zinc-100 hover:bg-white/10"
+											onclick={() => void openVideoPreview(set.video_url!)}
+											aria-label="View uploaded set video"
+										>
+											<VideoIcon class="mr-1.5 size-4" />
+											View
+										</Button>
+									{/if}
+								</div>
+							<Collapsible.Content>
+								<div
+									class="border-t p-4"
+									style="border-color: var(--app-v2-border);"
+								>
+									{#if openedSetDraft && openedSetDraft.setId === set.id}
+										{@const locked = setFieldsLocked(set)}
+										{#if locked}
+											<p class="mb-4 text-xs" style="color: var(--app-v2-muted);">
+												This set can’t be edited while it’s processing or after it’s marked done.
+											</p>
+										{/if}
+										<div class="grid gap-4 sm:grid-cols-2">
+											{#if currentExercise.measurement === "reps"}
+												<div class="space-y-2 sm:col-span-1">
+													<Label
+														for={"set-" + set.id + "-reps"}
+														class="text-xs"
+														style="color: var(--app-v2-muted);"
+													>
+														Planned Reps
+													</Label>
+													<Input
+														id={"set-" + set.id + "-reps"}
+														type="number"
+														min="0"
+														bind:value={openedSetDraft.actual_reps}
+														disabled={locked}
+														class="border-[var(--app-v2-border)] bg-black/20 text-zinc-100 disabled:opacity-60"
+													/>
+												</div>
+											{:else}
+												<div class="space-y-2 sm:col-span-1">
+													<Label
+														for={"set-" + set.id + "-dur"}
+														class="text-xs"
+														style="color: var(--app-v2-muted);"
+													>
+														Duration (s)
+														{#if currentExercise.target_duration != null}
+															<span class="font-normal opacity-75">
+																(plan {currentExercise.target_duration}s)</span>
+														{/if}
+													</Label>
+													<Input
+														id={"set-" + set.id + "-dur"}
+														type="number"
+														min="0"
+														bind:value={openedSetDraft.actual_duration}
+														disabled={locked}
+														class="border-[var(--app-v2-border)] bg-black/20 text-zinc-100 disabled:opacity-60"
+													/>
+												</div>
+											{/if}
+											<div class="space-y-2 sm:col-span-1">
+												<Label
+													for={"set-" + set.id + "-wt"}
+													class="text-xs"
+													style="color: var(--app-v2-muted);"
+												>
+													Planned Weight (kg)
+												</Label>
+												<Input
+													id={"set-" + set.id + "-wt"}
+													type="number"
+													step="0.5"
+													min="0"
+													bind:value={openedSetDraft.weight_kg}
+													disabled={locked}
+													class="border-[var(--app-v2-border)] bg-black/20 text-zinc-100 disabled:opacity-60"
+												/>
+											</div>
+											<div class="space-y-2 sm:col-span-2">
+												<Label
+													for={"set-" + set.id + "-notes"}
+													class="text-xs"
+													style="color: var(--app-v2-muted);">Notes</Label
+												>
+												<Textarea
+													id={"set-" + set.id + "-notes"}
+													rows={3}
+													bind:value={openedSetDraft.notes}
+													disabled={locked}
+													class="border-[var(--app-v2-border)] bg-black/20 text-zinc-100 disabled:opacity-60"
+												/>
+											</div>
+										</div>
+										{#if !locked}
+											<input
+												id={"set-video-" + set.id}
+												type="file"
+												accept="video/mp4,.mp4"
+												class="sr-only"
+												onchange={(e) => handleSetVideoUpload(set, e)}
+											/>
+											<div class="mt-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+												<div class="flex flex-wrap gap-2">
+													<Button
+														type="button"
+														class="app-v2-cta rounded-lg"
+														disabled={recordSetMutation.isPending ||
+															uploadingVideoSetId === set.id}
+														onclick={() => saveAccordionDraft()}
+													>
+														Save
+													</Button>
+													<Button
+														type="button"
+														variant="outline"
+														class="rounded-lg border-[var(--app-v2-border)] bg-white/5 text-zinc-100"
+														disabled={recordSetMutation.isPending ||
+															uploadingVideoSetId === set.id}
+														onclick={() =>
+															document
+																.getElementById("set-video-" + set.id)
+																?.click()}
+													>
+														{#if uploadingVideoSetId === set.id}
+															Uploading…
+														{:else}
+															<VideoIcon class="mr-2 h-4 w-4" />
+															Upload video
+														{/if}
+													</Button>
+												</div>
+												{#if openedSetId === set.id && videoUploadError}
+													<p class="text-xs text-red-400">{videoUploadError}</p>
+												{/if}
+											</div>
+										{/if}
+									{/if}
+								</div>
+							</Collapsible.Content>
 						</div>
-					{:else}
-						<div class="space-y-2">
-							<Label for="duration">Duration (seconds)</Label>
-							<Input
-								id="duration"
-								type="number"
-								min="0"
-								bind:value={recordForm.actual_duration}
-								placeholder="Seconds"
-							/>
+					</Collapsible.Root>
+				{/each}
+
+				{#if canCreateSets}
+					<section
+						class="app-v2-card overflow-hidden space-y-4 p-4"
+						aria-labelledby="record-new-set-heading"
+					>
+						<h2
+							id="record-new-set-heading"
+							class="text-base font-bold"
+							style="color: var(--app-v2-text);"
+						>
+							Create set
+						</h2>
+						<div class="grid gap-4 sm:grid-cols-2">
+							{#if currentExercise.measurement === "reps"}
+								<div class="space-y-2">
+									<Label
+										for="new-set-reps"
+										class="text-xs"
+										style="color: var(--app-v2-muted);"
+									>
+										Reps
+										{#if currentExercise.target_reps != null}
+											<span class="font-normal opacity-75">
+												(plan {currentExercise.target_reps})</span>
+										{/if}
+									</Label>
+									<Input
+										id="new-set-reps"
+										type="number"
+										min="0"
+										bind:value={newSetForm.actual_reps}
+										class="border-[var(--app-v2-border)] bg-black/20 text-zinc-100"
+									/>
+								</div>
+							{:else}
+								<div class="space-y-2">
+									<Label
+										for="new-set-duration"
+										class="text-xs"
+										style="color: var(--app-v2-muted);"
+									>
+										Duration (s)
+										{#if currentExercise.target_duration != null}
+											<span class="font-normal opacity-75">
+												(plan {currentExercise.target_duration}s)</span>
+										{/if}
+									</Label>
+									<Input
+										id="new-set-duration"
+										type="number"
+										min="0"
+										bind:value={newSetForm.actual_duration}
+										class="border-[var(--app-v2-border)] bg-black/20 text-zinc-100"
+									/>
+								</div>
+							{/if}
+							<div class="space-y-2">
+								<Label
+									for="new-set-weight"
+									class="text-xs"
+									style="color: var(--app-v2-muted);"
+								>
+									Weight (kg)
+									{#if currentExercise.target_weight_kg != null}
+										<span class="font-normal opacity-75">
+											(plan {currentExercise.target_weight_kg})</span>
+									{/if}
+								</Label>
+								<Input
+									id="new-set-weight"
+									type="number"
+									step="0.5"
+									min="0"
+									bind:value={newSetForm.weight_kg}
+									class="border-[var(--app-v2-border)] bg-black/20 text-zinc-100"
+								/>
+							</div>
+							<div class="space-y-2 sm:col-span-2">
+								<Label
+									for="new-set-notes"
+									class="text-xs"
+									style="color: var(--app-v2-muted);">Notes</Label
+								>
+								<Textarea
+									id="new-set-notes"
+									rows={3}
+									bind:value={newSetForm.notes}
+									class="border-[var(--app-v2-border)] bg-black/20 text-zinc-100"
+								/>
+							</div>
 						</div>
-					{/if}
-					<div class="space-y-2">
-						<Label for="weight">Weight (kg)</Label>
-						<Input
-							id="weight"
-							type="number"
-							step="0.5"
-							min="0"
-							bind:value={recordForm.weight_kg}
-							placeholder="0"
-						/>
-					</div>
-					<div class="space-y-2">
-						<Label for="rpe">RPE (1–10)</Label>
-						<Input
-							id="rpe"
-							type="number"
-							min="1"
-							max="10"
-							bind:value={recordForm.rpe}
-							placeholder="1-10"
-						/>
-					</div>
-					<div class="space-y-2">
-						<Label for="notes">Notes</Label>
-						<Input
-							id="notes"
-							bind:value={recordForm.notes}
-							placeholder="Optional notes"
-						/>
-					</div>
-					<!-- Hidden video for duration check -->
-					<video
-						bind:this={durationCheckVideoEl}
-						class="hidden"
-						muted
-						playsinline
-						preload="metadata"
-					></video>
-					<div class="space-y-2">
-						<Label>Video (MP4, under 1 min, max 200MB)</Label>
-						<input
-							bind:this={videoInputEl}
-							type="file"
-							accept="video/mp4,.mp4"
-							class="hidden"
-							onchange={handleVideoFileSelect}
-						/>
 						<Button
 							type="button"
-							variant="outline"
-							class="w-full"
-							disabled={isUploading || isProcessingVideo || isAutoSavingPose}
-							onclick={() => videoInputEl?.click()}
+							class="app-v2-cta w-full rounded-lg sm:w-auto"
+							disabled={creatingNewSet ||
+								recordSetMutation.isPending ||
+								addSetMutation.isPending}
+							onclick={() => submitNewSetFromBottom()}
 						>
-							{#if isUploading}
-								Uploading…
-							{:else if isProcessingVideo}
-								Processing video…
-							{:else if isAutoSavingPose}
-								Saving analysis…
-							{:else}
-								<VideoIcon class="mr-2 h-4 w-4" />
-								Choose video
-							{/if}
+							<PlusIcon class="mr-2 h-4 w-4" />
+							Create set
 						</Button>
-						{#if uploadError}
-							<p class="text-destructive text-sm">{uploadError}</p>
-						{/if}
-						{#if isLoadingExistingVideo}
-							<p class="text-muted-foreground text-sm">Loading saved video...</p>
-						{/if}
-						{#if getVideoDisplaySrc()}
-							<div class="rounded-md border bg-muted/30 overflow-hidden">
-								<video
-									src={getVideoDisplaySrc()!}
-									controls
-									class="w-full max-h-48"
-									muted
-									playsinline
-									preload="metadata"
-								></video>
-							</div>
-						{/if}
-					</div>
-					<Button
-						class="w-full"
-						onclick={submitRecord}
-						disabled={
-							recordSetMutation.isPending || isProcessingVideo || isAutoSavingPose
-						}
-					>
-						Save set
-					</Button>
-				</div>
+					</section>
+				{/if}
+			{:else}
+				<p class="text-center text-sm text-zinc-500">Select an exercise above.</p>
+			{/if}
+		</div>
+	</div>
 
-				<div class="space-y-2 border-t p-4 pt-4">
-					<h3 class="text-sm font-medium">Set analysis (angle over time)</h3>
-					<Chart data={chartData} />
+	<Dialog.Root
+		bind:open={videoPreviewOpen}
+		onOpenChange={(o) => {
+			if (!o) {
+				videoPreviewUrl = null;
+				videoPreviewError = "";
+				videoPreviewLoading = false;
+			}
+		}}
+	>
+		<Dialog.Portal>
+			<Dialog.Overlay
+				class="data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-[250] bg-black/80"
+			/>
+			<Dialog.Content
+				aria-labelledby="record-set-video-dialog-title"
+				class="data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed left-[50%] top-[50%] z-[251] grid w-[calc(100vw-1.5rem)] max-w-3xl translate-x-[-50%] translate-y-[-50%] gap-4 rounded-xl border border-white/15 bg-zinc-950 p-4 shadow-xl duration-200"
+			>
+				<Dialog.Title class="text-lg font-semibold leading-none text-white" id="record-set-video-dialog-title">
+					Set video
+				</Dialog.Title>
+				<Dialog.Description class="sr-only">
+					Uploaded video for this set. Use the controls to play or pause.
+				</Dialog.Description>
+				{#if videoPreviewLoading}
+					<p class="text-sm" style="color: var(--app-v2-muted);">Loading…</p>
+				{:else if videoPreviewError}
+					<p class="text-sm text-red-400">{videoPreviewError}</p>
+				{:else if videoPreviewUrl}
+					{#key videoPreviewUrl}
+						<!-- svelte-ignore a11y_media_has_caption -->
+						<video
+							src={videoPreviewUrl}
+							controls
+							class="aspect-video w-full max-h-[75vh] rounded-lg bg-black"
+							playsinline
+							preload="metadata"
+						></video>
+					{/key}
+				{/if}
+				<div class="flex justify-end gap-2 pt-2">
+					<Dialog.Close
+						class="inline-flex h-9 items-center justify-center rounded-lg border border-[var(--app-v2-border)] bg-white/5 px-4 text-sm font-medium text-zinc-100 hover:bg-white/10"
+					>
+						Close
+					</Dialog.Close>
 				</div>
-			</div>
-		</Sheet.Content>
-	</Sheet.Root>
+			</Dialog.Content>
+		</Dialog.Portal>
+	</Dialog.Root>
 </div>

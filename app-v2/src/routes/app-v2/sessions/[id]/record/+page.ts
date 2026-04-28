@@ -9,7 +9,8 @@ export interface SessionRecordPageData {
 
 export const load: PageLoad = async ({ params, fetch }): Promise<SessionRecordPageData> => {
 	const session = await getSession(params.id, fetch, {
-		includeVideoPlayUrl: false
+		includeVideoPlayUrl: true,
+		includePoseChartData: true,
 	});
 	let client: Client | null = null;
 	try {

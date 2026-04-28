@@ -49,7 +49,7 @@
 								View analysis
 							</Button>
 						{:else if showRecordPrimary}
-							<Button href="/app-v2/sessions/{sessionId}/run" class="app-v2-cta min-h-12 rounded-lg px-6 text-base">
+							<Button href="/app-v2/sessions/{sessionId}/record" class="app-v2-cta min-h-12 rounded-lg px-6 text-base">
 								<VideoIcon class="mr-2 h-5 w-5" aria-hidden="true" />
 								{data.session.status === 'in-progress' ? 'Continue workout' : 'Start workout'}
 							</Button>

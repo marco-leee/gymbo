@@ -24,9 +24,6 @@
 				<DumbbellIcon class="size-6" style="color: var(--app-v2-accent);" aria-hidden="true" />
 				GYMBO
 			</a>
-			<span class="text-xs font-medium uppercase tracking-widest" style="color: var(--app-v2-muted);">
-				App v2
-			</span>
 		</div>
 		<nav class="flex flex-wrap items-center gap-2" aria-label="App v2">
 			<Button

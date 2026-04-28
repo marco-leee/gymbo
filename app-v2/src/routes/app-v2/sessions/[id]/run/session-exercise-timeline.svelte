@@ -9,6 +9,8 @@
 		currentExercise = null,
 		sessionInProgress = false,
 		addSetPending = false,
+		hideExerciseActions = false,
+		omitOuterTimelineChrome = false,
 		onSelectExercise,
 		onLogSet,
 		onAddSet,
@@ -17,6 +19,8 @@
 		currentExercise: SessionExercise | null;
 		sessionInProgress?: boolean;
 		addSetPending?: boolean;
+		hideExerciseActions?: boolean;
+		omitOuterTimelineChrome?: boolean;
 		onSelectExercise?: (exerciseId: string) => void;
 		onLogSet?: (exercise: SessionExercise, set: ExerciseSet) => void | Promise<void>;
 		onAddSet?: (exerciseId: string) => void;
@@ -46,7 +50,9 @@
 </script>
 
 <div
-	class="shrink-0 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2.5"
+	class="shrink-0 px-3 py-2.5 {omitOuterTimelineChrome
+		? ''
+		: 'rounded-lg border border-white/10 bg-white/[0.03]'}"
 >
 	<p class="mb-2 text-[11px] font-medium uppercase tracking-wider text-zinc-500">
 		Session timeline
@@ -111,7 +117,7 @@
 							</dd>
 						</div>
 					</dl>
-					{#if isCurrent}
+					{#if isCurrent && !hideExerciseActions}
 						<div class="mt-2 flex flex-wrap gap-1.5 border-t border-white/10 pt-2">
 							{#if primarySet}
 								<Button
@@ -119,7 +125,10 @@
 									variant="outline"
 									size="sm"
 									class="h-7 flex-1 border-white/20 bg-white/5 px-2 text-xs text-zinc-100"
-									onclick={() => onLogSet?.(exercise, primarySet)}
+									onclick={(e) => {
+										e.stopPropagation();
+										onLogSet?.(exercise, primarySet!);
+									}}
 								>
 									Log set
 								</Button>
@@ -130,7 +139,10 @@
 									size="sm"
 									class="h-7 flex-1 border-white/20 bg-white/5 px-2 text-xs text-zinc-100"
 									disabled={addSetPending}
-									onclick={() => onAddSet?.(exercise.id)}
+									onclick={(e) => {
+										e.stopPropagation();
+										onAddSet?.(exercise.id);
+									}}
 								>
 									<PlusIcon class="mr-0.5 h-3.5 w-3.5" />
 									Add
