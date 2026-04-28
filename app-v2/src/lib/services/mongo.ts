@@ -2,6 +2,7 @@ import { MongoClient, ObjectId, type Collection, type WithId, type Filter, Serve
 import { z } from 'zod';
 import { env } from '$lib/env';
 import { v7 as uuidv7 } from 'uuid';
+import { CATALOG_KEYS } from '$lib/exercises/catalog';
 
 const MONGO_URI = env.MONGO_URI;
 
@@ -54,16 +55,28 @@ export const ExerciseSetSchema = z.object({
 	updated_at: z.date()
 });
 
+export const SESSION_EXERCISE_TYPES = ['strength', 'cardio', 'flexibility', 'warm_up'] as const;
+
+const ExerciseKeySchema = z
+	.string()
+	.optional()
+	.refine((k) => k == null || (CATALOG_KEYS as readonly string[]).includes(k), {
+		message: 'Invalid exercise_key'
+	});
+
 export const SessionExerciseSchema = z.object({
 	_id: z.instanceof(ObjectId).optional(),
 	name: z.string().min(1),
-	type: z.enum(['strength', 'cardio', 'flexibility']),
+	type: z.enum(SESSION_EXERCISE_TYPES),
 	measurement: z.enum(['reps', 'duration']),
+	exercise_key: ExerciseKeySchema,
 	target_reps: z.number().int().nonnegative().optional(),
 	target_duration: z.number().int().nonnegative().optional(),
-	target_sets: z.number().int().nonnegative().default(3),
+	target_weight_kg: z.number().nonnegative().optional(),
+	target_sets: z.number().int().nonnegative().optional(),
 	rest_seconds: z.number().int().nonnegative().default(60),
 	order_index: z.number().int().nonnegative(),
+	notes: z.string().optional(),
 	sets: z.array(ExerciseSetSchema).default([])
 });
 
@@ -81,20 +94,36 @@ export const SessionSchema = z.object({
 	deleted_at: z.date().nullable().optional()
 });
 
+/** Single exercise as embedded in POST /sessions or POST /sessions/[id]/exercises */
+export const SessionExercisePayloadSchema = z.object({
+	name: z.string().min(1),
+	type: z.enum(SESSION_EXERCISE_TYPES),
+	measurement: z.enum(['reps', 'duration']),
+	exercise_key: ExerciseKeySchema,
+	target_reps: z.number().int().nonnegative().optional(),
+	target_duration: z.number().int().nonnegative().optional(),
+	target_weight_kg: z.number().nonnegative().optional(),
+	target_sets: z.number().int().nonnegative().optional(),
+	rest_seconds: z.number().int().nonnegative().default(60),
+	order_index: z.number().int().nonnegative().optional(),
+	notes: z.string().max(10000).optional()
+});
+
+export const UpdateSessionExercisePayloadSchema = z.object({
+	notes: z.union([z.string().max(10000), z.null()])
+});
+
 export const CreateSessionSchema = z.object({
 	client_id: z.string(),
 	scheduled_at: z.string().datetime(),
 	notes: z.string().optional(),
-	exercises: z.array(z.object({
-		name: z.string().min(1),
-		type: z.enum(['strength', 'cardio', 'flexibility']),
-		measurement: z.enum(['reps', 'duration']),
-		target_reps: z.number().int().nonnegative().optional(),
-		target_duration: z.number().int().nonnegative().optional(),
-		target_sets: z.number().int().nonnegative().default(3),
-		rest_seconds: z.number().int().nonnegative().default(60),
-		order_index: z.number().int().nonnegative()
-	})).default([])
+	exercises: z
+		.array(
+			SessionExercisePayloadSchema.and(
+				z.object({ order_index: z.number().int().nonnegative() })
+			)
+		)
+		.default([])
 });
 
 export const UpdateSessionSchema = z.object({
@@ -108,6 +137,22 @@ export type SessionDoc = z.infer<typeof SessionSchema>;
 export type CreateSessionInput = z.infer<typeof CreateSessionSchema>;
 export type UpdateSessionInput = z.infer<typeof UpdateSessionSchema>;
 export type SessionWithId = WithId<SessionDoc>;
+
+/** Creates `count` placeholder sets (pending) for a new exercise — used on create session / add exercise. */
+export function buildPendingSetsForExercise(count: number, now: Date): ExerciseSetDoc[] {
+	const n = Math.max(0, Math.min(100, Math.floor(count)));
+	const out: ExerciseSetDoc[] = [];
+	for (let i = 1; i <= n; i++) {
+		out.push({
+			_id: new ObjectId(),
+			set_number: i,
+			status: 'pending',
+			created_at: now,
+			updated_at: now
+		});
+	}
+	return out;
+}
 
 // Session Service Functions
 
@@ -132,12 +177,12 @@ export async function createSession(
 	const collection = await getSessionsCollection();
 	const now = new Date();
 
-	// Add _id to each exercise and initialize empty sets
+	// Add _id to each exercise and initialize sets from target_sets
 	const exercisesWithIds: SessionExerciseDoc[] = data.exercises.map((ex, idx) => ({
 		...ex,
 		_id: new ObjectId(),
 		order_index: ex.order_index ?? idx,
-		sets: []
+		sets: buildPendingSetsForExercise(ex.target_sets ?? 0, now)
 	}));
 
 	const doc: SessionDoc = {
@@ -207,6 +252,131 @@ export async function completeSession(id: string): Promise<SessionWithId | null>
 	);
 	if (result.modifiedCount === 0) return null;
 	return getSessionById(id);
+}
+
+/** Appends one exercise. Caller must verify session exists, is editable, and has no sets with uploaded video. */
+export async function addExerciseToSession(
+	sessionId: string,
+	payload: z.infer<typeof SessionExercisePayloadSchema>
+): Promise<SessionWithId | null> {
+	const session = await getSessionById(sessionId);
+	if (!session || session.deleted_at) return null;
+
+	const maxOrder = session.exercises.reduce((m, ex) => Math.max(m, ex.order_index ?? 0), -1);
+	const order_index = maxOrder + 1;
+	const rawTargetSets = payload.target_sets;
+	const ts = rawTargetSets === undefined ? 0 : Math.max(0, Math.floor(rawTargetSets));
+	const now = new Date();
+
+	const trimmedNotes = payload.notes?.trim();
+	const newExercise: SessionExerciseDoc = {
+		_id: new ObjectId(),
+		name: payload.name,
+		type: payload.type,
+		measurement: payload.measurement,
+		target_reps: payload.target_reps,
+		target_duration: payload.target_duration,
+		...(rawTargetSets !== undefined ? { target_sets: ts } : {}),
+		rest_seconds: payload.rest_seconds,
+		order_index,
+		sets: buildPendingSetsForExercise(ts, now),
+		...(payload.exercise_key ? { exercise_key: payload.exercise_key } : {}),
+		...(payload.target_weight_kg != null ? { target_weight_kg: payload.target_weight_kg } : {}),
+		...(trimmedNotes ? { notes: trimmedNotes } : {})
+	};
+
+	const collection = await getSessionsCollection();
+	const result = await collection.updateOne(
+		{ _id: new ObjectId(sessionId), deleted_at: null } as Filter<SessionDoc>,
+		{
+			$push: { exercises: newExercise },
+			$set: { updated_at: now }
+		}
+	);
+
+	if (result.matchedCount === 0 || result.modifiedCount === 0) return null;
+	return getSessionById(sessionId);
+}
+
+export type DeleteExerciseFromSessionOutcome =
+	| { ok: true; session: SessionWithId }
+	| { ok: false; reason: 'not_found' | 'sets_not_pending' };
+
+/** Drops an embedded exercise (`$pull`) only when every set is `pending` (includes zero sets). */
+export async function deleteExerciseFromSession(
+	sessionId: string,
+	exerciseId: string
+): Promise<DeleteExerciseFromSessionOutcome> {
+	const session = await getSessionById(sessionId);
+	if (!session || session.deleted_at) return { ok: false, reason: 'not_found' };
+	const oid = new ObjectId(exerciseId);
+	const embedded = session.exercises.find((ex) => ex._id?.equals(oid));
+	if (!embedded) return { ok: false, reason: 'not_found' };
+	const sets = embedded.sets ?? [];
+	if (!sets.every((s) => s.status === 'pending')) {
+		return { ok: false, reason: 'sets_not_pending' };
+	}
+
+	const collection = await getSessionsCollection();
+	const now = new Date();
+	const result = await collection.updateOne(
+		{ _id: new ObjectId(sessionId), deleted_at: null } as Filter<SessionDoc>,
+		{
+			$pull: { exercises: { _id: oid } },
+			$set: { updated_at: now }
+		}
+	);
+
+	if (result.matchedCount === 0 || result.modifiedCount === 0) {
+		return { ok: false, reason: 'not_found' };
+	}
+	const updated = await getSessionById(sessionId);
+	if (!updated) return { ok: false, reason: 'not_found' };
+	return { ok: true, session: updated };
+}
+
+/** Update nested exercise meta. Pass `notes: null` to clear. Caller must enforce session editable rules. */
+export async function updateExerciseNotesInSession(
+	sessionId: string,
+	exerciseId: string,
+	notes: string | null
+): Promise<SessionWithId | null> {
+	const collection = await getSessionsCollection();
+	const now = new Date();
+	const exOid = new ObjectId(exerciseId);
+	const filter = {
+		_id: new ObjectId(sessionId),
+		deleted_at: null,
+		'exercises._id': exOid
+	} as Filter<SessionDoc>;
+
+	if (notes === null) {
+		const result = await collection.updateOne(filter, {
+			$unset: { 'exercises.$.notes': '' },
+			$set: { updated_at: now }
+		});
+		if (result.matchedCount === 0) return null;
+		return getSessionById(sessionId);
+	}
+
+	const trimmed = notes.trim();
+	if (trimmed.length === 0) {
+		const result = await collection.updateOne(filter, {
+			$unset: { 'exercises.$.notes': '' },
+			$set: { updated_at: now }
+		});
+		if (result.matchedCount === 0) return null;
+		return getSessionById(sessionId);
+	}
+
+	const result = await collection.updateOne(filter, {
+		$set: {
+			'exercises.$.notes': trimmed,
+			updated_at: now
+		}
+	});
+	if (result.matchedCount === 0) return null;
+	return getSessionById(sessionId);
 }
 
 // Set Management Functions

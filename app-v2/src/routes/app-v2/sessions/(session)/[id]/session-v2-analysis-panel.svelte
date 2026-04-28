@@ -8,7 +8,7 @@
 	import { LineChart } from 'layerchart';
 	import BarChart3Icon from '@lucide/svelte/icons/bar-chart-3';
 	import { getMediaPlayUrl } from '$lib/api/media';
-	import type { ExerciseSet, SessionExercise } from '$lib/api/sessions';
+	import { exerciseTypeLabel, type ExerciseSet, type SessionExercise } from '$lib/api/sessions';
 
 	type CombinedChartRow = {
 		frame: number;
@@ -242,9 +242,14 @@
 			<div class="space-y-4">
 				{#each (data.session.exercises ?? []).sort((a: SessionExercise, b: SessionExercise) => a.order_index - b.order_index) as exercise (exercise.id)}
 					<div class="rounded-lg border p-3">
-						<div class="mb-2 flex items-center justify-between gap-2">
-							<span class="font-medium">{exercise.name}</span>
-							<Badge variant="outline">{exercise.type}</Badge>
+						<div class="mb-2 space-y-1">
+							<div class="flex items-center justify-between gap-2">
+								<span class="font-medium">{exercise.name}</span>
+								<Badge variant="outline" class="capitalize">{exerciseTypeLabel(exercise.type)}</Badge>
+							</div>
+							{#if exercise.notes?.trim()}
+								<p class="text-muted-foreground text-xs whitespace-pre-wrap">{exercise.notes}</p>
+							{/if}
 						</div>
 						<Table.Root>
 							<Table.Header>

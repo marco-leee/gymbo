@@ -20,25 +20,17 @@
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';
 	import { listClients } from '$lib/api/clients';
 	import { createSession } from '$lib/api/sessions';
+	import SessionV2ExerciseFields from '$lib/components/session-v2-exercise-fields.svelte';
+	import {
+		emptySessionExerciseFormRow,
+		sessionExerciseApiBodyFromFormRow,
+		type SessionExerciseFormRow
+	} from '$lib/exercises/catalog';
 
-	type ExerciseRow = {
-		name: string;
-		type: 'strength' | 'cardio' | 'flexibility';
-		measurement: 'reps' | 'duration';
-		target_reps?: number;
-		target_duration?: number;
-		target_sets: number;
-		rest_seconds: number;
-	};
+	type ExerciseRow = SessionExerciseFormRow;
 
 	function defaultExerciseRow(): ExerciseRow {
-		return {
-			name: '',
-			type: 'strength',
-			measurement: 'reps',
-			target_sets: 3,
-			rest_seconds: 60
-		};
+		return emptySessionExerciseFormRow();
 	}
 
 	const now = new Date();
@@ -91,14 +83,7 @@
 				return null;
 			}
 			return {
-				name: row.name.trim(),
-				type: row.type,
-				measurement: row.measurement,
-				...(row.measurement === 'reps'
-					? { target_reps: row.target_reps ?? 0 }
-					: { target_duration: row.target_duration ?? 0 }),
-				target_sets: Math.max(0, row.target_sets ?? 3),
-				rest_seconds: Math.max(0, row.rest_seconds ?? 60),
+				...sessionExerciseApiBodyFromFormRow(row),
 				order_index: idx
 			};
 		});
@@ -219,100 +204,7 @@
 									</CardHeader>
 									<Collapsible.Content>
 										<CardContent class="space-y-4 pt-0">
-											<div class="space-y-2">
-												<Label for="ex-name-{index}">Name *</Label>
-												<Input
-													id="ex-name-{index}"
-													type="text"
-													bind:value={row.name}
-													placeholder="e.g. Bench press"
-													class="min-h-11"
-												/>
-											</div>
-											<div class="grid gap-4 sm:grid-cols-2">
-												<div class="space-y-2">
-													<Label for="ex-type-{index}">Type</Label>
-													<Select.Root
-														type="single"
-														value={row.type}
-														onValueChange={(v) =>
-															(row.type = (v ?? 'strength') as ExerciseRow['type'])}
-													>
-														<Select.Trigger class="w-full min-h-11">
-															<span>{row.type}</span>
-														</Select.Trigger>
-														<Select.Content>
-															<Select.Item value="strength">Strength</Select.Item>
-															<Select.Item value="cardio">Cardio</Select.Item>
-															<Select.Item value="flexibility">Flexibility</Select.Item>
-														</Select.Content>
-													</Select.Root>
-												</div>
-												<div class="space-y-2">
-													<Label for="ex-measurement-{index}">Measurement</Label>
-													<Select.Root
-														type="single"
-														value={row.measurement}
-														onValueChange={(v) =>
-															(row.measurement = (v ?? 'reps') as ExerciseRow['measurement'])}
-													>
-														<Select.Trigger class="w-full min-h-11">
-															<span>{row.measurement === 'reps' ? 'Reps' : 'Duration'}</span>
-														</Select.Trigger>
-														<Select.Content>
-															<Select.Item value="reps">Reps</Select.Item>
-															<Select.Item value="duration">Duration</Select.Item>
-														</Select.Content>
-													</Select.Root>
-												</div>
-											</div>
-											{#if row.measurement === 'reps'}
-												<div class="space-y-2">
-													<Label for="ex-target-reps-{index}">Target reps</Label>
-													<Input
-														id="ex-target-reps-{index}"
-														type="number"
-														min="0"
-														bind:value={row.target_reps}
-														placeholder="e.g. 12"
-														class="min-h-11"
-													/>
-												</div>
-											{:else}
-												<div class="space-y-2">
-													<Label for="ex-target-duration-{index}">Target duration (sec)</Label>
-													<Input
-														id="ex-target-duration-{index}"
-														type="number"
-														min="0"
-														bind:value={row.target_duration}
-														placeholder="e.g. 60"
-														class="min-h-11"
-													/>
-												</div>
-											{/if}
-											<div class="grid gap-4 sm:grid-cols-2">
-												<div class="space-y-2">
-													<Label for="ex-sets-{index}">Sets</Label>
-													<Input
-														id="ex-sets-{index}"
-														type="number"
-														min="0"
-														bind:value={row.target_sets}
-														class="min-h-11"
-													/>
-												</div>
-												<div class="space-y-2">
-													<Label for="ex-rest-{index}">Rest (sec)</Label>
-													<Input
-														id="ex-rest-{index}"
-														type="number"
-														min="0"
-														bind:value={row.rest_seconds}
-														class="min-h-11"
-													/>
-												</div>
-											</div>
+											<SessionV2ExerciseFields bind:row={exercises[index]} idPrefix={`sess-ex-${index}`} />
 										</CardContent>
 									</Collapsible.Content>
 								</Card>

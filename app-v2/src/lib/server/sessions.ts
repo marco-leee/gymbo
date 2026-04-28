@@ -33,6 +33,9 @@ export async function serializeSession(
 			target_sets: ex.target_sets,
 			rest_seconds: ex.rest_seconds,
 			order_index: ex.order_index,
+			notes: ex.notes,
+			exercise_key: ex.exercise_key,
+			target_weight_kg: ex.target_weight_kg,
 			sets: await Promise.all(
 				(Array.isArray(ex.sets) ? ex.sets : []).map(async (set) => {
 					const setObj: {

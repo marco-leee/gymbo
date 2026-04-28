@@ -1,12 +1,10 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import { Button } from '$lib/components/ui/button/index.js';
-	import { Badge } from '$lib/components/ui/badge/index.js';
-	import * as Table from '$lib/components/ui/table/index.js';
 	import VideoIcon from '@lucide/svelte/icons/video';
 	import BarChart3Icon from '@lucide/svelte/icons/bar-chart-3';
-	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
 	import type { SessionExercise } from '$lib/api/sessions';
+	import WorkoutPlanSection from './workout-plan-section.svelte';
 
 	let { data } = $props();
 
@@ -55,12 +53,6 @@
 								<VideoIcon class="mr-2 h-5 w-5" aria-hidden="true" />
 								{data.session.status === 'in-progress' ? 'Continue workout' : 'Start workout'}
 							</Button>
-							<Button href="/app-v2/sessions/{sessionId}/record" variant="outline" class="app-v2-outline min-h-12 rounded-lg">
-								Table recorder
-							</Button>
-							<Button href="/app-v2/sessions/{sessionId}?view=analysis" variant="outline" class="app-v2-outline min-h-12 rounded-lg">
-								Analysis
-							</Button>
 						{:else}
 							<Button href="/app-v2/sessions/{sessionId}?view=analysis" variant="outline" class="app-v2-outline min-h-12 rounded-lg">
 								Analysis
@@ -105,73 +97,7 @@
 		{/if}
 
 		<!-- Workout plan -->
-		<section id="workout-plan" aria-labelledby="workout-plan-heading" class="flex flex-col gap-4">
-			<div class="flex items-center gap-2">
-				<h2 id="workout-plan-heading" class="app-v2-display text-2xl" style="color: var(--app-v2-text);">
-					Workout plan
-				</h2>
-				<ChevronDownIcon class="h-5 w-5 text-zinc-500" aria-hidden="true" />
-			</div>
-			<p class="text-sm" style="color: var(--app-v2-muted);">Targets and logged sets for this session.</p>
-
-			{#if data.session.exercises?.length}
-				<div class="space-y-4">
-					{#each (data.session.exercises ?? []).sort((a, b) => a.order_index - b.order_index) as exercise (exercise.id)}
-						<div class="app-v2-card p-4">
-							<div class="mb-3 flex flex-wrap items-center justify-between gap-2">
-								<h3 class="text-lg font-bold">{exercise.name}</h3>
-								<Badge variant="outline" class="border-[var(--app-v2-border)] bg-white/5">{exercise.type}</Badge>
-							</div>
-							<div class="overflow-x-auto rounded-lg border" style="border-color: var(--app-v2-border);">
-								<Table.Root>
-									<Table.Header>
-										<Table.Row class="border-[var(--app-v2-border)] hover:bg-transparent">
-											<Table.Head class="text-[var(--app-v2-muted)]">Set</Table.Head>
-											<Table.Head class="text-[var(--app-v2-muted)]">Target</Table.Head>
-											<Table.Head class="text-[var(--app-v2-muted)]">Actual</Table.Head>
-											<Table.Head class="text-[var(--app-v2-muted)]">Weight</Table.Head>
-											<Table.Head class="text-[var(--app-v2-muted)]">Status</Table.Head>
-										</Table.Row>
-									</Table.Header>
-									<Table.Body>
-										{#each (exercise.sets ?? []).sort((a, b) => a.set_number - b.set_number) as set (set.id)}
-											<Table.Row class="border-[var(--app-v2-border)]">
-												<Table.Cell class="tabular-nums font-medium">{set.set_number}</Table.Cell>
-												<Table.Cell>
-													{#if exercise.measurement === 'reps'}
-														{exercise.target_reps ?? '—'} reps
-													{:else}
-														{exercise.target_duration ?? '—'}s
-													{/if}
-												</Table.Cell>
-												<Table.Cell class="tabular-nums">
-													{#if exercise.measurement === 'reps'}
-														{set.actual_reps ?? '—'}
-													{:else}
-														{set.actual_duration ?? '—'}s
-													{/if}
-												</Table.Cell>
-												<Table.Cell class="tabular-nums">{set.weight_kg ?? '—'} kg</Table.Cell>
-												<Table.Cell>
-													<Badge variant="outline" class="text-xs capitalize">{set.status}</Badge>
-												</Table.Cell>
-											</Table.Row>
-										{/each}
-									</Table.Body>
-								</Table.Root>
-							</div>
-							{#if !exercise.sets?.length}
-								<p class="py-3 text-sm" style="color: var(--app-v2-muted);">No sets yet.</p>
-							{/if}
-						</div>
-					{/each}
-				</div>
-			{:else}
-				<div class="app-v2-card py-12 text-center text-sm" style="color: var(--app-v2-muted);">
-					No exercises in this session.
-				</div>
-			{/if}
-		</section>
+		<WorkoutPlanSection session={data.session} />
 	</div>
 {:else if view === 'analysis'}
 	{#await import('./session-v2-analysis-panel.svelte')}

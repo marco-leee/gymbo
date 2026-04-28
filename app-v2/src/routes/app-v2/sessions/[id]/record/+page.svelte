@@ -29,6 +29,7 @@
 	import { createPoseEngineRuntime } from "$lib/pose/pose-runtime";
 	import {
 		addSet,
+		exerciseTypeLabel,
 		recordSet,
 		startSession,
 		completeSession,
@@ -428,10 +429,15 @@
 				<Card>
 					<CardHeader class="pb-2">
 						<Collapsible.Trigger
-							class="flex w-full items-center justify-between text-left"
+							class="flex w-full items-start justify-between gap-2 text-left"
 						>
-							<CardTitle class="text-base">{exercise.name}</CardTitle>
-							<Badge variant="outline">{exercise.type}</Badge>
+							<div class="min-w-0 flex-1">
+								<CardTitle class="text-base">{exercise.name}</CardTitle>
+								{#if exercise.notes?.trim()}
+									<p class="text-muted-foreground mt-1 text-xs">{exercise.notes}</p>
+								{/if}
+							</div>
+							<Badge variant="outline" class="shrink-0 capitalize">{exerciseTypeLabel(exercise.type)}</Badge>
 						</Collapsible.Trigger>
 					</CardHeader>
 					<CardContent class="space-y-3">

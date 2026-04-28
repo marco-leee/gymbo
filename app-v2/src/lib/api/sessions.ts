@@ -1,14 +1,38 @@
+export type SessionExerciseType = 'strength' | 'cardio' | 'flexibility' | 'warm_up';
+
 export interface SessionExercise {
 	id: string;
 	name: string;
-	type: 'strength' | 'cardio' | 'flexibility';
+	type: SessionExerciseType;
 	measurement: 'reps' | 'duration';
+	/** When set, matches a curated exercise for server-side pipelines (squat, deadlift, …). Omitted for fully custom rows. */
+	exercise_key?: string;
 	target_reps?: number;
 	target_duration?: number;
-	target_sets: number;
+	/** Planned load for the block (kg); shown with targets; sets may still override per log. */
+	target_weight_kg?: number;
+	/** Planned set count goal; omit when unset (no preset rows). */
+	target_sets?: number;
 	rest_seconds: number;
 	order_index: number;
+	/** Coaching / reminder text for this exercise block */
+	notes?: string;
 	sets?: ExerciseSet[];
+}
+
+export function exerciseTypeLabel(type: SessionExercise['type']): string {
+	switch (type) {
+		case 'strength':
+			return 'Strength';
+		case 'cardio':
+			return 'Cardio';
+		case 'flexibility':
+			return 'Flexibility';
+		case 'warm_up':
+			return 'Warm up';
+		default:
+			return String(type);
+	}
 }
 
 export interface PoseChartPoint {
@@ -132,6 +156,62 @@ export async function createSession(data: {
 	if (!response.ok) {
 		const error = await response.text();
 		throw new Error(`Failed to create session: ${error}`);
+	}
+	return response.json();
+}
+
+export async function addSessionExercise(
+	sessionId: string,
+	data: {
+		name: string;
+		type: SessionExercise['type'];
+		measurement: SessionExercise['measurement'];
+		exercise_key?: string;
+		target_reps?: number;
+		target_duration?: number;
+		target_weight_kg?: number;
+		target_sets?: number;
+		rest_seconds: number;
+		notes?: string;
+	}
+): Promise<Session> {
+	const response = await fetch(`/api/sessions/${sessionId}/exercises`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(data)
+	});
+	if (!response.ok) {
+		const detail = await response.text();
+		throw new Error(detail || `Failed to add exercise: ${response.statusText}`);
+	}
+	return response.json();
+}
+
+export async function deleteSessionExercise(sessionId: string, exerciseId: string): Promise<Session> {
+	const response = await fetch(`/api/sessions/${sessionId}/exercises/${exerciseId}`, {
+		method: 'DELETE'
+	});
+	if (!response.ok) {
+		const detail = await response.text();
+		throw new Error(detail || `Failed to remove exercise: ${response.statusText}`);
+	}
+	return response.json();
+}
+
+/** Set or clear exercise coaching notes (`null` clears on server). */
+export async function updateSessionExerciseNotes(
+	sessionId: string,
+	exerciseId: string,
+	notes: string | null
+): Promise<Session> {
+	const response = await fetch(`/api/sessions/${sessionId}/exercises/${exerciseId}`, {
+		method: 'PUT',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ notes })
+	});
+	if (!response.ok) {
+		const detail = await response.text();
+		throw new Error(detail || `Failed to update exercise: ${response.statusText}`);
 	}
 	return response.json();
 }

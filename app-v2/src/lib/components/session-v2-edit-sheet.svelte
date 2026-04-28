@@ -74,7 +74,7 @@
 				{/if}
 			</Sheet.Description>
 		</Sheet.Header>
-		<div class="flex flex-1 flex-col gap-4 overflow-y-auto py-4">
+		<div class="flex flex-1 flex-col gap-4 overflow-y-auto p-4">
 			{#if !isLocked}
 				<div class="grid gap-4 sm:grid-cols-2">
 					<div class="space-y-2">

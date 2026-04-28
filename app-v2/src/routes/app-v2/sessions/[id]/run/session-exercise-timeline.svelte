@@ -2,7 +2,7 @@
 	import { Button } from "$lib/components/ui/button/index.js";
 	import { Badge } from "$lib/components/ui/badge/index.js";
 	import PlusIcon from "@lucide/svelte/icons/plus";
-	import type { ExerciseSet, SessionExercise } from "$lib/api/sessions";
+	import { exerciseTypeLabel, type ExerciseSet, type SessionExercise } from "$lib/api/sessions";
 
 	let {
 		exercises = [],
@@ -78,7 +78,7 @@
 							variant="outline"
 							class="shrink-0 border-white/20 capitalize text-[10px] text-zinc-300"
 						>
-							{exercise.type}
+							{exerciseTypeLabel(exercise.type)}
 						</Badge>
 					</div>
 					<div
@@ -87,6 +87,11 @@
 						<span class="line-clamp-2 text-sm font-medium text-white">
 							{exercise.name}
 						</span>
+						{#if exercise.notes?.trim()}
+							<span class="line-clamp-2 block text-[10px] leading-tight text-zinc-400">
+								{exercise.notes}
+							</span>
+						{/if}
 					</div>
 					<dl class="mt-2 space-y-0.5 text-[11px] leading-snug text-zinc-400">
 						<div class="flex justify-between gap-1">
