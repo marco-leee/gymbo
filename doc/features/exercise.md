@@ -45,10 +45,6 @@ deprecated_at:
 6. Once the session is over, trainer will be reviewing the analysis results and providing feedback to the client.
 7. Trainer will be able to see the history of the client's exercises and progress.
 8. Trainer will be able to compare the client's form and progress over time.
-9. UI must be flexible to adapt to the changes of trainers made during the session
-   1.  Their clients may not be able to finish all the sets of an exercise, or the trainer may want to add more exercises to the session.
-   2.  The trainer may want to add more sets to an exercise, or the trainer may want to add more exercises to the session.
-   3.  All should be done within a single page, without having to navigate to another page.
 
 
 ## Requirements
@@ -425,22 +421,6 @@ deprecated_at:
 | DELETE | /api/clients/[id] | Delete client (soft delete) | - | `{ success: boolean }` |
 | GET | /api/clients/[id]/sessions | Get client's sessions | Query: `?from=&to=&status=` | `Session[]` |
 
-#### Session API Endpoints
-
-| Method | Endpoint | Description | Request Body | Response |
-|--------|----------|-------------|--------------|----------|
-| GET | /api/sessions | List all sessions | Query: `?client=&from=&to=&status=&limit=20&offset=0` | `{ sessions: Session[], total: number }` |
-| POST | /api/sessions | Create new session | `{ client_id, scheduled_at, notes?, exercises: ExerciseInput[] }` | `Session` |
-| GET | /api/sessions/[id] | Get session by ID | - | `Session` |
-| PUT | /api/sessions/[id] | Update session (only if not started) | `{ scheduled_at?, notes?, exercises? }` | `Session` |
-| DELETE | /api/sessions/[id] | Delete session (soft delete, only if no videos) | - | `{ success: boolean }` |
-| POST | /api/sessions/[id]/start | Mark session as in-progress | - | `Session` |
-| POST | /api/sessions/[id]/complete | Mark session as completed | - | `Session` |
-| POST | /api/sessions/[id]/exercises | Add exercise to session | `{ name, type, measurement, target_reps?, target_duration?, target_sets, rest_seconds }` | `SessionExercise` |
-| POST | /api/sessions/[id]/sets | Add set to exercise | `{ exercise_id, target_reps?, target_duration? }` | `ExerciseSet` |
-| PUT | /api/sessions/[id]/sets/[setId] | Update set with results | `{ actual_reps?, actual_duration?, weight_kg?, rpe?, video_url?, notes? }` | `ExerciseSet` |
-| GET | /api/sessions/[id]/analysis | Get analysis results for all sets | - | `{ analyses: AnalysisResult[] }` |
-
 ### Database
 
 #### Database Schema
@@ -469,81 +449,7 @@ classDiagram
         timestamp deleted_at
     }
 
-    class Session {
-        string _id pk
-        string client_id fk
-        string trainer_id fk
-        string status
-        timestamp scheduled_at
-        string notes
-        timestamp started_at
-        timestamp completed_at
-        timestamp created_at
-        timestamp updated_at
-        timestamp deleted_at
-        SessionExercise exercises embedded
-    }
-
-    class SessionExercise {
-        string _id pk
-        string name
-        string type
-        string measurement
-        int target_reps
-        int target_duration
-        int target_sets
-        int rest_seconds
-        int order_index
-        ExerciseSet sets embedded
-    }
-
-    class ExerciseSet {
-        string _id pk
-        int set_number
-        int actual_reps
-        int actual_duration
-        double weight_kg
-        int rpe
-        string video_url
-        string status
-        string notes
-        AnalysisResult analysis embedded
-        timestamp created_at
-        timestamp updated_at
-    }
-
-    class AnalysisResult {
-        string _id pk
-        int overall_score
-        int rep_count_detected
-        string processing_status
-        timestamp started_at
-        timestamp completed_at
-        FormIssue issues embedded
-        RepDetail rep_details embedded
-    }
-
-    class FormIssue {
-        string _id pk
-        string severity
-        string description
-        int timestamp_seconds
-        string category
-    }
-
-    class RepDetail {
-        int rep_number
-        double duration_seconds
-        string key_positions
-    }
-
     Client --> User : embeds
-    Session --> Client : references
-    Session --> SessionExercise : embeds
-    SessionExercise --> ExerciseSet : embeds
-    ExerciseSet --> AnalysisResult : embeds
-    AnalysisResult --> FormIssue : embeds
-    AnalysisResult --> RepDetail : embeds
 ```
 
 ### Third Party Services
@@ -552,15 +458,9 @@ classDiagram
 
 #### Infrastructure
 
-1. Cloudflare for CDN, R2 for storage, queue for communicating with python worker
-
 #### CI/CD Pipeline
 
-1. Provided by cloudflare
-
 #### Monitoring
-
-1. Provided by cloudflare
 
 #### Security
 
@@ -576,15 +476,13 @@ classDiagram
 
 #### Model / Provider
 
-1. try YOLO2026
-
 #### System prompt structure
-
-Not applicable for now. Using only pose detection model here.
 
 #### Context Engineering
 
-Not applicable for now. Using only pose detection model here.
+```
+
+```
 
 ## References
 

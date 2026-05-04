@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package shared.entities.v1;
+
+option go_package = "gymbo.stixman.co/shared/gen/entities/v1";
+
+import "google/protobuf/timestamp.proto";
+
+message Assessment {
+  string id = 1;
+  string client_id = 2;
+  string trainer_id = 3;
+  optional string organisation_id = 4;
+  google.protobuf.Timestamp date = 5;
+  string comment = 6;
+  google.protobuf.Timestamp created_at = 7;
+  google.protobuf.Timestamp updated_at = 8;
+  google.protobuf.Timestamp deleted_at = 9;
+}

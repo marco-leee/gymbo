@@ -1,0 +1,32 @@
+[project]
+name = "backend"
+version = "0.1.0"
+description = ""
+authors = [
+    {name = "Marco Lee",email = "marco.lee@datax.io"}
+]
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "python-dotenv (>=1.0.1,<2.0.0)",
+    "numpy (<2)",
+    "pandas (>=2.2.3,<3.0.0)",
+    "pydantic (>=2.10.6,<3.0.0)",
+    "pydantic-extra-types (>=2.10.2,<3.0.0)",
+    "opencv-python (==4.10.0.84)",
+    "mediapipe (==0.10.18)",
+    "gradio (>=5.15.0,<6.0.0)",
+    "python-ulid (>=3.0.0,<4.0.0)",
+    "boto3 (>=1.36.16,<2.0.0)",
+    "python-socketio[asyncio] (>=5.12.1,<6.0.0)",
+    "sqlalchemy>=2.0.41",
+    "psycopg2-binary>=2.9.10",
+]
+
+[project.scripts]
+agent = "python agent.py dev"
+
+[dependency-groups]
+dev = [
+    "ruff>=0.11.13",
+]

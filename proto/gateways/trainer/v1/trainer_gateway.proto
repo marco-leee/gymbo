@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+package gateways.trainer.v1;
+
+option go_package = "gymbo.stixman.co/trainer_gateway/gen/gateways/v1";
+
+service TrainerGatewayService {
+  rpc GetUser(GetUserRequest) returns (GetUserResponse) {}
+}
+
+message GetUserRequest {}
+
+message GetUserResponse {}

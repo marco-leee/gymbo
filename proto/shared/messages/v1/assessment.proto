@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+package shared.messages.v1;
+
+option go_package = "gymbo.stixman.co/shared/gen/messages/v1";
+
+message GetAssessmentRequest {}
+
+message GetAssessmentResponse {}
+
+message CreateAssessmentRequest {}
+
+message CreateAssessmentResponse {}
+
+message UpdateAssessmentRequest {}
+
+message UpdateAssessmentResponse {}
+
+message DeleteAssessmentRequest {}
+
+message DeleteAssessmentResponse {}
+
+message ListAssessmentsRequest {}
+
+message ListAssessmentsResponse {}

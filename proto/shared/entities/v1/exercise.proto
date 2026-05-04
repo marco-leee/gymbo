@@ -1,0 +1,37 @@
+syntax = "proto3";
+
+package shared.entities.v1;
+
+option go_package = "gymbo.stixman.co/shared/gen/entities/v1";
+
+import "google/protobuf/timestamp.proto";
+
+enum ExerciseType {
+  EXERCISE_TYPE_UNSPECIFIED = 0;
+  EXERCISE_TYPE_SQUAT = 1;
+  EXERCISE_TYPE_LUNGE = 2;
+  EXERCISE_TYPE_PUSH_UP = 3;
+}
+
+message Exercise {
+  string id = 1;
+  string client_id = 2;
+  optional string assessment_id = 3;
+  string media_id = 4;
+  string name = 5;
+  string description = 6;
+  ExerciseType type = 7;
+  string comment = 8;
+  google.protobuf.Timestamp created_at = 9;
+  google.protobuf.Timestamp updated_at = 10;
+  google.protobuf.Timestamp deleted_at = 11;
+}
+
+message NewExercise {
+  string name = 1;
+  string client_id = 2;
+  optional string assessment_id = 3;
+  optional string description = 4;
+  ExerciseType type = 5;
+  optional string comment = 6;
+}

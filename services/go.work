@@ -1,0 +1,7 @@
+go 1.24.4
+
+use ./client_gateway
+use ./trainer_gateway
+use ./organisation_gateway
+use ./admin_gateway
+use ./shared

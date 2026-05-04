@@ -1,0 +1,38 @@
+syntax = "proto3";
+
+package shared.entities.v1;
+
+option go_package = "gymbo.stixman.co/shared/gen/entities/v1";
+
+import "google/protobuf/timestamp.proto";
+
+message Client {
+  message Height {
+    uint32 value = 1;
+    string unit = 2;
+  }
+
+  message Weight {
+    uint32 value = 1;
+    string unit = 2;
+  }
+
+  enum Gender {
+    GENDER_UNSPECIFIED = 0;
+    GENDER_MALE = 1;
+    GENDER_FEMALE = 2;
+    GENDER_OTHER = 3;
+  }
+
+  string id = 1;
+  string email = 2;
+  string full_name = 3;
+  optional string first_name = 4;
+  optional string last_name = 5;
+  string gender = 6;
+  optional Height height = 7;
+  optional Weight weight = 8;
+  google.protobuf.Timestamp created_at = 9;
+  google.protobuf.Timestamp updated_at = 10;
+  google.protobuf.Timestamp deleted_at = 11;
+}

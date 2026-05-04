@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package gateways.client.v1;
+
+option go_package = "gymbo.stixman.co/client_gateway/gen/gateways/v1";
+
+import "shared/entities/v1/client.proto";
+
+service ClientGatewayService {
+  rpc GetClient(GetClientRequest) returns (GetClientResponse) {}
+}
+
+message GetClientRequest {}
+
+message GetClientResponse {
+  shared.entities.v1.Client client = 1;
+}

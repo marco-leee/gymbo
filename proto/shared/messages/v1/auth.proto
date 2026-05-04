@@ -1,0 +1,37 @@
+syntax = "proto3";
+
+package shared.messages.v1;
+
+option go_package = "gymbo.stixman.co/shared/gen/messages/v1";
+
+message User {
+  string id = 1;
+  string email = 2;
+  string name = 3;
+}
+
+message LoginRequest {
+  string email = 1;
+}
+
+message LoginResponse {
+  string access_token = 1;
+  string refresh_token = 2;
+  int64 expires_at = 3;
+}
+
+message GetCurrentUserRequest {}
+
+message GetCurrentUserResponse {
+  User user = 1;
+}
+
+message RefreshTokenRequest {
+  string refresh_token = 1;
+}
+
+message RefreshTokenResponse {
+  string access_token = 1;
+  string refresh_token = 2;
+  int64 expires_at = 3;
+}

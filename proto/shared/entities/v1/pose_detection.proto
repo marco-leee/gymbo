@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+package shared.entities.v1;
+
+option go_package = "gymbo.stixman.co/shared/gen/entities/v1";
+
+import "google/protobuf/timestamp.proto";
+
+enum MediaPipePoseDetectionModel {
+  MEDIAPIPE_POSE_DETECTION_MODEL_UNSPECIFIED = 0;
+  MEDIAPIPE_POSE_DETECTION_MODEL_LITE= 1;
+  MEDIAPIPE_POSE_DETECTION_MODEL_FULL= 2;
+  MEDIAPIPE_POSE_DETECTION_MODEL_HEAVY= 3;
+}
