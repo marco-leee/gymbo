@@ -95,10 +95,23 @@ services:
     networks:
       - gymbo
 
+  mongo-db:
+    image: mongo:7.0.34
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: gymbo
+      MONGO_INITDB_ROOT_PASSWORD: gymbo
+      MONGO_INITDB_DATABASE: gymbo
+    networks:
+      - gymbo
+
 volumes:
   minio:
     driver: local
   psql-db:
+    driver: local
+  mongo-db:
     driver: local
 
 networks:
