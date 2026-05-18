@@ -4,17 +4,13 @@
 	import NavUser from './nav-user.svelte';
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
 	import DumbbellIcon from '@lucide/svelte/icons/dumbbell';
-	import LayoutDashboardIcon from '@lucide/svelte/icons/layout-dashboard';
 	import CalendarIcon from '@lucide/svelte/icons/calendar';
-	import PlusIcon from '@lucide/svelte/icons/plus';
 	import UserIcon from '@lucide/svelte/icons/user';
 	import type { ComponentProps } from 'svelte';
 
 	const navMainConfig = [
 		{ title: 'Sessions', url: '/app-v2/sessions', icon: CalendarIcon },
 		{ title: 'Clients', url: '/app-v2/clients', icon: UserIcon },
-		{ title: 'New session', url: '/app-v2/sessions/new', icon: PlusIcon },
-		{ title: 'Classic app', url: '/app/dashboard', icon: LayoutDashboardIcon }
 	];
 
 	const filteredNavMain = $derived(

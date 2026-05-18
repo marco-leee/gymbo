@@ -152,17 +152,20 @@ class AnalysisPipeline:
                     segmenter=segmenter,
                     pose_model=pose_model,
                 )
-                if st.overall_result is not None:
-                    overall_results.results.append(st.overall_result)
-                    bio = compute_frame_biometrics(
-                        st,
-                        exercise_type=ctx.exercise_type,
-                        camera_view=ctx.camera_view,
-                    )
-                    if bio is not None:
-                        st.overall_result.biometrics = bio.model_dump(mode="json")
+                if st.overall_result is None:
+                    continue
+
+                overall_results.results.append(st.overall_result)
 
                 # Stage 2: Biometrics (attached on ``overall_result`` when present)
+                bio = compute_frame_biometrics(
+                    st,
+                    exercise_type=ctx.exercise_type,
+                    camera_view=ctx.camera_view,
+                )
+                if bio is not None:
+                    st.overall_result.biometrics = bio.model_dump(mode="json")
+
                 # Stage 3: Feedback
 
                 # Stage 4: Save the results
@@ -182,11 +185,7 @@ class AnalysisPipeline:
             from database.mongodb.client import get_mongo_database
             from database.mongodb.ingest import persist_pipeline_output
 
-            db = (
-                get_mongo_database()
-                if mongodb_database is None
-                else mongodb_database
-            )
+            db = get_mongo_database() if mongodb_database is None else mongodb_database
             persist_pipeline_output(
                 overall_results=overall_results,
                 context=ctx,

@@ -23,8 +23,13 @@ class S3StorageProvider(StorageProvider):
             raise e
 
     def upload_object(self, object_path: Path, object_key: str) -> None:
-        # TODO: Add upload file function
+        # TODO: Make context type dynamic based on object's extension
         try:
-            self.client.upload_file(object_path, self.bucket, object_key)
+            self.client.upload_file(
+                object_path,
+                self.bucket,
+                object_key,
+                ExtraArgs={"ContentType": "video/mp4"},
+            )
         except Exception as e:
             raise e
