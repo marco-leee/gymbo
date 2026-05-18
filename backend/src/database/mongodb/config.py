@@ -1,6 +1,6 @@
 """MongoDB connection settings from environment.
 
-- ``MONGODB_URI``: full connection string (optional query params).
+- ``MONGODB_URI`` or ``MONGO_URI`` (fallback): full connection string (optional query params).
 - ``MONGODB_DATABASE``: database name (default ``gymbo``).
 - ``MONGODB_AUTH_SOURCE``: if set and URI has no ``authSource=``, it is appended (e.g. ``gymbo`` for users created with ``use gymbo`` and ``db.createUser``, or ``admin`` if the user lives in ``admin``).
 - ``MONGODB_USE_TRANSACTIONS``: default ``0``. Set ``1`` only for replica set / sharded deployments; standalone mongod raises IllegalOperation for transactions.
@@ -30,7 +30,9 @@ class MongoSettings:
 
 
 def load_mongo_settings() -> MongoSettings:
-    uri = os.environ.get("MONGODB_URI", "mongodb://gymbo:gymbo@localhost:27017")
+    uri = os.environ.get("MONGODB_URI") or os.environ.get(
+        "MONGO_URI", "mongodb://gymbo:gymbo@localhost:27017"
+    )
     auth_source = os.environ.get("MONGODB_AUTH_SOURCE", "admin").strip()
     if auth_source and "authSource=" not in uri:
         sep = "&" if "?" in uri else "?"

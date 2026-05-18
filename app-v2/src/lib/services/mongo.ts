@@ -59,7 +59,7 @@ export const PoseChartPointSchema = z.object({
 	outsideHip: z.number()
 });
 
-/** Stored on embedded sets and split `exercise_sets` rows (backend VideoMetadata shape). */
+/** Stored on `exercise_sets` rows (backend VideoMetadata shape). */
 export const ExerciseSetVideoMetadataSchema = z
 	.object({
 		camera_view: z.string().optional(),
@@ -167,13 +167,11 @@ export type ExerciseSetDoc = z.infer<typeof ExerciseSetSchema>;
 export type SessionExerciseDoc = z.infer<typeof SessionExerciseSchema>;
 /** Fields persisted on the `sessions` document (no embedded exercises). */
 export type StoredSessionDoc = z.infer<typeof SessionSchema>;
-/** Session after hydration from `exercises` / `exercise_sets` (or legacy embed). */
+/** Session after hydration from `exercises` + `exercise_sets`. */
 export type SessionDoc = StoredSessionDoc & { exercises: SessionExerciseDoc[] };
 export type CreateSessionInput = z.infer<typeof CreateSessionSchema>;
 export type UpdateSessionInput = z.infer<typeof UpdateSessionSchema>;
 export type SessionWithId = WithId<SessionDoc>;
-
-type SessionDocRaw = StoredSessionDoc & { exercises?: SessionExerciseDoc[] };
 
 function exerciseIdEquals(a: SessionExerciseDoc['_id'], exerciseParam: string): boolean {
 	if (a == null) return false;
@@ -181,7 +179,7 @@ function exerciseIdEquals(a: SessionExerciseDoc['_id'], exerciseParam: string): 
 	return a.toString() === exerciseParam;
 }
 
-/** `_id` on `exercises` may be UUID string (new) or ObjectId (migrated / legacy embed). */
+/** `_id` on `exercises` may be UUID string or ObjectId. */
 function coerceExerciseDocId(id: string): string | ObjectId {
 	if (ObjectId.isValid(id) && id.length === 24) return new ObjectId(id);
 	return id;
@@ -298,38 +296,12 @@ function rowToSessionExerciseDoc(
 	};
 }
 
-async function splitExerciseCount(
-	sessionId: string,
-	mongoSession: ClientSession | undefined
-): Promise<number> {
-	const exCol = await getExercisesCollection();
-	const opts = mongoSession ? { session: mongoSession } : {};
-	return exCol.countDocuments({ session_id: sessionId, deleted_at: null }, opts);
-}
-
-async function shouldUseSplitStorage(
-	sessionId: string,
-	raw: WithId<SessionDocRaw>,
-	mongoSession: ClientSession | undefined
-): Promise<boolean> {
-	if ((await splitExerciseCount(sessionId, mongoSession)) > 0) return true;
-	const embedded = raw.exercises;
-	if (Array.isArray(embedded) && embedded.length > 0) return false;
-	return true;
-}
-
 export async function hydrateSessionFromStored(
-	raw: WithId<SessionDocRaw> | null,
+	raw: WithId<StoredSessionDoc> | null,
 	mongoSession?: ClientSession
 ): Promise<SessionWithId | null> {
 	if (!raw) return null;
 	const sid = raw._id.toString();
-	const useSplit = await shouldUseSplitStorage(sid, raw, mongoSession);
-	if (!useSplit) {
-		const embedded = raw.exercises ?? [];
-		return { ...(raw as SessionDoc), exercises: embedded } as SessionWithId;
-	}
-
 	const opts = mongoSession ? { session: mongoSession } : {};
 	const exCol = await getExercisesCollection();
 	const setCol = await getExerciseSetsCollection();
@@ -353,28 +325,12 @@ export async function hydrateSessionFromStored(
 	const exercises: SessionExerciseDoc[] = exerciseRows.map((row) =>
 		rowToSessionExerciseDoc(row, setsByEx.get(String(row._id)) ?? [])
 	);
-	return { ...(raw as SessionDoc), exercises } as SessionWithId;
+	return { ...raw, exercises } as SessionWithId;
 }
 
-async function getSessionDocumentById(id: string): Promise<WithId<SessionDocRaw> | null> {
+async function getSessionDocumentById(id: string): Promise<WithId<StoredSessionDoc> | null> {
 	const collection = await getSessionsCollection();
 	return collection.findOne({ _id: new ObjectId(id) } as Filter<StoredSessionDoc>);
-}
-
-/** Creates `count` placeholder sets (pending) for a new exercise — legacy embedded path only. */
-export function buildPendingSetsForExercise(count: number, now: Date): ExerciseSetDoc[] {
-	const n = Math.max(0, Math.min(100, Math.floor(count)));
-	const out: ExerciseSetDoc[] = [];
-	for (let i = 1; i <= n; i++) {
-		out.push({
-			_id: new ObjectId(),
-			set_number: i,
-			status: 'pending',
-			created_at: now,
-			updated_at: now
-		});
-	}
-	return out;
 }
 
 // Session Service Functions
@@ -391,7 +347,7 @@ export async function listSessions(
 	const collection = await getSessionsCollection();
 	const rows = await collection.find(filter).sort({ scheduled_at: -1 }).toArray();
 	const hydrated = await Promise.all(
-		rows.map((r) => hydrateSessionFromStored(r as WithId<SessionDocRaw>))
+		rows.map((r) => hydrateSessionFromStored(r))
 	);
 	return hydrated.filter((s): s is SessionWithId => s != null);
 }
@@ -470,7 +426,7 @@ export async function createSession(
 		}
 
 		const raw = await sessions.findOne({ _id: insertedId }, opts);
-		return hydrateSessionFromStored(raw as WithId<SessionDocRaw> | null, mongoSession);
+		return hydrateSessionFromStored(raw as WithId<StoredSessionDoc> | null, mongoSession);
 	};
 
 	let result: SessionWithId | null = null;
@@ -569,45 +525,7 @@ export async function addExerciseToSession(
 	const raw = await getSessionDocumentById(sessionId);
 	if (!raw || raw.deleted_at) return null;
 
-	const useSplit = await shouldUseSplitStorage(sessionId, raw, undefined);
 	const now = new Date();
-
-	if (!useSplit) {
-		const session = (await hydrateSessionFromStored(raw))!;
-		const maxOrder = session.exercises.reduce((m, ex) => Math.max(m, ex.order_index ?? 0), -1);
-		const order_index = maxOrder + 1;
-		const rawTargetSets = payload.target_sets;
-		const ts = rawTargetSets === undefined ? 0 : Math.max(0, Math.floor(rawTargetSets));
-		const trimmedNotes = payload.notes?.trim();
-		const newExercise: SessionExerciseDoc = {
-			_id: new ObjectId(),
-			name: payload.name,
-			type: payload.type,
-			measurement: payload.measurement,
-			target_reps: payload.target_reps,
-			target_duration: payload.target_duration,
-			...(rawTargetSets !== undefined ? { target_sets: ts } : {}),
-			rest_seconds: payload.rest_seconds,
-			order_index,
-			sets: buildPendingSetsForExercise(ts, now),
-			...(payload.exercise_key ? { exercise_key: payload.exercise_key } : {}),
-			...(payload.target_weight_kg != null ? { target_weight_kg: payload.target_weight_kg } : {}),
-			...(trimmedNotes ? { notes: trimmedNotes } : {})
-		};
-
-		const collection = await getSessionsCollection();
-		const result = await collection.updateOne(
-			{ _id: new ObjectId(sessionId), deleted_at: null } as Filter<StoredSessionDoc>,
-			{
-				$push: { exercises: newExercise as never },
-				$set: { updated_at: now }
-			}
-		);
-
-		if (result.matchedCount === 0 || result.modifiedCount === 0) return null;
-		return getSessionById(sessionId);
-	}
-
 	const sessionHydrated = (await hydrateSessionFromStored(raw))!;
 	const maxOrder = sessionHydrated.exercises.reduce((m, ex) => Math.max(m, ex.order_index ?? 0), -1);
 	const order_index = maxOrder + 1;
@@ -668,40 +586,10 @@ export async function deleteExerciseFromSession(
 	const raw = await getSessionDocumentById(sessionId);
 	if (!raw || raw.deleted_at) return { ok: false, reason: 'not_found' };
 
-	const useSplit = await shouldUseSplitStorage(sessionId, raw, undefined);
-
-	if (!useSplit) {
-		const session = (await hydrateSessionFromStored(raw))!;
-		const oid = new ObjectId(exerciseId);
-		const embedded = session.exercises.find((ex) => ex._id instanceof ObjectId && ex._id.equals(oid));
-		if (!embedded) return { ok: false, reason: 'not_found' };
-		const sets = embedded.sets ?? [];
-		if (!sets.every((s) => s.status === 'pending')) {
-			return { ok: false, reason: 'sets_not_pending' };
-		}
-
-		const collection = await getSessionsCollection();
-		const now = new Date();
-		const result = await collection.updateOne(
-			{ _id: new ObjectId(sessionId), deleted_at: null } as Filter<StoredSessionDoc>,
-			{
-				$pull: { exercises: { _id: oid } as never },
-				$set: { updated_at: now }
-			}
-		);
-
-		if (result.matchedCount === 0 || result.modifiedCount === 0) {
-			return { ok: false, reason: 'not_found' };
-		}
-		const updated = await getSessionById(sessionId);
-		if (!updated) return { ok: false, reason: 'not_found' };
-		return { ok: true, session: updated };
-	}
-
 	const session = (await hydrateSessionFromStored(raw))!;
-	const embedded = session.exercises.find((ex) => exerciseIdEquals(ex._id, exerciseId));
-	if (!embedded) return { ok: false, reason: 'not_found' };
-	const sets = embedded.sets ?? [];
+	const exercise = session.exercises.find((ex) => exerciseIdEquals(ex._id, exerciseId));
+	if (!exercise) return { ok: false, reason: 'not_found' };
+	const sets = exercise.sets ?? [];
 	if (!sets.every((s) => s.status === 'pending')) {
 		return { ok: false, reason: 'sets_not_pending' };
 	}
@@ -740,46 +628,7 @@ export async function updateExerciseNotesInSession(
 	const raw = await getSessionDocumentById(sessionId);
 	if (!raw || raw.deleted_at) return null;
 
-	const useSplit = await shouldUseSplitStorage(sessionId, raw, undefined);
 	const now = new Date();
-
-	if (!useSplit) {
-		const collection = await getSessionsCollection();
-		const exOid = new ObjectId(exerciseId);
-		const filter = {
-			_id: new ObjectId(sessionId),
-			deleted_at: null,
-			'exercises._id': exOid
-		} as Filter<StoredSessionDoc>;
-
-		if (notes === null) {
-			const result = await collection.updateOne(filter, {
-				$unset: { 'exercises.$.notes': '' },
-				$set: { updated_at: now }
-			});
-			if (result.matchedCount === 0) return null;
-			return getSessionById(sessionId);
-		}
-
-		const trimmed = notes.trim();
-		if (trimmed.length === 0) {
-			const result = await collection.updateOne(filter, {
-				$unset: { 'exercises.$.notes': '' },
-				$set: { updated_at: now }
-			});
-			if (result.matchedCount === 0) return null;
-			return getSessionById(sessionId);
-		}
-
-		const result = await collection.updateOne(filter, {
-			$set: {
-				'exercises.$.notes': trimmed,
-				updated_at: now
-			}
-		});
-		if (result.matchedCount === 0) return null;
-		return getSessionById(sessionId);
-	}
 
 	const exercisesCol = await getExercisesCollection();
 	const $set: Record<string, unknown> = { updated_at: now };
@@ -823,38 +672,7 @@ export async function addSetToExercise(
 ): Promise<SessionWithId | null> {
 	const raw = await getSessionDocumentById(sessionId);
 	if (!raw || raw.deleted_at) return null;
-	const useSplit = await shouldUseSplitStorage(sessionId, raw, undefined);
 	const now = new Date();
-
-	if (!useSplit) {
-		const session = (await hydrateSessionFromStored(raw))!;
-		const exercise = session.exercises.find(
-			(ex) => ex._id instanceof ObjectId && ex._id.toString() === exerciseId
-		);
-		if (!exercise) return null;
-
-		const nextSetNumber = (exercise.sets?.length ?? 0) + 1;
-
-		const newSet: ExerciseSetDoc = {
-			_id: new ObjectId(),
-			set_number: nextSetNumber,
-			status: 'pending',
-			created_at: now,
-			updated_at: now
-		};
-
-		const collection = await getSessionsCollection();
-		const result = await collection.updateOne(
-			{ _id: new ObjectId(sessionId), 'exercises._id': new ObjectId(exerciseId) } as Filter<StoredSessionDoc>,
-			{
-				$push: { 'exercises.$.sets': newSet as never },
-				$set: { updated_at: now }
-			}
-		);
-
-		if (result.modifiedCount === 0) return null;
-		return getSessionById(sessionId);
-	}
 
 	const session = (await hydrateSessionFromStored(raw))!;
 	const exercise = session.exercises.find((ex) => exerciseIdEquals(ex._id, exerciseId));
@@ -904,37 +722,7 @@ export async function updateSetInExercise(
 ): Promise<SessionWithId | null> {
 	const raw = await getSessionDocumentById(sessionId);
 	if (!raw || raw.deleted_at) return null;
-	const useSplit = await shouldUseSplitStorage(sessionId, raw, undefined);
 	const now = new Date();
-
-	if (!useSplit) {
-		const collection = await getSessionsCollection();
-		const setObj: Record<string, unknown> = { updated_at: now };
-		if (data.actual_reps !== undefined) setObj['exercises.$[ex].sets.$[set].actual_reps'] = data.actual_reps;
-		if (data.actual_duration !== undefined)
-			setObj['exercises.$[ex].sets.$[set].actual_duration'] = data.actual_duration;
-		if (data.weight_kg !== undefined) setObj['exercises.$[ex].sets.$[set].weight_kg'] = data.weight_kg;
-		if (data.rpe !== undefined) setObj['exercises.$[ex].sets.$[set].rpe'] = data.rpe;
-		if (data.video_url !== undefined) setObj['exercises.$[ex].sets.$[set].video_url'] = data.video_url;
-		if (data.video_metadata !== undefined)
-			setObj['exercises.$[ex].sets.$[set].video_metadata'] = data.video_metadata;
-		if (data.pose_chart_data !== undefined)
-			setObj['exercises.$[ex].sets.$[set].pose_chart_data'] = data.pose_chart_data;
-		if (data.status !== undefined) setObj['exercises.$[ex].sets.$[set].status'] = data.status;
-		if (data.notes !== undefined) setObj['exercises.$[ex].sets.$[set].notes'] = data.notes;
-		setObj['exercises.$[ex].sets.$[set].updated_at'] = now;
-
-		const result = await collection.updateOne(
-			{ _id: new ObjectId(sessionId) } as Filter<StoredSessionDoc>,
-			{ $set: setObj },
-			{
-				arrayFilters: [{ 'ex._id': new ObjectId(exerciseId) }, { 'set._id': new ObjectId(setId) }]
-			}
-		);
-
-		if (result.modifiedCount === 0) return null;
-		return getSessionById(sessionId);
-	}
 
 	const setsCol = await getExerciseSetsCollection();
 	const $set: Record<string, unknown> = { updated_at: now };
@@ -974,22 +762,7 @@ export async function deleteSetFromExercise(
 ): Promise<SessionWithId | null> {
 	const raw = await getSessionDocumentById(sessionId);
 	if (!raw || raw.deleted_at) return null;
-	const useSplit = await shouldUseSplitStorage(sessionId, raw, undefined);
 	const now = new Date();
-
-	if (!useSplit) {
-		const collection = await getSessionsCollection();
-		const result = await collection.updateOne(
-			{ _id: new ObjectId(sessionId), 'exercises._id': new ObjectId(exerciseId) } as Filter<StoredSessionDoc>,
-			{
-				$pull: { 'exercises.$.sets': { _id: new ObjectId(setId) } as never },
-				$set: { updated_at: now }
-			}
-		);
-
-		if (result.modifiedCount === 0) return null;
-		return getSessionById(sessionId);
-	}
 
 	const setsCol = await getExerciseSetsCollection();
 	const r = await setsCol.deleteOne({ _id: new ObjectId(setId), exercise_id: exerciseId });

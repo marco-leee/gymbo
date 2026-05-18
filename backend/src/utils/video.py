@@ -1,5 +1,8 @@
+from __future__ import annotations
+
 from enum import Enum
-from typing import Self
+from typing import Any, Self
+
 import cv2
 
 
@@ -29,7 +32,25 @@ class Video:
         self.height = int(self.video.get(cv2.CAP_PROP_FRAME_HEIGHT))
         self.shape = (self.width, self.height)
         self.total_frames = int(self.video.get(cv2.CAP_PROP_FRAME_COUNT))
-        self.duration = self.total_frames / self.fps
+        self.duration = self.total_frames / float(self.fps) if self.fps else 0.0
+
+    def metadata_for_storage(self) -> dict[str, Any]:
+        """Mongo `video_metadata` document (ExerciseSetVideoMetadata schema)."""
+        fps = self.fps if self.fps > 0 else 30
+        return {
+            "camera_view": self.camera_view.value,
+            "fps": fps,
+            "video_width": self.width,
+            "video_height": self.height,
+            "total_frames": self.total_frames,
+            "duration_sec": self.duration,
+        }
+
+    def release(self) -> None:
+        """Close the capture without iterating (see :meth:`get_frames`)."""
+        cap = self.video
+        if cap is not None and getattr(cap, "isOpened", lambda: False)():
+            cap.release()
 
     def get_frames(self):
         has_next, frame = self.video.read()
@@ -46,4 +67,4 @@ class Video:
             has_next, frame = self.video.read()
             count += 1
 
-        self.video.release()
+        self.release()
