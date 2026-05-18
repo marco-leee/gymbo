@@ -1,7 +1,7 @@
 import { json, error, isHttpError } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { z } from 'zod';
-import { getSessionById, addSetToExercise } from '$lib/services/mongo';
+import { getSessionById, addSetToExercise, isValidExerciseIdParam } from '$lib/services/mongo';
 import { ObjectId } from 'mongodb';
 import { serializeSession } from '$lib/server/sessions';
 
@@ -9,7 +9,7 @@ const IdParamSchema = z.object({
 	id: z.string().refine(val => ObjectId.isValid(val), {
 		message: 'Invalid session ID'
 	}),
-	exerciseId: z.string().refine(val => ObjectId.isValid(val), {
+	exerciseId: z.string().refine(val => isValidExerciseIdParam(val), {
 		message: 'Invalid exercise ID'
 	})
 });

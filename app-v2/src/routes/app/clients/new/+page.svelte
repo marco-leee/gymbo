@@ -10,7 +10,7 @@
 	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
 	import { createClient } from '$lib/api/clients';
 	import { queryClient } from '$lib/query-client';
-	import type { CreateClientInput } from '$lib/services/mongo';
+	import type { CreateClientInput } from '$lib/services/models/client';
 
 	let formData = $state<CreateClientInput>({
 		email: '',

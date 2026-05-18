@@ -4,7 +4,8 @@ import { z } from 'zod';
 import {
 	getSessionById,
 	updateSetInExercise,
-	deleteSetFromExercise
+	deleteSetFromExercise,
+	isValidExerciseIdParam
 } from '$lib/services/mongo';
 import { ObjectId } from 'mongodb';
 import { serializeSession } from '$lib/server/sessions';
@@ -13,7 +14,7 @@ const IdParamSchema = z.object({
 	id: z.string().refine(val => ObjectId.isValid(val), {
 		message: 'Invalid session ID'
 	}),
-	exerciseId: z.string().refine(val => ObjectId.isValid(val), {
+	exerciseId: z.string().refine(val => isValidExerciseIdParam(val), {
 		message: 'Invalid exercise ID'
 	}),
 	setId: z.string().refine(val => ObjectId.isValid(val), {

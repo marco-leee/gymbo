@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { ObjectId } from 'mongodb';
 import {
 	getSessionById,
+	isValidExerciseIdParam,
 	UpdateSessionExercisePayloadSchema,
 	updateExerciseNotesInSession,
 	deleteExerciseFromSession
@@ -14,7 +15,7 @@ const SessionIdSchema = z.string().refine((val) => ObjectId.isValid(val), {
 	message: 'Invalid session ID'
 });
 
-const ExerciseIdSchema = z.string().refine((val) => ObjectId.isValid(val), {
+const ExerciseIdSchema = z.string().refine((val) => isValidExerciseIdParam(val), {
 	message: 'Invalid exercise ID'
 });
 
@@ -45,8 +46,7 @@ export const PUT: RequestHandler = async ({ params, request, url }) => {
 			throw error(400, 'Cannot update session with uploaded videos');
 		}
 
-		const exOid = new ObjectId(exerciseId);
-		const hasExercise = existing.exercises.some((ex) => ex._id?.equals(exOid));
+		const hasExercise = existing.exercises.some((ex) => String(ex._id) === exerciseId);
 		if (!hasExercise) {
 			throw error(404, 'Exercise not found');
 		}

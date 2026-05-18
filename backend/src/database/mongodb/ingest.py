@@ -12,7 +12,6 @@ from database.mongodb.client import get_mongo_database
 from database.mongodb.entities import (
     ExerciseSetEntity,
     RepSetSummary,
-    SessionMetadata,
     SetBiometricFrameEntity,
     VideoMetadata,
     rep_set_count_result_to_summary,
@@ -40,26 +39,12 @@ class MongodbPersistConfig:
     ensure_indexes: bool = True
 
 
-def _session_metadata_from_context(ctx: SessionContext) -> SessionMetadata:
-    return SessionMetadata(
-        user_id=ctx.user_id,
-        exercise_type=ctx.exercise_type.value,
-        camera_view=ctx.camera_view.value,
-        input_source=ctx.input_source.value,
-        planned_sets=ctx.planned_sets,
-        target_reps_per_set=ctx.target_reps_per_set,
-        conf_threshold=ctx.conf_threshold,
-        yolo_detect_weights=ctx.yolo_detect_weights,
-        yolo_seg_weights=ctx.yolo_seg_weights,
-        yolo_pose_weights=ctx.yolo_pose_weights,
-    )
-
-
 def _video_metadata_from_sources(
     video: Video,
     overall: OverallResults,
     *,
     total_frames_override: int | None = None,
+    camera_view: str | None = None,
 ) -> VideoMetadata:
     fps = overall.fps if overall.fps is not None else video.fps
     vw = overall.video_width if overall.video_width is not None else video.width
@@ -71,6 +56,7 @@ def _video_metadata_from_sources(
     if tf is not None and video.fps:
         duration = float(tf) / float(max(video.fps, 1))
     return VideoMetadata(
+        camera_view=camera_view,
         fps=fps,
         video_width=vw,
         video_height=vh,
@@ -128,7 +114,9 @@ def persist_pipeline_output(
         overall_results, compute=config.compute_rep_summary
     )
     if video_metadata_override is not None:
-        vmeta = video_metadata_override
+        vmeta = video_metadata_override.model_copy(
+            update={"camera_view": context.camera_view.value}
+        )
     else:
         if video is None:
             raise ValueError("video is required when video_metadata_override is not set")
@@ -136,13 +124,14 @@ def persist_pipeline_output(
             video,
             overall_results,
             total_frames_override=total_frames_override,
+            camera_view=context.camera_view.value,
         )
     set_entity = ExerciseSetEntity(
         exercise_id=config.exercise_id,
         set_index=config.set_index,
         original_video_uri=original_video_uri,
         processed_video_uri=processed_video_uri,
-        session_metadata=_session_metadata_from_context(context),
+        pose_detection_model_name=None,
         video_metadata=vmeta,
         rep_set_summary=rep_summary,
     )
@@ -153,9 +142,15 @@ def persist_pipeline_output(
     return repo.insert_set_with_frames(set_entity, frames)
 
 
-def _video_metadata_from_overall(overall: OverallResults, total_frames: int) -> VideoMetadata:
+def _video_metadata_from_overall(
+    overall: OverallResults,
+    total_frames: int,
+    *,
+    camera_view: str | None = None,
+) -> VideoMetadata:
     fps_val = overall.fps or 30
     return VideoMetadata(
+        camera_view=camera_view,
         fps=overall.fps,
         video_width=overall.video_width,
         video_height=overall.video_height,
@@ -186,7 +181,7 @@ def persist_overall_results_json_path(
         video_path=original_video_uri or None,
     )
     n = len(overall.results)
-    vmeta = _video_metadata_from_overall(overall, n)
+    vmeta = _video_metadata_from_overall(overall, n, camera_view=cv.value)
     cfg = MongodbPersistConfig(
         exercise_id=exercise_id,
         set_index=set_index,

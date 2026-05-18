@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from pydantic import BaseModel, Field
+from typing import Any
+
+from pydantic import BaseModel, Field, model_validator
 
 from models.rep_set_count import RepSetCountResult
 from pipeline.biometrics import FrameBiometricsResult
@@ -49,29 +51,12 @@ def rep_set_count_result_to_summary(r: RepSetCountResult) -> RepSetSummary:
     )
 
 
-class SessionMetadata(BaseModel):
-    """Subset of ``SessionContext`` stored on each exercise set."""
-
-    model_config = {"extra": "ignore"}
-
-    user_id: str | None = None
-    exercise_type: str
-    camera_view: str
-    input_source: str
-    planned_sets: int | None = None
-    target_reps_per_set: int | None = None
-    conf_threshold: float
-    yolo_detect_weights: str | None = None
-    yolo_seg_weights: str | None = None
-    yolo_pose_weights: str | None = None
-    pose_detection_model_name: str | None = None
-
-
 class VideoMetadata(BaseModel):
-    """Geometry and timing for the source video."""
+    """Geometry, camera, and timing for the source video."""
 
     model_config = {"extra": "ignore"}
 
+    camera_view: str | None = None
     fps: int | None = None
     video_width: int | None = None
     video_height: int | None = None
@@ -86,7 +71,7 @@ class ExerciseEntity(BaseModel):
 
     id: str
     client_id: str
-    assessment_id: str
+    session_id: str
     name: str
     description: str
     type: str
@@ -94,6 +79,13 @@ class ExerciseEntity(BaseModel):
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     deleted_at: datetime | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _legacy_assessment_id(cls, data: Any) -> Any:
+        if isinstance(data, dict) and "session_id" not in data and data.get("assessment_id"):
+            data = {**data, "session_id": data["assessment_id"]}
+        return data
 
 
 class ExerciseSetEntity(BaseModel):
@@ -105,12 +97,35 @@ class ExerciseSetEntity(BaseModel):
     set_index: int
     original_video_uri: str
     processed_video_uri: str
-    session_metadata: SessionMetadata
+    pose_detection_model_name: str | None = None
     video_metadata: VideoMetadata
     rep_set_summary: RepSetSummary | None = None
     schema_version: int = 1
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+    @model_validator(mode="before")
+    @classmethod
+    def _legacy_session_metadata(cls, data: Any) -> Any:
+        if not isinstance(data, dict):
+            return data
+        legacy = data.pop("session_metadata", None)
+        if not isinstance(legacy, dict):
+            return data
+        cam = legacy.pop("camera_view", None)
+        pdm = legacy.pop("pose_detection_model_name", None)
+        vm = data.get("video_metadata")
+        if cam is not None:
+            if isinstance(vm, dict):
+                merged = dict(vm)
+                if merged.get("camera_view") in (None, ""):
+                    merged["camera_view"] = cam
+                data["video_metadata"] = merged
+            else:
+                data["video_metadata"] = {"camera_view": cam}
+        if pdm is not None and "pose_detection_model_name" not in data:
+            data["pose_detection_model_name"] = pdm
+        return data
 
 
 class SetBiometricFrameEntity(BaseModel):

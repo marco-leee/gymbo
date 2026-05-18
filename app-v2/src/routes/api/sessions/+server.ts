@@ -45,9 +45,10 @@ export const GET: RequestHandler = async ({ url }) => {
 		}
 
 		if (query.from || query.to) {
-			filter['scheduled_at'] = {};
-			if (query.from) filter['scheduled_at']['$gte'] = new Date(query.from);
-			if (query.to) filter['scheduled_at']['$lte'] = new Date(query.to);
+			const range: Record<string, Date> = {};
+			if (query.from) range['$gte'] = new Date(query.from);
+			if (query.to) range['$lte'] = new Date(query.to);
+			filter['scheduled_at'] = range;
 		}
 
 		const sessions = await listSessions(filter);
