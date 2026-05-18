@@ -8,7 +8,9 @@ import {
 	isValidExerciseIdParam
 } from '$lib/services/mongo';
 import { ObjectId } from 'mongodb';
+import { v7 as uuidv7 } from 'uuid';
 import { serializeSession } from '$lib/server/sessions';
+import { enqueueVideoProcessingJob } from '$lib/server/video-queue/enqueue';
 
 const IdParamSchema = z.object({
 	id: z.string().refine(val => ObjectId.isValid(val), {
@@ -87,6 +89,28 @@ export const PUT: RequestHandler = async ({ params, request }) => {
 
 		if (!session) {
 			throw error(500, 'Failed to update set');
+		}
+
+		const shouldEnqueueVideoJob =
+			validated.video_url && set.status === 'pending';
+
+		if (shouldEnqueueVideoJob && validated.video_url) {
+			const metadata =
+				validated.video_metadata &&
+				Object.fromEntries(
+					Object.entries(validated.video_metadata)
+						.filter(([, v]) => v !== undefined)
+						.map(([k, v]) => [k, String(v)])
+				);
+			void enqueueVideoProcessingJob({
+				session_id: id,
+				exercise_id: exerciseId,
+				set_id: setId,
+				r2_key: validated.video_url,
+				job_id: uuidv7(),
+				...(exercise.exercise_key ? { exercise_key: exercise.exercise_key } : {}),
+				...(Object.keys(metadata ?? {}).length > 0 ? { metadata } : {})
+			});
 		}
 
 		return json(await serializeSession(session));

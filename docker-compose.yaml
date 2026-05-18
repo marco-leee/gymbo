@@ -1,50 +1,4 @@
 services:
-  caddy:
-    image: caddy
-    build:
-      context: .
-      dockerfile: caddy.dockerfile
-    ports:
-      - "443:443"
-    environment:
-      # - DOMAIN=localhost
-      - DOMAIN=gymbo-gradio.stixman.co
-      - BACKEND_HOST=gradio
-      - BACKEND_PORT=7860
-      - APP_DOMAIN=api.stixman.co
-      - APP_HOST=sio-server
-      - APP_PORT=10000
-    networks:
-      - gymbo
-
-  sio-server:
-    image: sio-server
-    build:
-      context: .
-      dockerfile: sio-server.dockerfile
-    ports:
-      - "10000:10000"
-    networks:
-      - gymbo
-
-  gradio:
-    image: gradio
-    build:
-      context: .
-      dockerfile: gradio.dockerfile
-    ports:
-      - "7860:7860"
-    environment:
-      - USER=admin
-      - PASSWORD=sayplease
-      - LIVEKIT_URL=http://livekit:7880
-      - LIVEKIT_API_KEY=devsecret
-      - LIVEKIT_API_SECRET=secret
-      - S3_ACCESS_KEY=dummy
-      - S3_SECRET=dummy
-    networks:
-      - gymbo
-
   redis:
     image: redis:alpine
     ports:
@@ -86,14 +40,6 @@ services:
       MINIO_ROOT_USER: admin
       MINIO_ROOT_PASSWORD: qwertyui
       MINIO_DEFAULT_BUCKET: gymbo
-
-  services:
-    image: services
-    build:
-      context: .
-      dockerfile: services.dockerfile
-    networks:
-      - gymbo
 
   mongo-db:
     image: mongo:7.0.34

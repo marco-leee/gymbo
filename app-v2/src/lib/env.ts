@@ -8,5 +8,11 @@ export const env = {
 	STORAGE_SECRET_KEY: privateEnv.STORAGE_SECRET_KEY || 'qwertyui',
 	STORAGE_BUCKET: privateEnv.STORAGE_BUCKET || 'gymbo',
 	MODEL_KEY: privateEnv.MODEL_KEY || 'yolo26s-pose.onnx',
-	MODEL_VERSION: privateEnv.MODEL_VERSION || 'v1'
+	MODEL_VERSION: privateEnv.MODEL_VERSION || 'v1',
+	/** Local video queue: Redis list LPUSH. Omit when using RunPod in deployed envs. */
+	REDIS_URL: privateEnv.REDIS_URL,
+	REDIS_VIDEO_QUEUE_KEY: privateEnv.REDIS_VIDEO_QUEUE_KEY || 'video_jobs',
+	/** Deployed: POST same JSON job body as Redis. When set, Redis is not used. */
+	VIDEO_QUEUE_RUNPOD_URL: privateEnv.VIDEO_QUEUE_RUNPOD_URL,
+	VIDEO_QUEUE_RUNPOD_API_KEY: privateEnv.VIDEO_QUEUE_RUNPOD_API_KEY
 };

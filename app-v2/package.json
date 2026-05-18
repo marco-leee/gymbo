@@ -48,6 +48,7 @@
 		"@sveltejs/adapter-vercel": "^6.3.3",
 		"@tanstack/svelte-query": "^6.0.18",
 		"@tanstack/svelte-table": "^8.21.3",
+		"ioredis": "^5.9.1",
 		"mode-watcher": "^1.1.0",
 		"mongodb": "^7.1.0",
 		"uuid": "^13.0.0",
