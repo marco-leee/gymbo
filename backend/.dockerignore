@@ -1,0 +1,17 @@
+.venv
+__pycache__
+*.py[cod]
+.pytest_cache
+.ruff_cache
+.git
+.gitignore
+pose_models
+
+# Large media / artifacts (weights under src/pose_models must stay in context)
+*.MOV
+*.mp4
+**/*.MOV
+**/*.mp4
+
+# Optional local ONNX at repo root — not used by YOLO .pt server path
+*.onnx

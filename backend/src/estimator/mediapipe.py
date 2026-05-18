@@ -1,6 +1,6 @@
 import mediapipe as mp
 import numpy as np
-from typing import Any, Generator
+from typing import Generator
 
 from utils.video import CameraView
 from .base import Estimator, EstimatorOutput
@@ -12,7 +12,7 @@ from mediapipe.tasks.python.vision import (
 )
 
 from models.exercise import ExerciseType
-from exercises import Squat
+from exercises import Squat, Lunge, Deadlift
 from utils import Video
 
 BaseOptions = mp.tasks.BaseOptions
@@ -24,7 +24,11 @@ class MediapipeEstimator(Estimator, Video):
     _connections = frozenset(
         [(c.start, c.end) for c in PoseLandmarksConnections.POSE_LANDMARKS]
     )
-    _exercise_types = {ExerciseType.SQUAT: Squat()}
+    _exercise_types = {
+        ExerciseType.SQUAT: Squat(),
+        ExerciseType.LUNGE: Lunge(),
+        ExerciseType.DEADLIFT: Deadlift(),
+    }
 
     def __init__(self, model_path: str):
         self._model_path = model_path
@@ -67,9 +71,7 @@ class MediapipeEstimator(Estimator, Video):
                 image, raw_landmark_2d, kips=key_interest_points_2d
             )
 
-        return EstimatorOutput(
-            0, annotated_image, raw_landmark_2d, key_interest_points_2d
-        )
+        return EstimatorOutput(0, annotated_image, result, key_interest_points_2d)
 
     def detect_image_custom_params(
         self,
@@ -105,22 +107,18 @@ class MediapipeEstimator(Estimator, Video):
                 image, raw_landmark_2d, kips=key_interest_points_2d
             )
 
-        return EstimatorOutput(
-            0, annotated_image, raw_landmark_2d, key_interest_points_2d
-        )
+        return EstimatorOutput(0, annotated_image, result, key_interest_points_2d)
 
     def detect_video(
         self, video: Video, type: ExerciseType = None
     ) -> Generator[EstimatorOutput, None, None]:
         type_processor = None
-        angle_of_interest_enum = None
 
         if type is not None:
             type_processor = self._exercise_types[type]
-            angle_of_interest_enum = type_processor.get_key_interest_point_enum()
 
         with PoseLandmarker.create_from_options(self._options) as landmarker:
-            for idx, frame in video.get_frames():
+            for idx, _timestamp, frame in video.get_frames():
                 result = landmarker.detect(
                     mp.Image(image_format=mp.ImageFormat.SRGB, data=frame)
                 )
@@ -142,9 +140,5 @@ class MediapipeEstimator(Estimator, Video):
                 )
 
                 yield EstimatorOutput(
-                    idx,
-                    annotated_image,
-                    raw_landmark_2d,
-                    key_interest_points_2d,
-                    angle_of_interest_enum,
+                    idx, annotated_image, result, key_interest_points_2d
                 )

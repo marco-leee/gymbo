@@ -37,7 +37,12 @@ class Video:
         count = 0
 
         while has_next:
-            yield count, frame
+            timestamp = (
+                count / float(self.fps)
+                if self.fps
+                else self.video.get(cv2.CAP_PROP_POS_MSEC) / 1000.0
+            )
+            yield count, timestamp, frame
             has_next, frame = self.video.read()
             count += 1
 

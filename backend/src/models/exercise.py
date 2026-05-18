@@ -7,7 +7,8 @@ from ulid import ULID
 
 class ExerciseType(Enum):
     SQUAT = "SQUAT"
-    # PUSH_UP = "PUSH_UP"
+    LUNGE = "LUNGE"
+    DEADLIFT = "DEADLIFT"
 
     def __str__(self):
         return self.value
