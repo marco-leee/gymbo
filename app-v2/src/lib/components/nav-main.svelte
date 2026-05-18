@@ -27,7 +27,7 @@
 			<Collapsible.Root open={mainItem.isActive}>
 				{#snippet child({ props })}
 					<Sidebar.MenuItem {...props}>
-						<Sidebar.MenuButton tooltipContent={mainItem.title}>
+						<Sidebar.MenuButton tooltipContent={mainItem.title} isActive={mainItem.isActive ?? false}>
 							{#snippet child({ props })}
 								<a href={mainItem.url} {...props}>
 									<mainItem.icon />

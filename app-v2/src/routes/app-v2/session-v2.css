@@ -12,6 +12,15 @@
 	--app-v2-muted: #a1a1aa;
 	--app-v2-text: #fafafa;
 
+	--sidebar: var(--app-v2-surface-2);
+	--sidebar-foreground: var(--app-v2-text);
+	--sidebar-primary: var(--app-v2-accent);
+	--sidebar-primary-foreground: var(--app-v2-accent-foreground);
+	--sidebar-accent: color-mix(in oklab, var(--app-v2-text) 10%, transparent);
+	--sidebar-accent-foreground: var(--app-v2-text);
+	--sidebar-border: var(--app-v2-border);
+	--sidebar-ring: var(--app-v2-accent);
+
 	font-family: var(--app-v2-body);
 	background: var(--app-v2-surface);
 	color: var(--app-v2-text);
@@ -91,6 +100,37 @@
 	--app-v2-accent: #c8ff00;
 	background: #050506;
 	color: #f4f4f5;
+}
+
+.app-v2-root [data-slot='sidebar-inset'] {
+	background: var(--app-v2-surface);
+	color: var(--app-v2-text);
+}
+
+.app-v2-root [data-sidebar='menu-button'] {
+	min-height: 2.75rem;
+}
+
+@media (min-width: 768px) {
+	.app-v2-root [data-sidebar='menu-button'] {
+		min-height: 2rem;
+	}
+}
+
+.app-v2-root [data-slot='sidebar-trigger'] {
+	width: 2.75rem;
+	height: 2.75rem;
+	min-width: 2.75rem;
+	min-height: 2.75rem;
+}
+
+@media (min-width: 768px) {
+	.app-v2-root [data-slot='sidebar-trigger'] {
+		width: 2.25rem;
+		height: 2.25rem;
+		min-width: 2.25rem;
+		min-height: 2.25rem;
+	}
 }
 
 @media (prefers-reduced-motion: reduce) {
