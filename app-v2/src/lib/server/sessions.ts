@@ -46,6 +46,7 @@ export async function serializeSession(
 						weight_kg?: number;
 						rpe?: number;
 						video_url?: string;
+						processed_video_url?: string;
 						video_metadata?: Record<string, unknown>;
 						pose_chart_data?: {
 							frame: number;
@@ -54,6 +55,7 @@ export async function serializeSession(
 							outsideHip: number;
 						}[];
 						video_play_url?: string;
+						processed_video_play_url?: string;
 						status: string;
 						notes?: string;
 					} = {
@@ -64,6 +66,7 @@ export async function serializeSession(
 						weight_kg: set.weight_kg,
 						rpe: set.rpe,
 						video_url: set.video_url,
+						processed_video_url: set.processed_video_url,
 						status: set.status,
 						notes: set.notes
 					};
@@ -74,10 +77,27 @@ export async function serializeSession(
 						setObj.pose_chart_data = set.pose_chart_data;
 					}
 					if (includeVideoPlayUrl && set.video_url) {
-						try {
-							setObj.video_play_url = await getPresignedPlayUrl(set.video_url);
-						} catch {
-							// omit video_play_url on error
+						if (/^https?:\/\//i.test(set.video_url)) {
+							setObj.video_play_url = set.video_url;
+						} else {
+							try {
+								setObj.video_play_url = await getPresignedPlayUrl(set.video_url);
+							} catch {
+								// omit video_play_url on error
+							}
+						}
+					}
+					if (includeVideoPlayUrl && set.processed_video_url) {
+						if (/^https?:\/\//i.test(set.processed_video_url)) {
+							setObj.processed_video_play_url = set.processed_video_url;
+						} else {
+							try {
+								setObj.processed_video_play_url = await getPresignedPlayUrl(
+									set.processed_video_url
+								);
+							} catch {
+								// omit processed_video_play_url on error
+							}
 						}
 					}
 					return setObj;

@@ -60,9 +60,11 @@ export interface ExerciseSet {
 	weight_kg?: number;
 	rpe?: number;
 	video_url?: string;
+	processed_video_url?: string;
 	video_metadata?: ExerciseSetVideoMetadata;
 	pose_chart_data?: PoseChartPoint[];
 	video_play_url?: string;
+	processed_video_play_url?: string;
 	status: 'pending' | 'completed' | 'processing';
 	notes?: string;
 }

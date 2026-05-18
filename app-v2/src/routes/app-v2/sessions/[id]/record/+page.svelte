@@ -15,7 +15,10 @@
 	import PlusIcon from "@lucide/svelte/icons/plus";
 	import CheckIcon from "@lucide/svelte/icons/check";
 	import VideoIcon from "@lucide/svelte/icons/video";
+	import BarChart3Icon from "@lucide/svelte/icons/bar-chart-3";
 	import { Dialog } from "bits-ui";
+	import * as Sheet from "$lib/components/ui/sheet/index.js";
+	import SetPoseChart from "./chart.svelte";
 	import SessionExerciseTimeline from "../run/session-exercise-timeline.svelte";
 	import { getMediaPlayUrl } from "$lib/api/media";
 	import {
@@ -26,6 +29,7 @@
 		type SessionExercise,
 		type ExerciseSet,
 		type ExerciseSetVideoMetadata,
+		type PoseChartPoint,
 	} from "$lib/api/sessions";
 	import { createMutation } from "@tanstack/svelte-query";
 
@@ -89,18 +93,91 @@
 	let videoPreviewLoading = $state(false);
 	let videoPreviewError = $state("");
 
-	async function openVideoPreview(key: string) {
+	async function openVideoPreview(storageKeyOrUrl: string, presignedFallback?: string | null) {
 		videoPreviewError = "";
 		videoPreviewUrl = null;
 		videoPreviewLoading = true;
 		videoPreviewOpen = true;
+		const raw = storageKeyOrUrl.trim();
 		try {
-			videoPreviewUrl = await getMediaPlayUrl(key);
+			if (/^https?:\/\//i.test(raw)) {
+				videoPreviewUrl = raw;
+				return;
+			}
+			try {
+				videoPreviewUrl = await getMediaPlayUrl(raw);
+			} catch (firstErr) {
+				const fb = presignedFallback?.trim();
+				if (fb) {
+					videoPreviewUrl = fb;
+				} else {
+					throw firstErr;
+				}
+			}
 		} catch (e) {
 			videoPreviewError =
 				e instanceof Error ? e.message : "Could not load video";
 		} finally {
 			videoPreviewLoading = false;
+		}
+	}
+
+	let poseChartSheetOpen = $state(false);
+	let poseChartSheet = $state<{
+		exerciseName: string;
+		setNumber: number;
+		points: PoseChartPoint[];
+	} | null>(null);
+	let poseChartSheetVideoUrl = $state<string | null>(null);
+	let poseChartSheetVideoLoading = $state(false);
+	let poseChartSheetVideoError = $state("");
+
+	async function resolveChartSheetVideoUrl(set: ExerciseSet): Promise<string | null> {
+		const http = (s?: string | null) => {
+			const t = s?.trim();
+			return t && /^https?:\/\//i.test(t) ? t : null;
+		};
+		const direct =
+			http(set.processed_video_play_url) ?? http(set.video_play_url);
+		if (direct) return direct;
+
+		const keyToUrl = async (key?: string | null) => {
+			const k = key?.trim();
+			if (!k) return null;
+			if (http(k)) return k;
+			try {
+				return await getMediaPlayUrl(k);
+			} catch {
+				return null;
+			}
+		};
+		return (
+			(await keyToUrl(set.processed_video_url)) ??
+			(await keyToUrl(set.video_url))
+		);
+	}
+
+	async function openPoseChartSheet(exerciseName: string, set: ExerciseSet) {
+		poseChartSheet = {
+			exerciseName,
+			setNumber: set.set_number,
+			points: set.pose_chart_data ? [...set.pose_chart_data] : [],
+		};
+		poseChartSheetVideoUrl = null;
+		poseChartSheetVideoError = "";
+		poseChartSheetVideoLoading = true;
+		poseChartSheetOpen = true;
+		try {
+			const url = await resolveChartSheetVideoUrl(set);
+			poseChartSheetVideoUrl = url;
+			if (!url) {
+				poseChartSheetVideoError = "No preview video available for this set.";
+			}
+		} catch (e) {
+			poseChartSheetVideoError =
+				e instanceof Error ? e.message : "Could not load video";
+		} finally {
+			poseChartSheetVideoLoading = false;
 		}
 	}
 
@@ -125,10 +202,7 @@
 		notes: string;
 	};
 
-	type InlineFields = Omit<
-		InlineSetDraft,
-		"setId" | "exerciseId"
-	>;
+	type InlineFields = Omit<InlineSetDraft, "setId" | "exerciseId">;
 
 	const EMPTY_INLINE_FIELDS: InlineFields = {
 		actual_reps: "",
@@ -150,8 +224,7 @@
 				ex.measurement === "duration" && ex.target_duration != null
 					? String(ex.target_duration)
 					: "",
-			weight_kg:
-				ex.target_weight_kg != null ? String(ex.target_weight_kg) : "",
+			weight_kg: ex.target_weight_kg != null ? String(ex.target_weight_kg) : "",
 			notes: "",
 		};
 	}
@@ -213,8 +286,7 @@
 
 	const openSetFinger = $derived.by(() => {
 		const os = openSetLive;
-		if (!os)
-			return "";
+		if (!os) return "";
 		return `${os.id}:${String(os.actual_reps ?? "")}:${String(os.actual_duration ?? "")}:${String(os.weight_kg ?? "")}:${String(os.notes ?? "")}:${os.status}`;
 	});
 
@@ -369,11 +441,7 @@
 				const dur = v.duration;
 				v.removeAttribute("src");
 				v.load();
-				resolve(
-					!Number.isNaN(dur) &&
-						dur > 0 &&
-						dur <= MAX_VIDEO_DURATION_SEC,
-				);
+				resolve(!Number.isNaN(dur) && dur > 0 && dur <= MAX_VIDEO_DURATION_SEC);
 			};
 			v.onerror = () => {
 				v.removeAttribute("src");
@@ -448,7 +516,8 @@
 
 		const videoEl = uploadPreviewVideoEl;
 		if (!videoEl || !uploadPreviewReady) {
-			uploadDialogError = "Video preview isn’t ready yet. Wait a moment or pick another file.";
+			uploadDialogError =
+				"Video preview isn’t ready yet. Wait a moment or pick another file.";
 			return;
 		}
 
@@ -506,8 +575,7 @@
 			videoUploadDialogOpen = false;
 			resetVideoUploadDialog();
 		} catch (err) {
-			uploadDialogError =
-				err instanceof Error ? err.message : "Upload failed.";
+			uploadDialogError = err instanceof Error ? err.message : "Upload failed.";
 		} finally {
 			uploadingVideoSetId = null;
 		}
@@ -539,10 +607,7 @@
 		return ex.measurement === "reps" ? "Reps" : "Duration";
 	}
 
-	function volumeActualPrimary(
-		ex: SessionExercise,
-		set: ExerciseSet,
-	): string {
+	function volumeActualPrimary(ex: SessionExercise, set: ExerciseSet): string {
 		if (ex.measurement === "reps") {
 			return set.actual_reps != null ? `${set.actual_reps} reps` : "—";
 		}
@@ -569,11 +634,8 @@
 		ex: SessionExercise,
 		set: ExerciseSet,
 	): string {
-		const loadPrimary =
-			set.weight_kg != null ? `${set.weight_kg} kg` : "—";
-		const notesPart = set.notes?.trim()
-			? ` · Notes: ${set.notes.trim()}`
-			: "";
+		const loadPrimary = set.weight_kg != null ? `${set.weight_kg} kg` : "—";
+		const notesPart = set.notes?.trim() ? ` · Notes: ${set.notes.trim()}` : "";
 		const planSecondary = volumePlanSecondary(ex);
 		const volumePart = `${volumeActualPrimary(ex, set)}${
 			planSecondary ? ` · ${planSecondary}` : ""
@@ -582,7 +644,6 @@
 			ex.target_weight_kg != null ? ` (plan ${ex.target_weight_kg} kg)` : ""
 		} · Rest ${restDisplayPrimary(ex)}${notesPart}`;
 	}
-
 </script>
 
 <div
@@ -647,9 +708,7 @@
 		</div>
 	</div>
 
-	<div
-		class="flex w-full min-h-0 flex-1 flex-col gap-3 overflow-hidden"
-	>
+	<div class="flex w-full min-h-0 flex-1 flex-col gap-3 overflow-hidden">
 		<Card
 			class="w-full shrink-0 gap-0 rounded-xl border-white/15 bg-black/30 py-0 text-zinc-100 shadow-none"
 		>
@@ -657,7 +716,7 @@
 				{#if timelineExercises.length}
 					<SessionExerciseTimeline
 						exercises={timelineExercises}
-						currentExercise={currentExercise}
+						{currentExercise}
 						hideExerciseActions={true}
 						omitOuterTimelineChrome={true}
 						onSelectExercise={(id) => {
@@ -693,16 +752,16 @@
 						}}
 					>
 						<div class="app-v2-card overflow-hidden p-0">
-								<div
-									class="flex items-start gap-2 border-b px-4 py-3"
-									style="border-color: var(--app-v2-border);"
+							<div
+								class="flex items-start gap-2 border-b px-4 py-3"
+								style="border-color: var(--app-v2-border);"
+							>
+								<Collapsible.Trigger
+									class="flex min-w-0 flex-1 gap-3 text-left hover:opacity-90"
+									style="color: var(--app-v2-text);"
+									aria-expanded={openedSetId === set.id}
+									title={summaryTitle}
 								>
-									<Collapsible.Trigger
-										class="flex min-w-0 flex-1 gap-3 text-left hover:opacity-90"
-										style="color: var(--app-v2-text);"
-										aria-expanded={openedSetId === set.id}
-										title={summaryTitle}
-									>
 									<ChevronDownIcon
 										class={`h-5 w-5 shrink-0 translate-y-0.5 transition-transform ${openedSetId === set.id ? "rotate-180" : ""}`}
 										style="color: var(--app-v2-muted);"
@@ -716,7 +775,10 @@
 											{#if set.status === "completed"}
 												<Badge variant="secondary" class="text-xs">Done</Badge>
 											{:else if set.status === "processing"}
-												<Badge variant="outline" class="text-xs border-amber-500/40 bg-amber-950/40 text-amber-100">
+												<Badge
+													variant="outline"
+													class="text-xs border-amber-500/40 bg-amber-950/40 text-amber-100"
+												>
 													Processing
 												</Badge>
 											{:else}
@@ -729,9 +791,7 @@
 											{/if}
 										</div>
 										<div class="mt-2 space-y-2">
-											<div
-												class="grid grid-cols-3 gap-x-3 gap-y-2 text-xs"
-											>
+											<div class="grid grid-cols-3 gap-x-3 gap-y-2 text-xs">
 												<div class="min-w-0">
 													<div
 														class="font-medium"
@@ -803,20 +863,54 @@
 										</div>
 									</div>
 								</Collapsible.Trigger>
-									{#if set.video_url}
-										<Button
-											type="button"
-											variant="outline"
-											size="sm"
-											class="shrink-0 rounded-lg border-[var(--app-v2-border)] bg-white/5 px-2.5 text-xs text-zinc-100 hover:bg-white/10"
-											onclick={() => void openVideoPreview(set.video_url!)}
-											aria-label="View uploaded set video"
-										>
-											<VideoIcon class="mr-1.5 size-4" />
-											View
-										</Button>
-									{/if}
-								</div>
+								{#if set.video_url}
+									<Button
+										type="button"
+										variant="outline"
+										size="sm"
+										class="shrink-0 rounded-lg border-[var(--app-v2-border)] bg-white/5 px-2.5 text-xs text-zinc-100 hover:bg-white/10"
+										onclick={() =>
+											void openVideoPreview(set.video_url!, set.video_play_url)}
+										aria-label="View uploaded set video"
+									>
+										<VideoIcon class="mr-1.5 size-4" />
+										View
+									</Button>
+								{/if}
+								{#if set.processed_video_url}
+									<Button
+										type="button"
+										variant="outline"
+										size="sm"
+										class="shrink-0 rounded-lg border-[var(--app-v2-border)] bg-white/5 px-2.5 text-xs text-zinc-100 hover:bg-white/10"
+										onclick={() =>
+											void openVideoPreview(
+												set.processed_video_url!,
+												set.processed_video_play_url
+											)}
+										aria-label="View processed set video"
+									>
+										<VideoIcon class="mr-1.5 size-4" />
+										View Processed Video
+									</Button>
+								{/if}
+								{#if set.pose_chart_data?.length}
+									<Button
+										type="button"
+										variant="outline"
+										size="sm"
+										class="shrink-0 rounded-lg border-[var(--app-v2-border)] bg-white/5 px-2.5 text-xs text-zinc-100 hover:bg-white/10"
+										onclick={() => {
+											if (!currentExercise) return;
+											void openPoseChartSheet(currentExercise.name, set);
+										}}
+										aria-label="View pose angle charts for this set"
+									>
+										<BarChart3Icon class="mr-1.5 size-4" />
+										Charts
+									</Button>
+								{/if}
+							</div>
 							<Collapsible.Content>
 								<div
 									class="border-t p-4"
@@ -825,8 +919,12 @@
 									{#if openedSetDraft && openedSetDraft.setId === set.id}
 										{@const locked = setFieldsLocked(set)}
 										{#if locked}
-											<p class="mb-4 text-xs" style="color: var(--app-v2-muted);">
-												This set can’t be edited while it’s processing or after it’s marked done.
+											<p
+												class="mb-4 text-xs"
+												style="color: var(--app-v2-muted);"
+											>
+												This set can’t be edited while it’s processing or after
+												it’s marked done.
 											</p>
 										{/if}
 										<div class="grid gap-4 sm:grid-cols-2">
@@ -858,7 +956,8 @@
 														Duration (s)
 														{#if currentExercise.target_duration != null}
 															<span class="font-normal opacity-75">
-																(plan {currentExercise.target_duration}s)</span>
+																(plan {currentExercise.target_duration}s)</span
+															>
 														{/if}
 													</Label>
 													<Input
@@ -905,7 +1004,9 @@
 											</div>
 										</div>
 										{#if !locked}
-											<div class="mt-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+											<div
+												class="mt-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center"
+											>
 												<div class="flex flex-wrap gap-2">
 													<Button
 														type="button"
@@ -964,7 +1065,8 @@
 										Reps
 										{#if currentExercise.target_reps != null}
 											<span class="font-normal opacity-75">
-												(plan {currentExercise.target_reps})</span>
+												(plan {currentExercise.target_reps})</span
+											>
 										{/if}
 									</Label>
 									<Input
@@ -985,7 +1087,8 @@
 										Duration (s)
 										{#if currentExercise.target_duration != null}
 											<span class="font-normal opacity-75">
-												(plan {currentExercise.target_duration}s)</span>
+												(plan {currentExercise.target_duration}s)</span
+											>
 										{/if}
 									</Label>
 									<Input
@@ -1006,7 +1109,8 @@
 									Weight (kg)
 									{#if currentExercise.target_weight_kg != null}
 										<span class="font-normal opacity-75">
-											(plan {currentExercise.target_weight_kg})</span>
+											(plan {currentExercise.target_weight_kg})</span
+										>
 									{/if}
 								</Label>
 								<Input
@@ -1046,7 +1150,9 @@
 					</section>
 				{/if}
 			{:else}
-				<p class="text-center text-sm text-zinc-500">Select an exercise above.</p>
+				<p class="text-center text-sm text-zinc-500">
+					Select an exercise above.
+				</p>
 			{/if}
 		</div>
 	</div>
@@ -1072,7 +1178,10 @@
 					Upload set video
 				</Dialog.Title>
 				<Dialog.Description class="text-sm" style="color: var(--app-v2-muted);">
-					Drop an MP4 here (max {MAX_VIDEO_DURATION_SEC}s, {(MAX_VIDEO_SIZE / (1024 * 1024)).toFixed(0)}MB). Choose camera angle, then upload.
+					Drop an MP4 here (max {MAX_VIDEO_DURATION_SEC}s, {(
+						MAX_VIDEO_SIZE /
+						(1024 * 1024)
+					).toFixed(0)}MB). Choose camera angle, then upload.
 				</Dialog.Description>
 
 				<input
@@ -1104,7 +1213,9 @@
 
 				{#if uploadPreviewUrl}
 					<div class="space-y-2">
-						<Label class="text-xs" style="color: var(--app-v2-muted);">Preview</Label>
+						<Label class="text-xs" style="color: var(--app-v2-muted);"
+							>Preview</Label
+						>
 						<!-- svelte-ignore a11y_media_has_caption -->
 						{#key uploadPreviewUrl}
 							<video
@@ -1177,8 +1288,7 @@
 							recordSetMutation.isPending}
 						onclick={() => void confirmVideoUpload()}
 					>
-						{#if uploadingVideoSetId !== null &&
-							uploadTargetSet?.id === uploadingVideoSetId}
+						{#if uploadingVideoSetId !== null && uploadTargetSet?.id === uploadingVideoSetId}
 							Uploading…
 						{:else}
 							Upload
@@ -1207,7 +1317,10 @@
 				aria-labelledby="record-set-video-dialog-title"
 				class="data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed left-[50%] top-[50%] z-[251] grid w-[calc(100vw-1.5rem)] max-w-3xl translate-x-[-50%] translate-y-[-50%] gap-4 rounded-xl border border-white/15 bg-zinc-950 p-4 shadow-xl duration-200"
 			>
-				<Dialog.Title class="text-lg font-semibold leading-none text-white" id="record-set-video-dialog-title">
+				<Dialog.Title
+					class="text-lg font-semibold leading-none text-white"
+					id="record-set-video-dialog-title"
+				>
 					Set video
 				</Dialog.Title>
 				<Dialog.Description class="sr-only">
@@ -1239,4 +1352,92 @@
 			</Dialog.Content>
 		</Dialog.Portal>
 	</Dialog.Root>
+
+	<Sheet.Root
+		bind:open={poseChartSheetOpen}
+		onOpenChange={(o) => {
+			if (!o) {
+				poseChartSheet = null;
+				poseChartSheetVideoUrl = null;
+				poseChartSheetVideoLoading = false;
+				poseChartSheetVideoError = "";
+			}
+		}}
+	>
+		<Sheet.Content
+			side="bottom"
+			class="z-[260] flex h-[85vh] max-h-[85vh] flex-col gap-0 overflow-hidden rounded-t-xl border border-white/15 border-b-0 bg-zinc-950 p-0 text-zinc-100"
+		>
+			<Sheet.Header class="border-b border-white/10 p-4 text-left">
+				<Sheet.Title class="text-lg font-semibold text-white">
+					Pose angles
+				</Sheet.Title>
+				{#if poseChartSheet}
+					<Sheet.Description class="text-sm text-zinc-400">
+						{poseChartSheet.exerciseName} · Set {poseChartSheet.setNumber} ·
+						Video preview and inside knee vs outside hip (degrees) by frame
+					</Sheet.Description>
+				{/if}
+			</Sheet.Header>
+			<div
+				class="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden p-4 md:flex-row md:gap-4"
+			>
+				<div
+					class="flex w-full shrink-0 flex-col md:w-[40%] md:min-h-0 md:max-w-[40%]"
+				>
+					<p
+						class="mb-2 text-xs font-medium uppercase tracking-wide text-zinc-500"
+					>
+						Preview
+					</p>
+					<div
+						class="flex min-h-[min(40vh,280px)] flex-1 items-center justify-center rounded-lg border border-white/10 bg-black/40 md:min-h-0"
+					>
+						{#if poseChartSheetVideoLoading}
+							<p class="text-sm text-zinc-400">Loading video…</p>
+						{:else if poseChartSheetVideoError && !poseChartSheetVideoUrl}
+							<p class="max-w-[90%] px-2 text-center text-sm text-red-400">
+								{poseChartSheetVideoError}
+							</p>
+						{:else if poseChartSheetVideoUrl}
+							{#key poseChartSheetVideoUrl}
+								<!-- svelte-ignore a11y_media_has_caption -->
+								<video
+									src={poseChartSheetVideoUrl}
+									controls
+									class="max-h-full w-full rounded-md object-contain"
+									playsinline
+									preload="metadata"
+								></video>
+							{/key}
+						{:else}
+							<p class="text-sm text-zinc-400">No preview video.</p>
+						{/if}
+					</div>
+				</div>
+				<div
+					class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden md:min-w-0"
+				>
+					<p
+						class="mb-2 shrink-0 text-xs font-medium uppercase tracking-wide text-zinc-500"
+					>
+						Chart
+					</p>
+					<div
+						class="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain touch-pan-y"
+					>
+						{#if poseChartSheet?.points.length}
+							<div class="flex flex-col gap-6 pb-1">
+								<SetPoseChart data={poseChartSheet.points} />
+							</div>
+						{:else}
+							<p class="text-sm text-zinc-400" role="status">
+								No chart data for this set.
+							</p>
+						{/if}
+					</div>
+				</div>
+			</div>
+		</Sheet.Content>
+	</Sheet.Root>
 </div>

@@ -80,6 +80,7 @@ export const ExerciseSetSchema = z.object({
 	weight_kg: z.number().nonnegative().optional(),
 	rpe: z.number().int().min(1).max(10).optional(),
 	video_url: z.string().optional(),
+	processed_video_url: z.string().optional(),
 	video_metadata: ExerciseSetVideoMetadataSchema,
 	pose_chart_data: z.array(PoseChartPointSchema).optional(),
 	status: z.enum(['pending', 'completed', 'processing']).default('pending'),
@@ -219,6 +220,17 @@ function isTransactionUnsupportedError(e: unknown): boolean {
 	);
 }
 
+/** Reject legacy ingest paths; allow R2-style keys or absolute playback URLs. */
+function normalizeProcessedVideoRef(raw: string): string | undefined {
+	const t = raw.trim();
+	if (!t) return undefined;
+	if (/^https?:\/\//i.test(t)) return t;
+	if (t.startsWith('/')) return undefined;
+	if (/^[a-zA-Z]:[\\/]/.test(t)) return undefined;
+	if (/^file:/i.test(t)) return undefined;
+	return t;
+}
+
 function buildExerciseSetPlaceholderDoc(
 	exerciseId: string,
 	setIndex: number,
@@ -245,6 +257,8 @@ function setRowToExerciseSetDoc(row: Record<string, unknown>): ExerciseSetDoc {
 	const setIndex = row.set_index as number;
 	const appStatus = row.app_status as string | undefined;
 	const origUri = (row.original_video_uri as string) || '';
+	const processedUriRaw = (row.processed_video_uri as string) || '';
+	const processedVideoUrl = normalizeProcessedVideoRef(processedUriRaw);
 	const videoUrl = (row.video_url as string | undefined) ?? undefined;
 	let status: ExerciseSetDoc['status'] = 'pending';
 	if (appStatus === 'completed' || appStatus === 'processing' || appStatus === 'pending') {
@@ -265,6 +279,7 @@ function setRowToExerciseSetDoc(row: Record<string, unknown>): ExerciseSetDoc {
 		weight_kg: row.weight_kg as number | undefined,
 		rpe: row.rpe as number | undefined,
 		video_url: videoUrl || (origUri ? origUri : undefined),
+		processed_video_url: processedVideoUrl,
 		video_metadata,
 		pose_chart_data: row.pose_chart_data as ExerciseSetDoc['pose_chart_data'],
 		status,
