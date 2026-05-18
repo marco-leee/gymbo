@@ -59,6 +59,19 @@ export const PoseChartPointSchema = z.object({
 	outsideHip: z.number()
 });
 
+/** Stored on embedded sets and split `exercise_sets` rows (backend VideoMetadata shape). */
+export const ExerciseSetVideoMetadataSchema = z
+	.object({
+		camera_view: z.string().optional(),
+		duration_sec: z.number().optional(),
+		video_width: z.number().int().optional(),
+		video_height: z.number().int().optional(),
+		fps: z.number().optional(),
+		total_frames: z.number().int().optional()
+	})
+	.strict()
+	.optional();
+
 export const ExerciseSetSchema = z.object({
 	_id: z.instanceof(ObjectId).optional(),
 	set_number: z.number().int().nonnegative(),
@@ -67,6 +80,7 @@ export const ExerciseSetSchema = z.object({
 	weight_kg: z.number().nonnegative().optional(),
 	rpe: z.number().int().min(1).max(10).optional(),
 	video_url: z.string().optional(),
+	video_metadata: ExerciseSetVideoMetadataSchema,
 	pose_chart_data: z.array(PoseChartPointSchema).optional(),
 	status: z.enum(['pending', 'completed', 'processing']).default('pending'),
 	notes: z.string().optional(),
@@ -240,6 +254,11 @@ function setRowToExerciseSetDoc(row: Record<string, unknown>): ExerciseSetDoc {
 	} else if (origUri || videoUrl) {
 		status = 'completed';
 	}
+	const vm = row.video_metadata;
+	let video_metadata: ExerciseSetDoc['video_metadata'];
+	if (vm != null && typeof vm === 'object' && !Array.isArray(vm)) {
+		video_metadata = vm as ExerciseSetDoc['video_metadata'];
+	}
 	return {
 		_id,
 		set_number: setIndex + 1,
@@ -248,6 +267,7 @@ function setRowToExerciseSetDoc(row: Record<string, unknown>): ExerciseSetDoc {
 		weight_kg: row.weight_kg as number | undefined,
 		rpe: row.rpe as number | undefined,
 		video_url: videoUrl || (origUri ? origUri : undefined),
+		video_metadata,
 		pose_chart_data: row.pose_chart_data as ExerciseSetDoc['pose_chart_data'],
 		status,
 		notes: row.notes as string | undefined,
@@ -869,6 +889,14 @@ export async function updateSetInExercise(
 		weight_kg?: number;
 		rpe?: number;
 		video_url?: string;
+		video_metadata?: {
+			camera_view?: string;
+			duration_sec?: number;
+			video_width?: number;
+			video_height?: number;
+			fps?: number;
+			total_frames?: number;
+		};
 		pose_chart_data?: z.infer<typeof PoseChartPointSchema>[];
 		status?: 'pending' | 'completed' | 'processing';
 		notes?: string;
@@ -888,6 +916,8 @@ export async function updateSetInExercise(
 		if (data.weight_kg !== undefined) setObj['exercises.$[ex].sets.$[set].weight_kg'] = data.weight_kg;
 		if (data.rpe !== undefined) setObj['exercises.$[ex].sets.$[set].rpe'] = data.rpe;
 		if (data.video_url !== undefined) setObj['exercises.$[ex].sets.$[set].video_url'] = data.video_url;
+		if (data.video_metadata !== undefined)
+			setObj['exercises.$[ex].sets.$[set].video_metadata'] = data.video_metadata;
 		if (data.pose_chart_data !== undefined)
 			setObj['exercises.$[ex].sets.$[set].pose_chart_data'] = data.pose_chart_data;
 		if (data.status !== undefined) setObj['exercises.$[ex].sets.$[set].status'] = data.status;
@@ -918,6 +948,9 @@ export async function updateSetInExercise(
 	if (data.video_url !== undefined) {
 		$set.video_url = data.video_url;
 		$set.original_video_uri = data.video_url;
+	}
+	if (data.video_metadata !== undefined) {
+		$set.video_metadata = data.video_metadata;
 	}
 
 	const r = await setsCol.updateOne(

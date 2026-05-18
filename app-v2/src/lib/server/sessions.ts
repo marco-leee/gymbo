@@ -46,6 +46,7 @@ export async function serializeSession(
 						weight_kg?: number;
 						rpe?: number;
 						video_url?: string;
+						video_metadata?: Record<string, unknown>;
 						pose_chart_data?: {
 							frame: number;
 							timestampSec: number;
@@ -66,6 +67,9 @@ export async function serializeSession(
 						status: set.status,
 						notes: set.notes
 					};
+					if (set.video_metadata != null && typeof set.video_metadata === 'object') {
+						setObj.video_metadata = set.video_metadata as Record<string, unknown>;
+					}
 					if (includePoseChartData) {
 						setObj.pose_chart_data = set.pose_chart_data;
 					}

@@ -8,6 +8,7 @@
 	import { Input } from "$lib/components/ui/input/index.js";
 	import { Label } from "$lib/components/ui/label/index.js";
 	import { Textarea } from "$lib/components/ui/textarea/index.js";
+	import * as Select from "$lib/components/ui/select/index.js";
 	import * as Collapsible from "$lib/components/ui/collapsible/index.js";
 	import ChevronLeftIcon from "@lucide/svelte/icons/chevron-left";
 	import ChevronDownIcon from "@lucide/svelte/icons/chevron-down";
@@ -24,6 +25,7 @@
 		completeSession,
 		type SessionExercise,
 		type ExerciseSet,
+		type ExerciseSetVideoMetadata,
 	} from "$lib/api/sessions";
 	import { createMutation } from "@tanstack/svelte-query";
 
@@ -61,9 +63,26 @@
 	const MAX_VIDEO_SIZE = 200 * 1024 * 1024; // 200MB
 	const MAX_VIDEO_DURATION_SEC = 60;
 
-	let durationCheckVideoEl = $state<HTMLVideoElement | null>(null);
+	type CameraViewChoice = "FRONT" | "BACK" | "LEFT" | "RIGHT";
+
+	const CAMERA_VIEW_OPTIONS: { value: CameraViewChoice; label: string }[] = [
+		{ value: "FRONT", label: "Front" },
+		{ value: "BACK", label: "Back" },
+		{ value: "LEFT", label: "Left" },
+		{ value: "RIGHT", label: "Right" },
+	];
+
 	let uploadingVideoSetId = $state<string | null>(null);
-	let videoUploadError = $state("");
+
+	let videoUploadDialogOpen = $state(false);
+	let uploadTargetSet = $state<ExerciseSet | null>(null);
+	let uploadPreviewUrl = $state<string | null>(null);
+	let uploadStagedFile = $state<File | null>(null);
+	let uploadCameraView = $state<CameraViewChoice>("FRONT");
+	let uploadDialogError = $state("");
+	let uploadPreviewReady = $state(false);
+	let uploadPreviewVideoEl = $state<HTMLVideoElement | null>(null);
+	let uploadDropActive = $state(false);
 
 	let videoPreviewOpen = $state(false);
 	let videoPreviewUrl = $state<string | null>(null);
@@ -144,11 +163,6 @@
 	let createFormAnchoredExerciseId = $state<string | null>(null);
 
 	let creatingNewSet = $state(false);
-
-	$effect(() => {
-		void openedSetId;
-		videoUploadError = "";
-	});
 
 	/** Pre-fill Create set from exercise targets whenever the selected exercise changes. */
 	$effect(() => {
@@ -318,51 +332,140 @@
 		}
 	}
 
-	async function handleSetVideoUpload(set: ExerciseSet, e: Event) {
-		const input = e.target as HTMLInputElement;
-		const file = input.files?.[0];
+	function revokeUploadBlobOnly() {
+		if (uploadPreviewUrl) {
+			URL.revokeObjectURL(uploadPreviewUrl);
+			uploadPreviewUrl = null;
+		}
+		uploadPreviewReady = false;
+	}
+
+	function resetVideoUploadDialog() {
+		uploadDialogError = "";
+		revokeUploadBlobOnly();
+		uploadStagedFile = null;
+		uploadTargetSet = null;
+		uploadCameraView = "FRONT";
+		uploadDropActive = false;
+	}
+
+	function openVideoUploadDialog(set: ExerciseSet) {
 		const ex = currentExercise;
-		videoUploadError = "";
-		input.value = "";
-		if (!file || !ex || !sessionId) return;
-		if (setFieldsLocked(set)) return;
+		uploadDialogError = "";
+		if (!ex || !sessionId || setFieldsLocked(set)) return;
+		resetVideoUploadDialog();
+		uploadTargetSet = set;
+		videoUploadDialogOpen = true;
+	}
 
-		if (file.type !== "video/mp4") {
-			videoUploadError = "Only MP4 video is allowed.";
-			return;
-		}
-		if (file.size > MAX_VIDEO_SIZE) {
-			videoUploadError = `File must be under ${MAX_VIDEO_SIZE / (1024 * 1024)}MB.`;
-			return;
-		}
-
-		const blobUrl = URL.createObjectURL(file);
-		const videoEl = durationCheckVideoEl;
-		if (!videoEl) {
-			URL.revokeObjectURL(blobUrl);
-			videoUploadError = "Cannot check video duration.";
-			return;
-		}
-
-		const durationOk = await new Promise<boolean>((resolve) => {
-			videoEl.src = blobUrl;
-			videoEl.onloadedmetadata = () => {
-				const dur = videoEl.duration;
-				URL.revokeObjectURL(blobUrl);
-				videoEl.src = "";
-				resolve(!Number.isNaN(dur) && dur > 0 && dur <= MAX_VIDEO_DURATION_SEC);
+	async function validateDurationSec(blobUrl: string): Promise<boolean> {
+		return new Promise((resolve) => {
+			const v = document.createElement("video");
+			v.preload = "metadata";
+			v.muted = true;
+			v.playsInline = true;
+			v.src = blobUrl;
+			v.onloadedmetadata = () => {
+				const dur = v.duration;
+				v.removeAttribute("src");
+				v.load();
+				resolve(
+					!Number.isNaN(dur) &&
+						dur > 0 &&
+						dur <= MAX_VIDEO_DURATION_SEC,
+				);
 			};
-			videoEl.onerror = () => {
-				URL.revokeObjectURL(blobUrl);
-				videoEl.src = "";
+			v.onerror = () => {
+				v.removeAttribute("src");
+				v.load();
 				resolve(false);
 			};
 		});
+	}
 
-		if (!durationOk) {
-			videoUploadError = `Video must be under ${MAX_VIDEO_DURATION_SEC} seconds.`;
+	async function stageUploadVideoFile(file: File | undefined | null) {
+		uploadDialogError = "";
+		if (!file) return;
+
+		if (file.type !== "video/mp4") {
+			uploadDialogError = "Only MP4 video is allowed.";
 			return;
 		}
+		if (file.size > MAX_VIDEO_SIZE) {
+			uploadDialogError = `File must be under ${MAX_VIDEO_SIZE / (1024 * 1024)}MB.`;
+			return;
+		}
+
+		const nextUrl = URL.createObjectURL(file);
+		const durationOk = await validateDurationSec(nextUrl);
+		if (!durationOk) {
+			URL.revokeObjectURL(nextUrl);
+			uploadDialogError = `Video must be under ${MAX_VIDEO_DURATION_SEC} seconds.`;
+			return;
+		}
+
+		revokeUploadBlobOnly();
+		uploadPreviewUrl = nextUrl;
+		uploadStagedFile = file;
+		uploadPreviewReady = false;
+	}
+
+	function onUploadDragOver(e: DragEvent) {
+		e.preventDefault();
+		e.stopPropagation();
+		uploadDropActive = true;
+	}
+
+	function onUploadDragLeave(e: DragEvent) {
+		e.preventDefault();
+		e.stopPropagation();
+		uploadDropActive = false;
+	}
+
+	async function onUploadDrop(e: DragEvent) {
+		e.preventDefault();
+		e.stopPropagation();
+		uploadDropActive = false;
+		const file = e.dataTransfer?.files?.[0];
+		await stageUploadVideoFile(file);
+	}
+
+	async function onUploadFileInputChange(e: Event) {
+		const input = e.target as HTMLInputElement;
+		const file = input.files?.[0];
+		input.value = "";
+		await stageUploadVideoFile(file);
+	}
+
+	async function confirmVideoUpload() {
+		const set = uploadTargetSet;
+		const file = uploadStagedFile;
+		const ex = currentExercise;
+		uploadDialogError = "";
+
+		if (!file || !set || !ex || !sessionId) return;
+		if (setFieldsLocked(set)) return;
+
+		const videoEl = uploadPreviewVideoEl;
+		if (!videoEl || !uploadPreviewReady) {
+			uploadDialogError = "Video preview isn’t ready yet. Wait a moment or pick another file.";
+			return;
+		}
+
+		const dur = videoEl.duration;
+		const vw = videoEl.videoWidth;
+		const vh = videoEl.videoHeight;
+		if (Number.isNaN(dur) || dur <= 0 || dur > MAX_VIDEO_DURATION_SEC) {
+			uploadDialogError = `Video must be under ${MAX_VIDEO_DURATION_SEC} seconds.`;
+			return;
+		}
+
+		const video_metadata: ExerciseSetVideoMetadata = {
+			camera_view: uploadCameraView,
+			duration_sec: dur,
+			...(vw > 0 ? { video_width: vw } : {}),
+			...(vh > 0 ? { video_height: vh } : {}),
+		};
 
 		uploadingVideoSetId = set.id;
 		try {
@@ -397,16 +500,23 @@
 			await recordSetMutation.mutateAsync({
 				exerciseId: ex.id,
 				setId: set.id,
-				payload: { video_url: key },
+				payload: { video_url: key, video_metadata },
 			});
+
+			videoUploadDialogOpen = false;
+			resetVideoUploadDialog();
 		} catch (err) {
-			videoUploadError =
+			uploadDialogError =
 				err instanceof Error ? err.message : "Upload failed.";
 		} finally {
 			uploadingVideoSetId = null;
 		}
 	}
 
+	const uploadCameraTriggerLabel = $derived(
+		CAMERA_VIEW_OPTIONS.find((o) => o.value === uploadCameraView)?.label ??
+			"Camera view",
+	);
 	function formatTime(dateStr: string): string {
 		return new Date(dateStr).toLocaleTimeString(undefined, {
 			hour: "2-digit",
@@ -566,15 +676,6 @@
 
 		<div class="min-h-0 w-full flex-1 space-y-4 overflow-y-auto">
 			{#if currentExercise}
-				<!-- Used only to read duration before upload -->
-				<video
-					bind:this={durationCheckVideoEl}
-					class="pointer-events-none fixed left-0 top-0 h-px w-px opacity-0"
-					muted
-					playsinline
-					preload="metadata"
-					aria-hidden="true"
-				></video>
 				{#if sortedSetsForCurrent.length === 0}
 					<p class="text-center text-sm" style="color: var(--app-v2-muted);">
 						No sets yet. Add one below.
@@ -804,13 +905,6 @@
 											</div>
 										</div>
 										{#if !locked}
-											<input
-												id={"set-video-" + set.id}
-												type="file"
-												accept="video/mp4,.mp4"
-												class="sr-only"
-												onchange={(e) => handleSetVideoUpload(set, e)}
-											/>
 											<div class="mt-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
 												<div class="flex flex-wrap gap-2">
 													<Button
@@ -828,10 +922,7 @@
 														class="rounded-lg border-[var(--app-v2-border)] bg-white/5 text-zinc-100"
 														disabled={recordSetMutation.isPending ||
 															uploadingVideoSetId === set.id}
-														onclick={() =>
-															document
-																.getElementById("set-video-" + set.id)
-																?.click()}
+														onclick={() => openVideoUploadDialog(set)}
 													>
 														{#if uploadingVideoSetId === set.id}
 															Uploading…
@@ -841,9 +932,6 @@
 														{/if}
 													</Button>
 												</div>
-												{#if openedSetId === set.id && videoUploadError}
-													<p class="text-xs text-red-400">{videoUploadError}</p>
-												{/if}
 											</div>
 										{/if}
 									{/if}
@@ -962,6 +1050,144 @@
 			{/if}
 		</div>
 	</div>
+
+	<Dialog.Root
+		bind:open={videoUploadDialogOpen}
+		onOpenChange={(o) => {
+			if (!o) resetVideoUploadDialog();
+		}}
+	>
+		<Dialog.Portal>
+			<Dialog.Overlay
+				class="data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-[252] bg-black/80"
+			/>
+			<Dialog.Content
+				aria-labelledby="record-upload-video-dialog-title"
+				class="data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed left-[50%] top-[50%] z-[253] grid max-h-[min(90vh,calc(100vh-2rem))] w-[calc(100vw-1.5rem)] max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 overflow-y-auto rounded-xl border border-white/15 bg-zinc-950 p-4 shadow-xl duration-200"
+			>
+				<Dialog.Title
+					class="text-lg font-semibold leading-none text-white"
+					id="record-upload-video-dialog-title"
+				>
+					Upload set video
+				</Dialog.Title>
+				<Dialog.Description class="text-sm" style="color: var(--app-v2-muted);">
+					Drop an MP4 here (max {MAX_VIDEO_DURATION_SEC}s, {(MAX_VIDEO_SIZE / (1024 * 1024)).toFixed(0)}MB). Choose camera angle, then upload.
+				</Dialog.Description>
+
+				<input
+					id="record-upload-video-input"
+					type="file"
+					accept="video/mp4,.mp4"
+					class="sr-only"
+					onchange={onUploadFileInputChange}
+				/>
+
+				<div
+					role="presentation"
+					class={`rounded-xl border-2 border-dashed px-4 py-8 text-center transition-colors ${uploadDropActive ? "border-emerald-400/60 bg-emerald-950/30" : "border-[var(--app-v2-border)] bg-black/25"}`}
+					ondragover={onUploadDragOver}
+					ondragleave={onUploadDragLeave}
+					ondrop={onUploadDrop}
+				>
+					<p class="text-sm text-zinc-300">Drag and drop your video here</p>
+					<Button
+						type="button"
+						variant="outline"
+						class="mt-4 rounded-lg border-[var(--app-v2-border)] bg-white/5 text-zinc-100"
+						onclick={() =>
+							document.getElementById("record-upload-video-input")?.click()}
+					>
+						Choose file
+					</Button>
+				</div>
+
+				{#if uploadPreviewUrl}
+					<div class="space-y-2">
+						<Label class="text-xs" style="color: var(--app-v2-muted);">Preview</Label>
+						<!-- svelte-ignore a11y_media_has_caption -->
+						{#key uploadPreviewUrl}
+							<video
+								bind:this={uploadPreviewVideoEl}
+								src={uploadPreviewUrl}
+								controls
+								muted
+								class="aspect-video w-full rounded-lg bg-black"
+								playsinline
+								preload="metadata"
+								onloadedmetadata={() => {
+									uploadPreviewReady = true;
+								}}
+								onerror={() => {
+									uploadPreviewReady = false;
+									uploadDialogError =
+										"This file couldn’t be previewed. Try another MP4.";
+								}}
+							></video>
+						{/key}
+					</div>
+				{/if}
+
+				<div class="space-y-2">
+					<Label
+						for="record-upload-camera-view"
+						class="text-xs"
+						style="color: var(--app-v2-muted);"
+					>
+						Camera view
+					</Label>
+					<Select.Root
+						type="single"
+						value={uploadCameraView}
+						onValueChange={(v) => {
+							if (v) uploadCameraView = v as CameraViewChoice;
+						}}
+					>
+						<Select.Trigger
+							class="min-h-11 w-full border-[var(--app-v2-border)] bg-black/20 text-zinc-100"
+							id="record-upload-camera-view"
+						>
+							{uploadCameraTriggerLabel}
+						</Select.Trigger>
+						<!-- Above Dialog overlay/content (z-[252]/253); default Select uses z-50 and renders behind -->
+						<Select.Content class="z-[260]">
+							{#each CAMERA_VIEW_OPTIONS as opt (opt.value)}
+								<Select.Item value={opt.value}>{opt.label}</Select.Item>
+							{/each}
+						</Select.Content>
+					</Select.Root>
+				</div>
+
+				{#if uploadDialogError}
+					<p class="text-xs text-red-400">{uploadDialogError}</p>
+				{/if}
+
+				<div class="flex flex-wrap justify-end gap-2 pt-2">
+					<Dialog.Close
+						class="inline-flex h-9 items-center justify-center rounded-lg border border-[var(--app-v2-border)] bg-white/5 px-4 text-sm font-medium text-zinc-100 hover:bg-white/10"
+					>
+						Cancel
+					</Dialog.Close>
+					<Button
+						type="button"
+						class="app-v2-cta rounded-lg"
+						disabled={!uploadStagedFile ||
+							!uploadPreviewReady ||
+							uploadingVideoSetId !== null ||
+							recordSetMutation.isPending}
+						onclick={() => void confirmVideoUpload()}
+					>
+						{#if uploadingVideoSetId !== null &&
+							uploadTargetSet?.id === uploadingVideoSetId}
+							Uploading…
+						{:else}
+							Upload
+						{/if}
+					</Button>
+				</div>
+			</Dialog.Content>
+		</Dialog.Portal>
+	</Dialog.Root>
 
 	<Dialog.Root
 		bind:open={videoPreviewOpen}

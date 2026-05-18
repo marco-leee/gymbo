@@ -42,6 +42,16 @@ export interface PoseChartPoint {
 	outsideHip: number;
 }
 
+/** Persisted with set rows (split storage / embedded); aligns with backend VideoMetadata. */
+export interface ExerciseSetVideoMetadata {
+	camera_view: string;
+	duration_sec?: number;
+	video_width?: number;
+	video_height?: number;
+	fps?: number;
+	total_frames?: number;
+}
+
 export interface ExerciseSet {
 	id: string;
 	set_number: number;
@@ -50,6 +60,7 @@ export interface ExerciseSet {
 	weight_kg?: number;
 	rpe?: number;
 	video_url?: string;
+	video_metadata?: ExerciseSetVideoMetadata;
 	pose_chart_data?: PoseChartPoint[];
 	video_play_url?: string;
 	status: 'pending' | 'completed' | 'processing';
@@ -282,6 +293,7 @@ export async function recordSet(
 		weight_kg?: number;
 		rpe?: number;
 		video_url?: string;
+		video_metadata?: ExerciseSetVideoMetadata;
 		pose_chart_data?: PoseChartPoint[];
 		status?: 'pending' | 'completed' | 'processing';
 		notes?: string;

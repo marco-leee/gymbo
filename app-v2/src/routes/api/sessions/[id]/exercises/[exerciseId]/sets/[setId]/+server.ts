@@ -22,12 +22,24 @@ const IdParamSchema = z.object({
 	})
 });
 
+const VideoMetadataUpdateSchema = z
+	.object({
+		camera_view: z.enum(['FRONT', 'BACK', 'LEFT', 'RIGHT']),
+		duration_sec: z.number().positive().optional(),
+		video_width: z.number().int().positive().optional(),
+		video_height: z.number().int().positive().optional(),
+		fps: z.number().positive().optional(),
+		total_frames: z.number().int().nonnegative().optional()
+	})
+	.strict();
+
 const UpdateSetSchema = z.object({
 	actual_reps: z.number().int().nonnegative().optional(),
 	actual_duration: z.number().int().nonnegative().optional(),
 	weight_kg: z.number().nonnegative().optional(),
 	rpe: z.number().int().min(1).max(10).optional(),
 	video_url: z.string().optional(),
+	video_metadata: VideoMetadataUpdateSchema.optional(),
 	pose_chart_data: z.array(z.object({
 		frame: z.number().int().nonnegative(),
 		timestampSec: z.number().nonnegative(),
