@@ -10,17 +10,17 @@
 
 	let secondsLeft = $state(redirectDelaySeconds);
 
-	onMount(() => {
-		const interval = setInterval(() => {
-			secondsLeft -= 1;
-			if (secondsLeft <= 0) {
-				clearInterval(interval);
-				goto(redirectPath);
-			}
-		}, 1000);
+	// onMount(() => {
+	// 	const interval = setInterval(() => {
+	// 		secondsLeft -= 1;
+	// 		if (secondsLeft <= 0) {
+	// 			clearInterval(interval);
+	// 			goto(redirectPath);
+	// 		}
+	// 	}, 1000);
 
-		return () => clearInterval(interval);
-	});
+	// 	return () => clearInterval(interval);
+	// });
 </script>
 
 <svelte:head>
@@ -28,7 +28,7 @@
 </svelte:head>
 
 <div class="bg-background flex min-h-dvh items-center justify-center p-4">
-	<Card class="w-xl overflow-hidden py-0">
+	<Card class="w-3xl overflow-hidden py-0">
 		<CardContent class="flex flex-col p-0 sm:flex-row sm:items-stretch">
 			<div
 				class="bg-muted/40 relative flex shrink-0 items-center justify-center sm:w-[400px]"
@@ -37,16 +37,16 @@
 				<img
 					src="/error-light.png"
 					alt=""
-					width="280"
-					height="280"
-					class="size-[280px] object-contain dark:hidden"
+					width="400"
+					height="400"
+					class="size-[400px] object-contain dark:hidden bg-card-background"
 				/>
 				<img
 					src="/error-dark.png"
 					alt=""
-					width="280"
-					height="280"
-					class="hidden size-[280px] object-contain dark:block"
+					width="400"
+					height="400"
+					class="hidden size-[400px] object-contain dark:block bg-card-background"
 				/>
 			</div>
 
@@ -56,7 +56,7 @@
 						Get Out! (JKJK) 🤪
 					</h1>
                     {#if $page.error?.message}
-                        <p class="text-muted-foreground/80 text-medium">{$page.status} {$page.error.message}</p>
+                        <p class="text-foreground/60 text-2xl">{$page.status} {$page.error.message}</p>
                     {/if}
 					<p class="text-muted-foreground text-base leading-relaxed sm:text-lg">
 						You are in the wrong place. You belong to somewhere valuable.
