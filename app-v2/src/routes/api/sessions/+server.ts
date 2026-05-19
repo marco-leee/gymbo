@@ -1,13 +1,15 @@
 import { json, error, isHttpError } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { z } from 'zod';
-import {
-	listSessions,
-	createSession,
-	CreateSessionSchema,
-	generateUUID
-} from '$lib/services/mongo';
+import { listSessions, createSession, CreateSessionSchema } from '$lib/services/mongo';
 import { serializeSession } from '$lib/server/sessions';
+import { parseObjectId } from '$lib/services/object-id';
+import {
+	assertClientOwned,
+	getTrainerId,
+	requireTrainer,
+	trainerSessionFilter
+} from '$lib/server/trainer-auth';
 
 const ListQuerySchema = z.object({
 	client: z.string().optional(),
@@ -23,21 +25,28 @@ function parseBooleanParam(value: string | null, fallback: boolean): boolean {
 	return value === '1' || value.toLowerCase() === 'true';
 }
 
-export const GET: RequestHandler = async ({ url }) => {
+export const GET: RequestHandler = async (event) => {
 	try {
+		requireTrainer(event);
+		const trainerId = getTrainerId(event);
+
 		const query = ListQuerySchema.parse({
-			client: url.searchParams.get('client') ?? undefined,
-			from: url.searchParams.get('from') ?? undefined,
-			to: url.searchParams.get('to') ?? undefined,
-			status: url.searchParams.get('status') ?? undefined,
-			limit: url.searchParams.get('limit') ?? undefined,
-			offset: url.searchParams.get('offset') ?? undefined
+			client: event.url.searchParams.get('client') ?? undefined,
+			from: event.url.searchParams.get('from') ?? undefined,
+			to: event.url.searchParams.get('to') ?? undefined,
+			status: event.url.searchParams.get('status') ?? undefined,
+			limit: event.url.searchParams.get('limit') ?? undefined,
+			offset: event.url.searchParams.get('offset') ?? undefined
 		});
 
-		const filter: Record<string, unknown> = { deleted_at: null };
+		if (query.client) {
+			await assertClientOwned(trainerId, query.client);
+		}
+
+		const filter: Record<string, unknown> = { ...trainerSessionFilter(trainerId) };
 
 		if (query.client) {
-			filter['client_id'] = query.client;
+			filter['client_id'] = parseObjectId(query.client);
 		}
 
 		if (query.status) {
@@ -54,8 +63,14 @@ export const GET: RequestHandler = async ({ url }) => {
 		const sessions = await listSessions(filter);
 		const total = sessions.length;
 		const paginated = sessions.slice(query.offset, query.offset + query.limit);
-		const includePoseChartData = parseBooleanParam(url.searchParams.get('includePoseChartData'), true);
-		const includeVideoPlayUrl = parseBooleanParam(url.searchParams.get('includeVideoPlayUrl'), true);
+		const includePoseChartData = parseBooleanParam(
+			event.url.searchParams.get('includePoseChartData'),
+			true
+		);
+		const includeVideoPlayUrl = parseBooleanParam(
+			event.url.searchParams.get('includeVideoPlayUrl'),
+			true
+		);
 
 		const serializedSessions = await Promise.allSettled(
 			paginated.map((s) =>
@@ -84,19 +99,20 @@ export const GET: RequestHandler = async ({ url }) => {
 	}
 };
 
-export const POST: RequestHandler = async ({ request, locals }) => {
+export const POST: RequestHandler = async (event) => {
 	try {
-		const body = await request.json();
+		requireTrainer(event);
+		const trainerId = getTrainerId(event);
+
+		const body = await event.request.json();
 		const validated = CreateSessionSchema.parse(body);
 
-		// TODO: Get trainer_id from authenticated user context
-		// For now, using a placeholder - should come from locals.user.id or similar
-		const trainerId = locals?.user?.id ?? generateUUID();
+		await assertClientOwned(trainerId, validated.client_id);
 
 		const now = new Date();
 		const sessionData = {
-			client_id: validated.client_id,
-			trainer_id: trainerId,
+			client_id: parseObjectId(validated.client_id),
+			trainer_id: parseObjectId(trainerId),
 			status: 'scheduled' as const,
 			scheduled_at: new Date(validated.scheduled_at),
 			notes: validated.notes,

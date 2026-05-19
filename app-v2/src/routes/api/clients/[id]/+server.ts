@@ -4,11 +4,11 @@ import { z } from 'zod';
 import {
 	UpdateClientSchema,
 	type ClientDoc,
-	getClientById,
 	updateClient,
 	softDeleteClient
 } from '$lib/services/models/client';
 import { ObjectId } from 'mongodb';
+import { assertClientOwned, getTrainerId, requireTrainer } from '$lib/server/trainer-auth';
 
 const IdParamSchema = z.string().refine(val => ObjectId.isValid(val), {
 	message: 'Invalid client ID'
@@ -17,7 +17,6 @@ const IdParamSchema = z.string().refine(val => ObjectId.isValid(val), {
 function serializeClient(client: { _id: ObjectId } & ClientDoc) {
 	return {
 		id: client._id.toString(),
-		user_id: client.user_id,
 		email: client.user.email,
 		full_name: client.user.full_name,
 		first_name: client.user.first_name,
@@ -30,15 +29,12 @@ function serializeClient(client: { _id: ObjectId } & ClientDoc) {
 	};
 }
 
-export const GET: RequestHandler = async ({ params }) => {
+export const GET: RequestHandler = async (event) => {
 	try {
-		const id = IdParamSchema.parse(params.id);
+		requireTrainer(event);
+		const id = IdParamSchema.parse(event.params.id);
 
-		const client = await getClientById(id);
-
-		if (!client || client.deleted_at) {
-			throw error(404, 'Client not found');
-		}
+		const client = await assertClientOwned(getTrainerId(event), id);
 
 		return json(serializeClient(client));
 	} catch (err) {
@@ -51,16 +47,15 @@ export const GET: RequestHandler = async ({ params }) => {
 	}
 };
 
-export const PUT: RequestHandler = async ({ params, request }) => {
+export const PUT: RequestHandler = async (event) => {
 	try {
-		const id = IdParamSchema.parse(params.id);
-		const body = await request.json();
+		requireTrainer(event);
+		const trainerId = getTrainerId(event);
+		const id = IdParamSchema.parse(event.params.id);
+		const body = await event.request.json();
 		const validated = UpdateClientSchema.parse(body);
 
-		const existing = await getClientById(id);
-		if (!existing || existing.deleted_at) {
-			throw error(404, 'Client not found');
-		}
+		const existing = await assertClientOwned(trainerId, id);
 
 		const updateData: Parameters<typeof updateClient>[1] = {};
 		if (validated.gender !== undefined) updateData.gender = validated.gender;
@@ -85,14 +80,12 @@ export const PUT: RequestHandler = async ({ params, request }) => {
 	}
 };
 
-export const DELETE: RequestHandler = async ({ params }) => {
+export const DELETE: RequestHandler = async (event) => {
 	try {
-		const id = IdParamSchema.parse(params.id);
+		requireTrainer(event);
+		const id = IdParamSchema.parse(event.params.id);
 
-		const existing = await getClientById(id);
-		if (!existing || existing.deleted_at) {
-			throw error(404, 'Client not found');
-		}
+		await assertClientOwned(getTrainerId(event), id);
 
 		const success = await softDeleteClient(id);
 

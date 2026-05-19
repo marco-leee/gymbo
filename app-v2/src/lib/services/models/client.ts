@@ -1,6 +1,7 @@
-import { MongoClient, ObjectId, type Collection, type WithId, type Filter } from 'mongodb';
+import { ObjectId, type Collection, type WithId, type Filter } from 'mongodb';
 import { z } from 'zod';
 import { getDb } from '../mongo';
+import { parseObjectId } from '../object-id';
 
 export const UserSchema = z.object({
 	email: z.string().email(),
@@ -13,7 +14,7 @@ export const UserSchema = z.object({
 });
 
 export const ClientSchema = z.object({
-	user_id: z.string(),
+	trainer_id: z.instanceof(ObjectId),
 	gender: z.string(),
 	height_cm: z.number().nonnegative(),
 	weight_kg: z.number().nonnegative(),
@@ -51,24 +52,32 @@ export type CreateClientInput = z.infer<typeof CreateClientSchema>;
 export type UpdateClientInput = z.infer<typeof UpdateClientSchema>;
 export type ClientWithId = WithId<ClientDoc>;
 
+let clientIndexesEnsured = false;
+
+export async function ensureClientIndexes(): Promise<void> {
+	if (clientIndexesEnsured) return;
+	const collection = await getClientsCollection();
+	await collection.createIndex(
+		{ trainer_id: 1, deleted_at: 1 },
+		{ name: 'by_trainer_deleted' }
+	);
+	clientIndexesEnsured = true;
+}
+
 export async function getClientsCollection(): Promise<Collection<ClientDoc>> {
 	const db = await getDb();
 	return db.collection<ClientDoc>('clients');
 }
 
 export async function listClients(filter: Filter<ClientDoc> = {}): Promise<ClientWithId[]> {
+	await ensureClientIndexes();
 	const collection = await getClientsCollection();
 	return collection.find(filter).sort({ created_at: -1 }).toArray();
 }
 
 export async function getClientById(id: string): Promise<ClientWithId | null> {
 	const collection = await getClientsCollection();
-	return collection.findOne({ _id: new ObjectId(id) } as Filter<ClientDoc>);
-}
-
-export async function getClientByUserId(userId: string): Promise<ClientWithId | null> {
-	const collection = await getClientsCollection();
-	return collection.findOne({ user_id: userId });
+	return collection.findOne({ _id: parseObjectId(id) } as Filter<ClientDoc>);
 }
 
 export async function createClient(data: Omit<ClientDoc, 'created_at' | 'updated_at'>): Promise<ClientWithId> {
@@ -94,20 +103,20 @@ export async function updateClient(
 			updated_at: new Date()
 		}
 	};
-	await collection.updateOne({ _id: new ObjectId(id) } as Filter<ClientDoc>, update);
+	await collection.updateOne({ _id: parseObjectId(id) } as Filter<ClientDoc>, update);
 	return getClientById(id);
 }
 
 export async function deleteClient(id: string): Promise<boolean> {
 	const collection = await getClientsCollection();
-	const result = await collection.deleteOne({ _id: new ObjectId(id) } as Filter<ClientDoc>);
+	const result = await collection.deleteOne({ _id: parseObjectId(id) } as Filter<ClientDoc>);
 	return result.deletedCount === 1;
 }
 
 export async function softDeleteClient(id: string): Promise<boolean> {
 	const collection = await getClientsCollection();
 	const result = await collection.updateOne(
-		{ _id: new ObjectId(id) } as Filter<ClientDoc>,
+		{ _id: parseObjectId(id) } as Filter<ClientDoc>,
 		{ $set: { deleted_at: new Date(), updated_at: new Date() } }
 	);
 	return result.modifiedCount === 1;

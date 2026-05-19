@@ -2,6 +2,7 @@ import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { z } from 'zod';
 import { getPresignedPutUrl } from '$lib/server/storage';
+import { assertSessionOwned, getTrainerId, requireTrainer } from '$lib/server/trainer-auth';
 
 const MAX_FILE_SIZE = 200 * 1024 * 1024; // 200MB
 
@@ -14,10 +15,15 @@ const SignBodySchema = z.object({
 	file_size: z.number().int().nonnegative()
 });
 
-export const POST: RequestHandler = async ({ request }) => {
+export const POST: RequestHandler = async (event) => {
 	try {
-		const body = await request.json();
+		requireTrainer(event);
+		const trainerId = getTrainerId(event);
+
+		const body = await event.request.json();
 		const parsed = SignBodySchema.parse(body);
+
+		await assertSessionOwned(trainerId, parsed.session_id);
 
 		if (parsed.file_type !== 'video/mp4') {
 			throw error(400, 'Only video/mp4 is allowed');

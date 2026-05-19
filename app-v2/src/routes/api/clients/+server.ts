@@ -7,8 +7,9 @@ import {
 	CreateClientSchema,
 	type ClientDoc,
 } from '$lib/services/models/client';
-import { generateUUID } from '$lib/services/mongo';
 import { ObjectId } from 'mongodb';
+import { trainerObjectId } from '$lib/services/models/trainer';
+import { getTrainerId, requireTrainer, trainerClientFilter } from '$lib/server/trainer-auth';
 
 const ListQuerySchema = z.object({
 	search: z.string().optional().default(''),
@@ -19,7 +20,6 @@ const ListQuerySchema = z.object({
 function serializeClient(client: { _id: ObjectId } & ClientDoc) {
 	return {
 		id: client._id.toString(),
-		user_id: client.user_id,
 		email: client.user.email,
 		full_name: client.user.full_name,
 		first_name: client.user.first_name,
@@ -32,15 +32,18 @@ function serializeClient(client: { _id: ObjectId } & ClientDoc) {
 	};
 }
 
-export const GET: RequestHandler = async ({ url }) => {
+export const GET: RequestHandler = async (event) => {
 	try {
+		requireTrainer(event);
+		const trainerId = getTrainerId(event);
+
 		const query = ListQuerySchema.parse({
-			search: url.searchParams.get('search') ?? undefined,
-			limit: url.searchParams.get('limit') ?? undefined,
-			offset: url.searchParams.get('offset') ?? undefined
+			search: event.url.searchParams.get('search') ?? undefined,
+			limit: event.url.searchParams.get('limit') ?? undefined,
+			offset: event.url.searchParams.get('offset') ?? undefined
 		});
 
-		const filter: Record<string, unknown> = { deleted_at: null };
+		const filter: Record<string, unknown> = { ...trainerClientFilter(trainerId) };
 
 		if (query.search) {
 			filter['$or'] = [
@@ -66,14 +69,17 @@ export const GET: RequestHandler = async ({ url }) => {
 	}
 };
 
-export const POST: RequestHandler = async ({ request }) => {
+export const POST: RequestHandler = async (event) => {
 	try {
-		const body = await request.json();
+		requireTrainer(event);
+		const trainerId = getTrainerId(event);
+
+		const body = await event.request.json();
 		const validated = CreateClientSchema.parse(body);
 
 		const now = new Date();
 		const clientData: Omit<ClientDoc, 'created_at' | 'updated_at'> = {
-			user_id: generateUUID(),
+			trainer_id: trainerObjectId(trainerId),
 			gender: validated.gender,
 			height_cm: validated.height_cm,
 			weight_kg: validated.weight_kg,

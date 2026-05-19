@@ -1,14 +1,10 @@
 import { json, error, isHttpError } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { z } from 'zod';
-import {
-	getSessionById,
-	updateSession,
-	softDeleteSession,
-	UpdateSessionSchema
-} from '$lib/services/mongo';
+import { updateSession, softDeleteSession, UpdateSessionSchema } from '$lib/services/mongo';
 import { ObjectId } from 'mongodb';
 import { serializeSession } from '$lib/server/sessions';
+import { assertSessionOwned, getTrainerId, requireTrainer } from '$lib/server/trainer-auth';
 
 const IdParamSchema = z.string().refine(val => ObjectId.isValid(val), {
 	message: 'Invalid session ID'
@@ -19,20 +15,23 @@ function parseBooleanParam(value: string | null, fallback: boolean): boolean {
 	return value === '1' || value.toLowerCase() === 'true';
 }
 
-export const GET: RequestHandler = async ({ params, url }) => {
+export const GET: RequestHandler = async (event) => {
 	try {
-		const id = IdParamSchema.parse(params.id);
+		requireTrainer(event);
+		const id = IdParamSchema.parse(event.params.id);
 
-		const session = await getSessionById(id);
-
-		if (!session || session.deleted_at) {
-			throw error(404, 'Session not found');
-		}
+		const session = await assertSessionOwned(getTrainerId(event), id);
 
 		return json(
 			await serializeSession(session, {
-				includePoseChartData: parseBooleanParam(url.searchParams.get('includePoseChartData'), true),
-				includeVideoPlayUrl: parseBooleanParam(url.searchParams.get('includeVideoPlayUrl'), true)
+				includePoseChartData: parseBooleanParam(
+					event.url.searchParams.get('includePoseChartData'),
+					true
+				),
+				includeVideoPlayUrl: parseBooleanParam(
+					event.url.searchParams.get('includeVideoPlayUrl'),
+					true
+				)
 			})
 		);
 	} catch (err) {
@@ -45,16 +44,14 @@ export const GET: RequestHandler = async ({ params, url }) => {
 	}
 };
 
-export const PUT: RequestHandler = async ({ params, request }) => {
+export const PUT: RequestHandler = async (event) => {
 	try {
-		const id = IdParamSchema.parse(params.id);
-		const body = await request.json();
+		requireTrainer(event);
+		const id = IdParamSchema.parse(event.params.id);
+		const body = await event.request.json();
 		const validated = UpdateSessionSchema.parse(body);
 
-		const existing = await getSessionById(id);
-		if (!existing || existing.deleted_at) {
-			throw error(404, 'Session not found');
-		}
+		const existing = await assertSessionOwned(getTrainerId(event), id);
 
 		// Only allow updates if session hasn't started or been completed
 		if (existing.status === 'completed' || existing.status === 'cancelled') {
@@ -92,14 +89,12 @@ export const PUT: RequestHandler = async ({ params, request }) => {
 	}
 };
 
-export const DELETE: RequestHandler = async ({ params }) => {
+export const DELETE: RequestHandler = async (event) => {
 	try {
-		const id = IdParamSchema.parse(params.id);
+		requireTrainer(event);
+		const id = IdParamSchema.parse(event.params.id);
 
-		const existing = await getSessionById(id);
-		if (!existing || existing.deleted_at) {
-			throw error(404, 'Session not found');
-		}
+		const existing = await assertSessionOwned(getTrainerId(event), id);
 
 		// Check if there are any videos uploaded
 		const hasVideos = existing.exercises.some(ex =>

@@ -28,7 +28,7 @@ from database.mongodb.ingest import MongodbPersistConfig  # noqa: E402
 from models.exercise import ExerciseType  # noqa: E402
 from session_context import InputSource, SessionContext  # noqa: E402
 from utils.video import CameraView  # noqa: E402
-from ulid import ULID  # noqa: E402
+from bson import ObjectId  # noqa: E402
 
 
 def _resolve_video_path(video_arg: Path) -> Path:
@@ -120,7 +120,7 @@ def main() -> None:
         mp4_output=args.output,
         output_json_path=args.output_json,
         mongodb_persist=MongodbPersistConfig(
-            exercise_id=str(ULID()),
+            exercise_id=str(ObjectId()),
             set_index=0,
             compute_rep_summary=True,
             use_transactions=True,

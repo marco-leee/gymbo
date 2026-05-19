@@ -1,6 +1,7 @@
 import type { ObjectId } from 'mongodb';
 import type { SessionDoc } from '$lib/services/mongo';
 import { getPresignedPlayUrl } from '$lib/server/storage';
+import { objectIdToString } from '$lib/services/object-id';
 
 export type SessionForSerialization = { _id: ObjectId } & SessionDoc;
 
@@ -108,8 +109,8 @@ export async function serializeSession(
 
 	return {
 		id: session._id.toString(),
-		client_id: session.client_id,
-		trainer_id: session.trainer_id,
+		client_id: objectIdToString(session.client_id),
+		trainer_id: objectIdToString(session.trainer_id),
 		status: session.status,
 		scheduled_at: serializeDate(session.scheduled_at) ?? new Date(0).toISOString(),
 		notes: session.notes,

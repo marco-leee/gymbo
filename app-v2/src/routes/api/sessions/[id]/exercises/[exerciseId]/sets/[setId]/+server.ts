@@ -2,21 +2,20 @@ import { json, error, isHttpError } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { z } from 'zod';
 import {
-	getSessionById,
 	updateSetInExercise,
-	deleteSetFromExercise,
-	isValidExerciseIdParam
+	deleteSetFromExercise
 } from '$lib/services/mongo';
 import { ObjectId } from 'mongodb';
-import { v7 as uuidv7 } from 'uuid';
 import { serializeSession } from '$lib/server/sessions';
+import { isValidObjectIdParam } from '$lib/services/object-id';
 import { enqueueVideoProcessingJob } from '$lib/server/video-queue/enqueue';
+import { assertSessionOwned, getTrainerId, requireTrainer } from '$lib/server/trainer-auth';
 
 const IdParamSchema = z.object({
 	id: z.string().refine(val => ObjectId.isValid(val), {
 		message: 'Invalid session ID'
 	}),
-	exerciseId: z.string().refine(val => isValidExerciseIdParam(val), {
+	exerciseId: z.string().refine(val => isValidObjectIdParam(val), {
 		message: 'Invalid exercise ID'
 	}),
 	setId: z.string().refine(val => ObjectId.isValid(val), {
@@ -52,16 +51,14 @@ const UpdateSetSchema = z.object({
 	notes: z.string().optional()
 });
 
-export const PUT: RequestHandler = async ({ params, request }) => {
+export const PUT: RequestHandler = async (event) => {
 	try {
-		const { id, exerciseId, setId } = IdParamSchema.parse(params);
-		const body = await request.json();
+		requireTrainer(event);
+		const { id, exerciseId, setId } = IdParamSchema.parse(event.params);
+		const body = await event.request.json();
 		const validated = UpdateSetSchema.parse(body);
 
-		const existing = await getSessionById(id);
-		if (!existing || existing.deleted_at) {
-			throw error(404, 'Session not found');
-		}
+		const existing = await assertSessionOwned(getTrainerId(event), id);
 
 		// Check if exercise and set exist
 		const exercise = existing.exercises.find(ex => ex._id?.toString() === exerciseId);
@@ -107,7 +104,7 @@ export const PUT: RequestHandler = async ({ params, request }) => {
 				exercise_id: exerciseId,
 				set_id: setId,
 				r2_key: validated.video_url,
-				job_id: uuidv7(),
+				job_id: new ObjectId().toString(),
 				...(exercise.exercise_key ? { exercise_key: exercise.exercise_key } : {}),
 				...(Object.keys(metadata ?? {}).length > 0 ? { metadata } : {})
 			});
@@ -124,14 +121,12 @@ export const PUT: RequestHandler = async ({ params, request }) => {
 	}
 };
 
-export const DELETE: RequestHandler = async ({ params }) => {
+export const DELETE: RequestHandler = async (event) => {
 	try {
-		const { id, exerciseId, setId } = IdParamSchema.parse(params);
+		requireTrainer(event);
+		const { id, exerciseId, setId } = IdParamSchema.parse(event.params);
 
-		const existing = await getSessionById(id);
-		if (!existing || existing.deleted_at) {
-			throw error(404, 'Session not found');
-		}
+		const existing = await assertSessionOwned(getTrainerId(event), id);
 
 		// Check if set exists
 		const exercise = existing.exercises.find(ex => ex._id?.toString() === exerciseId);

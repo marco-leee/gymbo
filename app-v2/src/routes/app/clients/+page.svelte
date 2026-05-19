@@ -156,7 +156,7 @@
 					</div>
 					<div>
 						<p class="text-muted-foreground text-sm">User ID</p>
-						<p class="font-mono text-xs">{client.user_id}</p>
+						<p class="font-mono text-xs">{client.id}</p>
 					</div>
 				</div>
 			{/if}

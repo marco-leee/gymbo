@@ -2,9 +2,6 @@ from enum import Enum
 from pydantic import BaseModel, Field
 from datetime import datetime
 from datetime import UTC
-from ulid import ULID
-
-
 class ExerciseType(Enum):
     SQUAT = "SQUAT"
     LUNGE = "LUNGE"
@@ -19,9 +16,9 @@ class ExerciseType(Enum):
 
 
 class Exercise(BaseModel):
-    id: ULID
-    client_id: ULID
-    assessment_id: ULID
+    id: str
+    client_id: str
+    assessment_id: str
     name: str
     description: str
     type: ExerciseType

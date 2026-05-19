@@ -111,9 +111,10 @@ def test_persist_set_biometrics_upserts_via_repo():
 def test_persist_video_job_success_writes_set_biometrics_not_exercise_sets_chart():
     session_id = ObjectId()
     set_id = ObjectId()
+    exercise_id = ObjectId()
     job = VideoProcessingJob(
         session_id=str(session_id),
-        exercise_id="ex-1",
+        exercise_id=str(exercise_id),
         set_id=str(set_id),
         r2_key="k",
         job_id="j1",
@@ -150,7 +151,7 @@ def test_persist_video_job_success_writes_set_biometrics_not_exercise_sets_chart
 
     sets_coll.update_one.assert_called_once()
     update_filter, update_doc = sets_coll.update_one.call_args[0]
-    assert update_filter == {"_id": set_id, "exercise_id": job.exercise_id}
+    assert update_filter == {"_id": set_id, "exercise_id": exercise_id}
     assert "pose_chart_data" not in update_doc["$set"]
     assert update_doc["$set"]["video_metadata"] == vmeta
     assert update_doc["$set"]["processed_video_uri"] == "processed/key.mp4"

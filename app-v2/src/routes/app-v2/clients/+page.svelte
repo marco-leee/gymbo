@@ -149,7 +149,7 @@
 					</div>
 					<div>
 						<p class="text-sm" style="color: var(--app-v2-muted);">User ID</p>
-						<p class="font-mono text-xs">{client.user_id}</p>
+						<p class="font-mono text-xs">{client.id}</p>
 					</div>
 				</div>
 			{/if}

@@ -64,9 +64,13 @@ def _split_visible_status(doc: dict[str, Any]) -> str | None:
     return "pending"
 
 
+def _job_exercise_object_id(job: VideoProcessingJob) -> ObjectId:
+    return ObjectId(job.exercise_id)
+
+
 def get_set_status_for_job(*, db: Database, job: VideoProcessingJob) -> str | None:
     doc = db[EXERCISE_SETS].find_one(
-        {"_id": ObjectId(job.set_id), "exercise_id": job.exercise_id}
+        {"_id": ObjectId(job.set_id), "exercise_id": _job_exercise_object_id(job)}
     )
     return _split_visible_status(doc) if doc else None
 
@@ -134,7 +138,7 @@ def persist_video_job_success(
     )
 
     r = db[col.EXERCISE_SETS].update_one(
-        {"_id": set_oid, "exercise_id": job.exercise_id},
+        {"_id": set_oid, "exercise_id": _job_exercise_object_id(job)},
         {
             "$set": {
                 "video_metadata": video_metadata,

@@ -1,27 +1,27 @@
 import { json, error, isHttpError } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { z } from 'zod';
-import { getSessionById, addSetToExercise, isValidExerciseIdParam } from '$lib/services/mongo';
+import { addSetToExercise } from '$lib/services/mongo';
 import { ObjectId } from 'mongodb';
 import { serializeSession } from '$lib/server/sessions';
+import { isValidObjectIdParam } from '$lib/services/object-id';
+import { assertSessionOwned, getTrainerId, requireTrainer } from '$lib/server/trainer-auth';
 
 const IdParamSchema = z.object({
 	id: z.string().refine(val => ObjectId.isValid(val), {
 		message: 'Invalid session ID'
 	}),
-	exerciseId: z.string().refine(val => isValidExerciseIdParam(val), {
+	exerciseId: z.string().refine(val => isValidObjectIdParam(val), {
 		message: 'Invalid exercise ID'
 	})
 });
 
-export const POST: RequestHandler = async ({ params }) => {
+export const POST: RequestHandler = async (event) => {
 	try {
-		const { id, exerciseId } = IdParamSchema.parse(params);
+		requireTrainer(event);
+		const { id, exerciseId } = IdParamSchema.parse(event.params);
 
-		const existing = await getSessionById(id);
-		if (!existing || existing.deleted_at) {
-			throw error(404, 'Session not found');
-		}
+		const existing = await assertSessionOwned(getTrainerId(event), id);
 
 		// Check if exercise exists
 		const exercise = existing.exercises.find(ex => ex._id?.toString() === exerciseId);

@@ -4,18 +4,19 @@ import { z } from 'zod';
 import { ObjectId } from 'mongodb';
 import {
 	getSessionById,
-	isValidExerciseIdParam,
 	UpdateSessionExercisePayloadSchema,
 	updateExerciseNotesInSession,
 	deleteExerciseFromSession
 } from '$lib/services/mongo';
 import { serializeSession } from '$lib/server/sessions';
+import { isValidObjectIdParam } from '$lib/services/object-id';
+import { assertSessionOwned, getTrainerId, requireTrainer } from '$lib/server/trainer-auth';
 
 const SessionIdSchema = z.string().refine((val) => ObjectId.isValid(val), {
 	message: 'Invalid session ID'
 });
 
-const ExerciseIdSchema = z.string().refine((val) => isValidExerciseIdParam(val), {
+const ExerciseIdSchema = z.string().refine((val) => isValidObjectIdParam(val), {
 	message: 'Invalid exercise ID'
 });
 
@@ -28,15 +29,13 @@ function sessionHasVideos(s: NonNullable<Awaited<ReturnType<typeof getSessionByI
 	return s.exercises.some((ex) => ex.sets?.some((set) => set.video_url));
 }
 
-export const PUT: RequestHandler = async ({ params, request, url }) => {
+export const PUT: RequestHandler = async (event) => {
 	try {
-		const sessionId = SessionIdSchema.parse(params.id);
-		const exerciseId = ExerciseIdSchema.parse(params.exerciseId);
+		requireTrainer(event);
+		const sessionId = SessionIdSchema.parse(event.params.id);
+		const exerciseId = ExerciseIdSchema.parse(event.params.exerciseId);
 
-		const existing = await getSessionById(sessionId);
-		if (!existing || existing.deleted_at) {
-			throw error(404, 'Session not found');
-		}
+		const existing = await assertSessionOwned(getTrainerId(event), sessionId);
 
 		if (existing.status === 'completed' || existing.status === 'cancelled') {
 			throw error(400, 'Cannot update a completed or cancelled session');
@@ -51,7 +50,7 @@ export const PUT: RequestHandler = async ({ params, request, url }) => {
 			throw error(404, 'Exercise not found');
 		}
 
-		const body = await request.json();
+		const body = await event.request.json();
 		const validated = UpdateSessionExercisePayloadSchema.parse(body);
 
 		const updated = await updateExerciseNotesInSession(sessionId, exerciseId, validated.notes);
@@ -62,8 +61,14 @@ export const PUT: RequestHandler = async ({ params, request, url }) => {
 
 		return json(
 			await serializeSession(updated, {
-				includePoseChartData: parseBooleanParam(url.searchParams.get('includePoseChartData'), true),
-				includeVideoPlayUrl: parseBooleanParam(url.searchParams.get('includeVideoPlayUrl'), false)
+				includePoseChartData: parseBooleanParam(
+					event.url.searchParams.get('includePoseChartData'),
+					true
+				),
+				includeVideoPlayUrl: parseBooleanParam(
+					event.url.searchParams.get('includeVideoPlayUrl'),
+					false
+				)
 			})
 		);
 	} catch (err) {
@@ -76,15 +81,13 @@ export const PUT: RequestHandler = async ({ params, request, url }) => {
 	}
 };
 
-export const DELETE: RequestHandler = async ({ params, url }) => {
+export const DELETE: RequestHandler = async (event) => {
 	try {
-		const sessionId = SessionIdSchema.parse(params.id);
-		const exerciseId = ExerciseIdSchema.parse(params.exerciseId);
+		requireTrainer(event);
+		const sessionId = SessionIdSchema.parse(event.params.id);
+		const exerciseId = ExerciseIdSchema.parse(event.params.exerciseId);
 
-		const existing = await getSessionById(sessionId);
-		if (!existing || existing.deleted_at) {
-			throw error(404, 'Session not found');
-		}
+		const existing = await assertSessionOwned(getTrainerId(event), sessionId);
 
 		if (existing.status === 'completed' || existing.status === 'cancelled') {
 			throw error(400, 'Cannot update a completed or cancelled session');
@@ -108,8 +111,14 @@ export const DELETE: RequestHandler = async ({ params, url }) => {
 
 		return json(
 			await serializeSession(outcome.session, {
-				includePoseChartData: parseBooleanParam(url.searchParams.get('includePoseChartData'), true),
-				includeVideoPlayUrl: parseBooleanParam(url.searchParams.get('includeVideoPlayUrl'), false)
+				includePoseChartData: parseBooleanParam(
+					event.url.searchParams.get('includePoseChartData'),
+					true
+				),
+				includeVideoPlayUrl: parseBooleanParam(
+					event.url.searchParams.get('includeVideoPlayUrl'),
+					false
+				)
 			})
 		);
 	} catch (err) {

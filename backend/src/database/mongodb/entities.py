@@ -66,7 +66,7 @@ class VideoMetadata(BaseModel):
 
 
 class ExerciseEntity(BaseModel):
-    """Exercise row mirrored from domain ``Exercise`` (ULID strings)."""
+    """Exercise row mirrored from domain ``Exercise`` (ObjectId ``_id`` in Mongo)."""
 
     model_config = {"extra": "ignore"}
 

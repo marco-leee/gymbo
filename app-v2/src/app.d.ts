@@ -8,6 +8,7 @@ declare global {
 		interface Locals {
 			user?: AuthSession['user'] | null;
 			session?: AuthSession['session'] | null;
+			trainerId?: string;
 		}
 		// interface PageData {}
 		// interface PageState {}

@@ -2,8 +2,13 @@ import { json, error, isHttpError } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { z } from 'zod';
 import { ObjectId } from 'mongodb';
-import { getSessionById, SessionExercisePayloadSchema, addExerciseToSession } from '$lib/services/mongo';
+import {
+	getSessionById,
+	SessionExercisePayloadSchema,
+	addExerciseToSession
+} from '$lib/services/mongo';
 import { serializeSession } from '$lib/server/sessions';
+import { assertSessionOwned, getTrainerId, requireTrainer } from '$lib/server/trainer-auth';
 
 const IdParamSchema = z.string().refine(val => ObjectId.isValid(val), {
 	message: 'Invalid session ID'
@@ -18,16 +23,14 @@ function sessionHasVideos(s: NonNullable<Awaited<ReturnType<typeof getSessionByI
 	return s.exercises.some(ex => ex.sets?.some(set => set.video_url));
 }
 
-export const POST: RequestHandler = async ({ params, request, url }) => {
+export const POST: RequestHandler = async (event) => {
 	try {
-		const sessionId = IdParamSchema.parse(params.id);
-		const body = await request.json();
+		requireTrainer(event);
+		const sessionId = IdParamSchema.parse(event.params.id);
+		const body = await event.request.json();
 		const validated = SessionExercisePayloadSchema.parse(body);
 
-		const existing = await getSessionById(sessionId);
-		if (!existing || existing.deleted_at) {
-			throw error(404, 'Session not found');
-		}
+		const existing = await assertSessionOwned(getTrainerId(event), sessionId);
 
 		if (existing.status === 'completed' || existing.status === 'cancelled') {
 			throw error(400, 'Cannot update a completed or cancelled session');
@@ -45,8 +48,14 @@ export const POST: RequestHandler = async ({ params, request, url }) => {
 
 		return json(
 			await serializeSession(updated, {
-				includePoseChartData: parseBooleanParam(url.searchParams.get('includePoseChartData'), true),
-				includeVideoPlayUrl: parseBooleanParam(url.searchParams.get('includeVideoPlayUrl'), false)
+				includePoseChartData: parseBooleanParam(
+					event.url.searchParams.get('includePoseChartData'),
+					true
+				),
+				includeVideoPlayUrl: parseBooleanParam(
+					event.url.searchParams.get('includeVideoPlayUrl'),
+					false
+				)
 			}),
 			{ status: 201 }
 		);

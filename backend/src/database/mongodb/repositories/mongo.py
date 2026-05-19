@@ -99,7 +99,7 @@ def _insert_set_and_frames_body(
 
 
 class MongoExerciseRepository:
-    """Persist exercises with string ULID ``_id``."""
+    """Persist exercises with MongoDB ObjectId ``_id``."""
 
     def __init__(self, db: Database) -> None:
         self._db = db
@@ -107,16 +107,21 @@ class MongoExerciseRepository:
 
     def save(self, entity: ExerciseEntity) -> str:
         doc = entity.model_dump(mode="python")
-        eid = doc.pop("id")
-        self._col.replace_one({"_id": eid}, {"_id": eid, **doc}, upsert=True)
-        return eid
+        eid_raw = doc.pop("id", None)
+        if eid_raw:
+            oid = ObjectId(str(eid_raw))
+            self._col.replace_one({"_id": oid}, {"_id": oid, **doc}, upsert=True)
+            return str(oid)
+        result = self._col.insert_one(doc)
+        return str(result.inserted_id)
 
     def get_by_id(self, exercise_id: str) -> ExerciseEntity | None:
-        doc = self._col.find_one({"_id": exercise_id})
+        doc = self._col.find_one({"_id": ObjectId(exercise_id)})
         if doc is None:
             return None
         d = dict(doc)
-        d["id"] = d.pop("_id")
+        raw_id = d.pop("_id")
+        d["id"] = str(raw_id)
         return ExerciseEntity.model_validate(d)
 
 
@@ -140,6 +145,9 @@ class MongoExerciseSetRepository:
         frames: list[SetBiometricFrameEntity],
     ) -> ObjectId:
         set_payload = set_entity.model_dump(mode="python")
+        raw_ex_id = set_payload.get("exercise_id")
+        if isinstance(raw_ex_id, str) and ObjectId.is_valid(raw_ex_id):
+            set_payload["exercise_id"] = ObjectId(raw_ex_id)
         frame_payloads: list[dict[str, Any]] = []
         for fr in frames:
             frame_payloads.append(
@@ -184,7 +192,7 @@ class MongoExerciseSetRepository:
         return self._sets.find_one({"_id": set_id})
 
     def list_sets_for_exercise(self, exercise_id: str) -> list[dict]:
-        cur = self._sets.find({"exercise_id": exercise_id}).sort(
+        cur = self._sets.find({"exercise_id": ObjectId(exercise_id)}).sort(
             "set_index", ASCENDING
         )
         return list(cur)

@@ -2,7 +2,6 @@ import type { CreateClientInput, UpdateClientInput } from '$lib/services/models/
 
 export interface Client {
 	id: string;
-	user_id: string;
 	email: string;
 	full_name: string;
 	first_name: string;
