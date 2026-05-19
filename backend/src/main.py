@@ -32,6 +32,7 @@ from utils import (
     get_temp_file_path,
     now,
 )
+from utils.video_web import remux_mp4_for_browser_playback
 from database import Postgres, PostgresConfig
 from estimator import MediapipeEstimator
 from storage import S3StorageProvider
@@ -149,15 +150,17 @@ class PoseEstimationWorker:
             job["exercise"]["id"], job["media"]["id"]
         )
 
-        self._logger.info(f"Uploading processed video to {object_key}")
+        temp_web_path = get_temp_file_path(suffix=".mp4")
+        try:
+            self._logger.info("Remuxing processed video for web playback")
+            remux_mp4_for_browser_playback(Path(temp_video_path), Path(temp_web_path))
+            self._logger.info(f"Uploading processed video to {object_key}")
+            self.storage_provider.upload_object(Path(temp_web_path), object_key)
+            self._logger.info(f"Video uploaded to {object_key}")
+        finally:
+            Path(temp_web_path).unlink(missing_ok=True)
 
-        self.storage_provider.upload_object(
-            temp_video_path,
-            object_key,
-        )
-        self._logger.info(f"Video uploaded to {object_key}")
-
-        temp_video_path.unlink()
+        Path(temp_video_path).unlink(missing_ok=True)
         video_path.unlink()
 
         self._logger.info(f"Videos deleted")

@@ -28,6 +28,7 @@ def ensure_mongodb_indexes(db: Database) -> None:
     """Create indexes for exercise / set / biometrics collections (idempotent)."""
     exercise_sets = db[col.EXERCISE_SETS]
     frames = db[col.SET_BIOMETRIC_FRAMES]
+    biometrics = db[col.SET_BIOMETRICS]
 
     exercise_sets.create_index(
         [("exercise_id", ASCENDING), ("set_index", ASCENDING)],
@@ -44,6 +45,12 @@ def ensure_mongodb_indexes(db: Database) -> None:
     frames.create_index(
         [("set_id", ASCENDING), ("timestamp", ASCENDING)],
         name="by_set_timestamp",
+    )
+
+    biometrics.create_index(
+        [("set_id", ASCENDING), ("version", ASCENDING)],
+        unique=True,
+        name="uniq_set_biometrics_version",
     )
 
 
@@ -199,6 +206,26 @@ class MongoSetBiometricFrameRepository:
         self._col.insert_many(_frame_payloads_for_set(set_id, frames))
 
 
+class MongoSetBiometricsRepository:
+    """Upsert aggregated pose chart data for an exercise set."""
+
+    def __init__(self, db: Database) -> None:
+        self._col = db[col.SET_BIOMETRICS]
+
+    def upsert_pose_chart(
+        self,
+        set_id: ObjectId,
+        pose_chart_data: list[dict[str, Any]],
+        *,
+        version: int = 1,
+    ) -> None:
+        self._col.replace_one(
+            {"set_id": set_id, "version": version},
+            {"set_id": set_id, "version": version, "pose_chart_data": pose_chart_data},
+            upsert=True,
+        )
+
+
 def exercise_repo(db: Database) -> ExerciseRepository:
     return MongoExerciseRepository(db)
 
@@ -213,3 +240,7 @@ def exercise_set_repo(
 
 def biometric_frame_repo(db: Database) -> SetBiometricFrameRepository:
     return MongoSetBiometricFrameRepository(db)
+
+
+def set_biometrics_repo(db: Database) -> MongoSetBiometricsRepository:
+    return MongoSetBiometricsRepository(db)

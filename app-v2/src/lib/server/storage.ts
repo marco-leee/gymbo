@@ -56,7 +56,8 @@ export function getPresignedGetUrl(
 		client,
 		new GetObjectCommand({
 			Bucket: bucket,
-			Key: key
+			Key: key,
+			ResponseContentType: 'video/mp4'
 		}),
 		{ expiresIn: options?.expiresIn ?? PRESIGN_GET_EXPIRES_IN }
 	);

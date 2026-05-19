@@ -42,6 +42,7 @@ RUN apt-get update \
         python3.12-dev \
         libglib2.0-0 \
         libgl1 \
+        ffmpeg \
         ca-certificates \
         curl \
     && rm -rf /var/lib/apt/lists/*

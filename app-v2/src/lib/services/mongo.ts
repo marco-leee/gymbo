@@ -16,6 +16,8 @@ const MONGO_URI = env.MONGO_URI;
 
 const COLLECTION_EXERCISES = 'exercises';
 const COLLECTION_EXERCISE_SETS = 'exercise_sets';
+const COLLECTION_SET_BIOMETRICS = 'set_biometrics';
+const SET_BIOMETRICS_VERSION = 1;
 
 let client: MongoClient | null = null;
 let indexesEnsured = false;
@@ -72,6 +74,7 @@ export const ExerciseSetVideoMetadataSchema = z
 	.strict()
 	.optional();
 
+/** Hydrated onto exercise sets from `set_biometrics` (version 1). */
 export const ExerciseSetSchema = z.object({
 	_id: z.instanceof(ObjectId).optional(),
 	set_number: z.number().int().nonnegative(),
@@ -191,12 +194,17 @@ export async function ensureExerciseMongoIndexes(): Promise<void> {
 	const db = await getDb();
 	const exercises = db.collection(COLLECTION_EXERCISES);
 	const exerciseSets = db.collection(COLLECTION_EXERCISE_SETS);
+	const setBiometrics = db.collection(COLLECTION_SET_BIOMETRICS);
 	await exercises.createIndex({ session_id: 1 }, { name: 'by_session_id' });
 	await exerciseSets.createIndex(
 		{ exercise_id: 1, set_index: 1 },
 		{ unique: true, name: 'uniq_exercise_set_index' }
 	);
 	await exerciseSets.createIndex({ exercise_id: 1 }, { name: 'by_exercise_id' });
+	await setBiometrics.createIndex(
+		{ set_id: 1, version: 1 },
+		{ unique: true, name: 'uniq_set_biometrics_version' }
+	);
 	indexesEnsured = true;
 }
 
@@ -208,6 +216,11 @@ export async function getExercisesCollection(): Promise<Collection<Record<string
 export async function getExerciseSetsCollection(): Promise<Collection<Record<string, unknown>>> {
 	const db = await getDb();
 	return db.collection(COLLECTION_EXERCISE_SETS);
+}
+
+export async function getSetBiometricsCollection(): Promise<Collection<Record<string, unknown>>> {
+	const db = await getDb();
+	return db.collection(COLLECTION_SET_BIOMETRICS);
 }
 
 function isTransactionUnsupportedError(e: unknown): boolean {
@@ -251,7 +264,10 @@ function buildExerciseSetPlaceholderDoc(
 	};
 }
 
-function setRowToExerciseSetDoc(row: Record<string, unknown>): ExerciseSetDoc {
+function setRowToExerciseSetDoc(
+	row: Record<string, unknown>,
+	poseChartBySetId?: Map<string, ExerciseSetDoc['pose_chart_data']>
+): ExerciseSetDoc {
 	const idVal = row._id;
 	const _id = idVal instanceof ObjectId ? idVal : new ObjectId(idVal as string);
 	const setIndex = row.set_index as number;
@@ -271,6 +287,10 @@ function setRowToExerciseSetDoc(row: Record<string, unknown>): ExerciseSetDoc {
 	if (vm != null && typeof vm === 'object' && !Array.isArray(vm)) {
 		video_metadata = vm as ExerciseSetDoc['video_metadata'];
 	}
+	const setIdStr = _id.toString();
+	const pose_chart_data =
+		poseChartBySetId?.get(setIdStr) ??
+		(row.pose_chart_data as ExerciseSetDoc['pose_chart_data']);
 	return {
 		_id,
 		set_number: setIndex + 1,
@@ -281,7 +301,7 @@ function setRowToExerciseSetDoc(row: Record<string, unknown>): ExerciseSetDoc {
 		video_url: videoUrl || (origUri ? origUri : undefined),
 		processed_video_url: processedVideoUrl,
 		video_metadata,
-		pose_chart_data: row.pose_chart_data as ExerciseSetDoc['pose_chart_data'],
+		pose_chart_data,
 		status,
 		notes: row.notes as string | undefined,
 		created_at: row.created_at as Date,
@@ -291,9 +311,12 @@ function setRowToExerciseSetDoc(row: Record<string, unknown>): ExerciseSetDoc {
 
 function rowToSessionExerciseDoc(
 	row: Record<string, unknown>,
-	setRows: Record<string, unknown>[]
+	setRows: Record<string, unknown>[],
+	poseChartBySetId?: Map<string, ExerciseSetDoc['pose_chart_data']>
 ): SessionExerciseDoc {
-	const sets = [...setRows].sort((a, b) => (a.set_index as number) - (b.set_index as number)).map(setRowToExerciseSetDoc);
+	const sets = [...setRows]
+		.sort((a, b) => (a.set_index as number) - (b.set_index as number))
+		.map((setRow) => setRowToExerciseSetDoc(setRow, poseChartBySetId));
 	return {
 		_id: String(row._id),
 		name: row.name as string,
@@ -330,6 +353,26 @@ export async function hydrateSessionFromStored(
 					.find({ exercise_id: { $in: exIds } }, { sort: { exercise_id: 1, set_index: 1 }, ...opts })
 					.toArray()
 			: [];
+	const setIds = allSets
+		.map((s) => s._id)
+		.filter((id): id is ObjectId => id instanceof ObjectId);
+	const poseChartBySetId = new Map<string, ExerciseSetDoc['pose_chart_data']>();
+	if (setIds.length > 0) {
+		const bioCol = await getSetBiometricsCollection();
+		const bioRows = await bioCol
+			.find(
+				{ set_id: { $in: setIds }, version: SET_BIOMETRICS_VERSION },
+				{ ...opts }
+			)
+			.toArray();
+		for (const row of bioRows) {
+			const sid = row.set_id instanceof ObjectId ? row.set_id : new ObjectId(String(row.set_id));
+			poseChartBySetId.set(
+				sid.toString(),
+				row.pose_chart_data as ExerciseSetDoc['pose_chart_data']
+			);
+		}
+	}
 	const setsByEx = new Map<string, Record<string, unknown>[]>();
 	for (const s of allSets) {
 		const k = String(s.exercise_id);
@@ -338,7 +381,7 @@ export async function hydrateSessionFromStored(
 		setsByEx.set(k, arr);
 	}
 	const exercises: SessionExerciseDoc[] = exerciseRows.map((row) =>
-		rowToSessionExerciseDoc(row, setsByEx.get(String(row._id)) ?? [])
+		rowToSessionExerciseDoc(row, setsByEx.get(String(row._id)) ?? [], poseChartBySetId)
 	);
 	return { ...raw, exercises } as SessionWithId;
 }
@@ -745,7 +788,6 @@ export async function updateSetInExercise(
 	if (data.actual_duration !== undefined) $set.actual_duration = data.actual_duration;
 	if (data.weight_kg !== undefined) $set.weight_kg = data.weight_kg;
 	if (data.rpe !== undefined) $set.rpe = data.rpe;
-	if (data.pose_chart_data !== undefined) $set.pose_chart_data = data.pose_chart_data;
 	if (data.notes !== undefined) $set.notes = data.notes;
 	if (data.status !== undefined) $set.app_status = data.status;
 	if (data.video_url !== undefined) {
@@ -756,8 +798,22 @@ export async function updateSetInExercise(
 		$set.video_metadata = data.video_metadata;
 	}
 
+	const setOid = new ObjectId(setId);
+	if (data.pose_chart_data !== undefined) {
+		const bioCol = await getSetBiometricsCollection();
+		await bioCol.replaceOne(
+			{ set_id: setOid, version: SET_BIOMETRICS_VERSION },
+			{
+				set_id: setOid,
+				version: SET_BIOMETRICS_VERSION,
+				pose_chart_data: data.pose_chart_data
+			},
+			{ upsert: true }
+		);
+	}
+
 	const r = await setsCol.updateOne(
-		{ _id: new ObjectId(setId), exercise_id: exerciseId },
+		{ _id: setOid, exercise_id: exerciseId },
 		{ $set: $set }
 	);
 	if (r.matchedCount === 0) return null;
@@ -780,8 +836,12 @@ export async function deleteSetFromExercise(
 	const now = new Date();
 
 	const setsCol = await getExerciseSetsCollection();
-	const r = await setsCol.deleteOne({ _id: new ObjectId(setId), exercise_id: exerciseId });
+	const setOid = new ObjectId(setId);
+	const r = await setsCol.deleteOne({ _id: setOid, exercise_id: exerciseId });
 	if (r.deletedCount === 0) return null;
+
+	const bioCol = await getSetBiometricsCollection();
+	await bioCol.deleteMany({ set_id: setOid });
 
 	await (await getSessionsCollection()).updateOne(
 		{ _id: new ObjectId(sessionId), deleted_at: null } as Filter<StoredSessionDoc>,

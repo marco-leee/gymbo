@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 
 from typing import Any
 
+from bson import ObjectId
 from pydantic import BaseModel, Field, model_validator
 
 from models.rep_set_count import RepSetCountResult
@@ -137,3 +138,13 @@ class SetBiometricFrameEntity(BaseModel):
     timestamp: float
     biometrics: FrameBiometricsResult
     biometrics_version: int = 1
+
+
+class SetBiometricsEntity(BaseModel):
+    """Aggregated pose chart series for one exercise set."""
+
+    model_config = {"extra": "ignore", "arbitrary_types_allowed": True}
+
+    set_id: ObjectId
+    version: int = 1
+    pose_chart_data: list[dict[str, Any]] = Field(default_factory=list)

@@ -33,6 +33,7 @@ from utils import (
     S3_SECRET,
     get_temp_file_path,
 )
+from utils.video_web import remux_mp4_for_browser_playback
 from utils.video import Video
 
 _ROOT = Path(__file__).resolve().parent
@@ -107,6 +108,7 @@ def _run_single_job(s3: S3StorageProvider, job: VideoProcessingJob) -> None:
 
     local_in = get_temp_file_path(suffix=".mp4")
     local_out = get_temp_file_path(suffix=".mp4")
+    local_out_web = get_temp_file_path(suffix=".mp4")
     try:
         log.info("[%s] Download object key=%s", jid, job.r2_key)
         s3.download_object(job.r2_key, Path(local_in))
@@ -128,8 +130,10 @@ def _run_single_job(s3: S3StorageProvider, job: VideoProcessingJob) -> None:
             src_vid.release()
 
         out_key = processed_video_object_key(job)
+        log.info("[%s] Remux processed video for web playback", jid)
+        remux_mp4_for_browser_playback(Path(local_out), Path(local_out_web))
         log.info("[%s] Upload processed video key=%s", jid, out_key)
-        s3.upload_object(Path(local_out), out_key)
+        s3.upload_object(Path(local_out_web), out_key)
 
         persist_video_job_success(
             db,
@@ -140,7 +144,7 @@ def _run_single_job(s3: S3StorageProvider, job: VideoProcessingJob) -> None:
         )
         log.info("[%s] Persisted Mongo + completed", jid)
     finally:
-        for p in (local_in, local_out):
+        for p in (local_in, local_out, local_out_web):
             try:
                 Path(p).unlink(missing_ok=True)
             except OSError:

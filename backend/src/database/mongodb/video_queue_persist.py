@@ -9,6 +9,8 @@ from bson import ObjectId
 from pydantic import BaseModel, Field
 from pymongo.database import Database
 
+from database.mongodb import collections as col
+from database.mongodb.repositories.mongo import set_biometrics_repo
 from models.exercise import ExerciseType
 from models.overall_results import OverallResults
 from utils.video import CameraView
@@ -102,6 +104,18 @@ def processed_video_object_key(job: VideoProcessingJob) -> str:
     )
 
 
+def persist_set_biometrics(
+    db: Database,
+    *,
+    set_id: ObjectId,
+    pose_chart_data: list[dict[str, Any]],
+    version: int = 1,
+) -> None:
+    set_biometrics_repo(db).upsert_pose_chart(
+        set_id, pose_chart_data, version=version
+    )
+
+
 def persist_video_job_success(
     db: Database,
     *,
@@ -112,13 +126,17 @@ def persist_video_job_success(
 ) -> None:
     now = datetime.now(UTC)
     sid = ObjectId(job.session_id)
+    set_oid = ObjectId(job.set_id)
     sessions_coll = db[SESSIONS]
 
-    r = db[EXERCISE_SETS].update_one(
-        {"_id": ObjectId(job.set_id), "exercise_id": job.exercise_id},
+    persist_set_biometrics(
+        db, set_id=set_oid, pose_chart_data=pose_chart_data, version=1
+    )
+
+    r = db[col.EXERCISE_SETS].update_one(
+        {"_id": set_oid, "exercise_id": job.exercise_id},
         {
             "$set": {
-                "pose_chart_data": pose_chart_data,
                 "video_metadata": video_metadata,
                 "processed_video_uri": processed_video_uri,
                 "app_status": "completed",
