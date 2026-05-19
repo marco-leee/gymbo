@@ -1,6 +1,5 @@
 from typing_extensions import TypedDict
 from pydantic import BaseModel, Field, RootModel
-from ulid import ULID
 from datetime import datetime, UTC
 from typing import Dict, List
 
@@ -45,8 +44,8 @@ Errors = RootModel[Dict[str, str]]
 
 
 class Media(BaseModel):
-    id: ULID
-    exercise_id: ULID
+    id: str
+    exercise_id: str
     step: str
     camera_view: str
     original_video_location: str

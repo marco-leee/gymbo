@@ -1,0 +1,140 @@
+/* Bold gym-floor shell — scoped via .app-v2-root (see app-v2/+layout.svelte) */
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap');
+
+.app-v2-root {
+	--app-v2-display: 'Bebas Neue', Impact, system-ui, sans-serif;
+	--app-v2-body: 'DM Sans', ui-sans-serif, system-ui, sans-serif;
+	--app-v2-accent: #c8ff00;
+	--app-v2-accent-foreground: #0a0a0b;
+	--app-v2-surface: #0f0f12;
+	--app-v2-surface-2: #18181c;
+	--app-v2-border: rgba(255, 255, 255, 0.12);
+	--app-v2-muted: #a1a1aa;
+	--app-v2-text: #fafafa;
+
+	--sidebar: var(--app-v2-surface-2);
+	--sidebar-foreground: var(--app-v2-text);
+	--sidebar-primary: var(--app-v2-accent);
+	--sidebar-primary-foreground: var(--app-v2-accent-foreground);
+	--sidebar-accent: color-mix(in oklab, var(--app-v2-text) 10%, transparent);
+	--sidebar-accent-foreground: var(--app-v2-text);
+	--sidebar-border: var(--app-v2-border);
+	--sidebar-ring: var(--app-v2-accent);
+
+	font-family: var(--app-v2-body);
+	background: var(--app-v2-surface);
+	color: var(--app-v2-text);
+	min-height: 100dvh;
+}
+
+.app-v2-root h1,
+.app-v2-root .app-v2-display {
+	font-family: var(--app-v2-display);
+	letter-spacing: 0.02em;
+}
+
+.app-v2-root .app-v2-segment {
+	display: inline-flex;
+	gap: 0.25rem;
+	padding: 0.25rem;
+	border-radius: 0.75rem;
+	background: var(--app-v2-surface-2);
+	border: 1px solid var(--app-v2-border);
+}
+
+.app-v2-root .app-v2-segment a {
+	border-radius: 0.5rem;
+	padding: 0.5rem 1rem;
+	font-size: 0.875rem;
+	font-weight: 600;
+	color: var(--app-v2-muted);
+	text-decoration: none;
+	transition: background 0.15s ease, color 0.15s ease;
+}
+
+.app-v2-root .app-v2-segment a:hover {
+	color: var(--app-v2-text);
+}
+
+.app-v2-root .app-v2-segment a[aria-current='page'] {
+	background: var(--app-v2-accent);
+	color: var(--app-v2-accent-foreground);
+}
+
+.app-v2-root .app-v2-card {
+	background: var(--app-v2-surface-2);
+	border: 1px solid var(--app-v2-border);
+	border-radius: 1rem;
+}
+
+.app-v2-root .app-v2-cta {
+	background: var(--app-v2-accent) !important;
+	color: var(--app-v2-accent-foreground) !important;
+	font-weight: 700;
+	border: none;
+}
+
+.app-v2-root .app-v2-cta:hover {
+	filter: brightness(1.05);
+}
+
+.app-v2-root .app-v2-outline {
+	border-color: var(--app-v2-border) !important;
+	color: var(--app-v2-text) !important;
+	background: transparent !important;
+}
+
+.app-v2-root .app-v2-ghost {
+	color: var(--app-v2-muted) !important;
+}
+
+.app-v2-root .app-v2-hero-num {
+	font-family: var(--app-v2-display);
+	font-size: clamp(2rem, 5vw, 3rem);
+	line-height: 1;
+	color: var(--app-v2-accent);
+}
+
+/* Execution overlay: near-black, neon accent */
+.app-v2-run {
+	--app-v2-accent: #c8ff00;
+	background: #050506;
+	color: #f4f4f5;
+}
+
+.app-v2-root [data-slot='sidebar-inset'] {
+	background: var(--app-v2-surface);
+	color: var(--app-v2-text);
+}
+
+.app-v2-root [data-sidebar='menu-button'] {
+	min-height: 2.75rem;
+}
+
+@media (min-width: 768px) {
+	.app-v2-root [data-sidebar='menu-button'] {
+		min-height: 2rem;
+	}
+}
+
+.app-v2-root [data-slot='sidebar-trigger'] {
+	width: 2.75rem;
+	height: 2.75rem;
+	min-width: 2.75rem;
+	min-height: 2.75rem;
+}
+
+@media (min-width: 768px) {
+	.app-v2-root [data-slot='sidebar-trigger'] {
+		width: 2.25rem;
+		height: 2.25rem;
+		min-width: 2.25rem;
+		min-height: 2.25rem;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.app-v2-root .app-v2-segment a {
+		transition: none;
+	}
+}

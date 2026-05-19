@@ -24,3 +24,7 @@ clean:
 # cqlsh -u cassandra -p cassandra
 # create user if not exists 'admin' with password 'local' nosuperuser;
 # grant all permissions on keyspaces exercise_analyser to admin;
+
+# mongosh --host localhost:27017 --username gymbo --password gymbo --authenticationDatabase admin
+# use gymbo
+# db.createUser({user: "gymbo", pwd: "gymbo", roles: [{role: "readWrite", db: "gymbo"}]})

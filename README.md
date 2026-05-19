@@ -46,3 +46,10 @@ Three priorities:
 
 
 QAfSpcl0Fgn-P9uu9GWiikdRM4ykOaoHhtMWs6BBp cloudflare gymbo api key auth
+
+TODO: 
+
+- [x] Refactor how the biometrics are saved to the database
+- [x] Adjust the API and app for the new biometrics schema
+- [ ] Add auth to the app
+- [ ] Create a landing page for the app

@@ -1,11 +1,63 @@
-from abc import abstractmethod, ABC
-from typing import Dict, NamedTuple, Generator, Tuple
+from abc import ABC, abstractmethod
+import base64
+import dataclasses
+from typing import Dict, Generator, NamedTuple, Tuple
+
+import cv2 as cv
 import numpy as np
 from mediapipe.tasks.python.vision.pose_landmarker import PoseLandmarkerResult
-import cv2 as cv
-from utils.video import Video
+
 from models.exercise import ExerciseType
-from exercises.base import KeyInterestPointEnum
+from utils.video import Video
+
+
+def _landmark_like_to_dict(lm) -> dict[str, float | None]:
+    d = dataclasses.asdict(lm)
+    return {k: (float(v) if v is not None else None) for k, v in d.items()}
+
+
+def _pose_groups_to_json(groups: list | None):
+    if not groups:
+        return None
+    return [[_landmark_like_to_dict(lm) for lm in g] for g in groups]
+
+
+def _bgr_to_png_base64(img: np.ndarray) -> str | None:
+    ok, buf = cv.imencode(".png", img)
+    if not ok:
+        return None
+    return base64.standard_b64encode(buf.tobytes()).decode("ascii")
+
+
+def _segmentation_masks_to_json(masks: list | None) -> list[dict] | None:
+    if not masks:
+        return None
+    out: list[dict] = []
+    for m in masks:
+        arr = np.asarray(m.numpy_view())
+        if arr.ndim == 3:
+            if arr.shape[2] == 1:
+                arr = arr[:, :, 0]
+            else:
+                arr = cv.cvtColor(arr, cv.COLOR_RGB2BGR)
+        if arr.dtype != np.uint8:
+            if np.issubdtype(arr.dtype, np.floating):
+                arr = (np.clip(arr, 0.0, 1.0) * 255).astype(np.uint8)
+            else:
+                arr = arr.astype(np.uint8)
+        ok, buf = cv.imencode(".png", arr)
+        png_b64 = (
+            base64.standard_b64encode(buf.tobytes()).decode("ascii") if ok else None
+        )
+        out.append(
+            {
+                "width": int(m.width),
+                "height": int(m.height),
+                "channels": int(m.channels),
+                "png_base64": png_b64,
+            }
+        )
+    return out
 
 
 class KeyInterestPoint2D(NamedTuple):
@@ -21,7 +73,17 @@ class EstimatorOutput(NamedTuple):
     annotated_image: np.ndarray
     raw_landmarks: PoseLandmarkerResult
     key_interest_points_2d: Dict[str, KeyInterestPoint2D]
-    angle_of_interest_enum: KeyInterestPointEnum
+    # angle_of_interest_enum: Optional[KeyInterestPointEnum] # TODO: Temporary fix for now, added
+
+    def to_dict(self) -> dict:
+        rl: PoseLandmarkerResult = self.raw_landmarks
+        return {
+            "frame_count": self.frame_count,
+            "annotated_image_png_base64": _bgr_to_png_base64(self.annotated_image),
+            "segmentation_mask": _segmentation_masks_to_json(rl.segmentation_masks),
+            "pose_landmarks": _pose_groups_to_json(rl.pose_landmarks),
+            "pose_world_landmarks": _pose_groups_to_json(rl.pose_world_landmarks),
+        }
 
 
 class Estimator(ABC):
@@ -99,10 +161,12 @@ class Estimator(ABC):
         height, width, _ = annotated_image.shape
 
         # Convert landmarks to coordinates / pixel values (x, y) where x and y are equal to math.floor
-        landmark_to_coordinates = lambda landmark: (
-            int(landmark.x * width),
-            int(landmark.y * height),
-        )
+        def landmark_to_coordinates(landmark):
+            return (
+                int(landmark.x * width),
+                int(landmark.y * height),
+            )
+
         # Filter out landmarks with low confidence and return a dictionary of idx to coordinates / pixel
         # idx 0 to 10 are related to the face, not needed here
         idx_to_coordinates = {

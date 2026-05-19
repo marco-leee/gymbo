@@ -5,6 +5,10 @@ from .base import KeyInterestPoint, KeyInterestPoint2D, KeyInterestPointEnum
 
 
 class Squat(KeyInterestPoint):
+    """Rep/set counting uses INSIDE_KNEE (stance-side hip–knee–ankle flexion)."""
+
+    PRIMARY_REP_ANGLE_KEY = "INSIDE_KNEE"
+
     def get_key_interest_point_enum(self) -> KeyInterestPointEnum:
         return KeyInterestPointEnum(
             **{

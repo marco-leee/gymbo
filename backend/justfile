@@ -1,0 +1,4 @@
+image := "ghcr.io/marco-leee/gymbo/pose:yolov26-4"
+build-pose:
+    docker build --platform linux/amd64 -t {{image}} .
+    docker push {{image}}
