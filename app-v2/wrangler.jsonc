@@ -8,7 +8,10 @@
 		"binding": "ASSETS",
 		"directory": ".svelte-kit/cloudflare"
 	},
+	// Set BETTER_AUTH_SECRET via: wrangler secret put BETTER_AUTH_SECRET
+	// Optional: GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET (wrangler secret or vars)
 	"vars": {
+		"BETTER_AUTH_URL": "https://gymbo.stixman.co",
 		"MONGO_URI": "mongodb+srv://gymbo:beUZNDXJs55lvgyU@personal.uvquk2e.mongodb.net/gymbo?appName=personal",
 		"STORAGE_ENDPOINT": "https://268adecdecc87f021913d88c8d0a9073.r2.cloudflarestorage.com",
 		"STORAGE_REGION": "auto",

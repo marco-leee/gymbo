@@ -1,5 +1,8 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
+	import { authClient } from '$lib/auth-client';
+	import type { AuthSession } from '$lib/auth';
 	import NavMain from './nav-main.svelte';
 	import NavUser from './nav-user.svelte';
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
@@ -35,7 +38,24 @@
 		})
 	);
 
-	let { ref = $bindable(null), ...restProps }: ComponentProps<typeof Sidebar.Root> = $props();
+	let {
+		user,
+		ref = $bindable(null),
+		...restProps
+	}: ComponentProps<typeof Sidebar.Root> & {
+		user: AuthSession['user'];
+	} = $props();
+
+	const navUser = $derived({
+		name: user.name || user.email,
+		email: user.email,
+		avatar: user.image ?? ''
+	});
+
+	async function handleLogout() {
+		await authClient.signOut();
+		await goto('/login');
+	}
 </script>
 
 <Sidebar.Root bind:ref variant="inset" {...restProps}>
@@ -66,6 +86,6 @@
 		</nav>
 	</Sidebar.Content>
 	<Sidebar.Footer>
-		<NavUser user={{ name: 'Guest', email: '', avatar: '' }} onLogout={() => {}} />
+		<NavUser user={navUser} onLogout={handleLogout} />
 	</Sidebar.Footer>
 </Sidebar.Root>

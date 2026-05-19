@@ -5,12 +5,12 @@
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
 	import DumbbellIcon from '@lucide/svelte/icons/dumbbell';
 
-	let { children } = $props();
+	let { children, data } = $props();
 </script>
 
 <div class="app-v2-root min-h-dvh">
 	<Sidebar.Provider>
-		<AppV2Sidebar />
+		<AppV2Sidebar user={data.user} />
 		<Sidebar.Inset class="min-h-dvh">
 			<header
 				class="sticky top-0 z-50 flex h-14 shrink-0 items-center gap-2 border-b px-3 md:h-16 md:px-4"
