@@ -10,17 +10,17 @@
 
 	let secondsLeft = $state(redirectDelaySeconds);
 
-	// onMount(() => {
-	// 	const interval = setInterval(() => {
-	// 		secondsLeft -= 1;
-	// 		if (secondsLeft <= 0) {
-	// 			clearInterval(interval);
-	// 			goto(redirectPath);
-	// 		}
-	// 	}, 1000);
+	onMount(() => {
+		const interval = setInterval(() => {
+			secondsLeft -= 1;
+			if (secondsLeft <= 0) {
+				clearInterval(interval);
+				goto(redirectPath);
+			}
+		}, 1000);
 
-	// 	return () => clearInterval(interval);
-	// });
+		return () => clearInterval(interval);
+	});
 </script>
 
 <svelte:head>
