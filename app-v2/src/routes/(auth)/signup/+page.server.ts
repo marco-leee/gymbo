@@ -8,6 +8,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 	}
 
 	return {
+		googleEnabled: Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET),
 		githubEnabled: Boolean(env.GITHUB_CLIENT_ID && env.GITHUB_CLIENT_SECRET)
 	};
 };

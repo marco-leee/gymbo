@@ -20,6 +20,8 @@
 	let error = $state('');
 	let loading = $state(false);
 
+	const callbackURL = 'http://localhost:5173/app-v2/sessions';
+
 	async function signUpEmail(e: SubmitEvent) {
 		e.preventDefault();
 		error = '';
@@ -28,7 +30,7 @@
 			name,
 			email,
 			password,
-			callbackURL: '/app-v2/sessions'
+			callbackURL
 		});
 		loading = false;
 		if (result.error) {
@@ -38,11 +40,11 @@
 		await goto('/app-v2/sessions');
 	}
 
-	async function signInGithub() {
+	async function signInGoogle() {
 		error = '';
 		await authClient.signIn.social({
-			provider: 'github',
-			callbackURL: '/app-v2/sessions'
+			provider: 'google',
+			callbackURL
 		});
 	}
 </script>
@@ -54,7 +56,7 @@
 <Card>
 	<CardHeader>
 		<CardTitle>Create account</CardTitle>
-		<CardDescription>Start tracking sessions with GYMBO.</CardDescription>
+		<CardDescription>Use your email or Google to get started.</CardDescription>
 	</CardHeader>
 	<CardContent class="space-y-4">
 		{#if error}
@@ -101,7 +103,7 @@
 			</Button>
 		</form>
 
-		{#if data.githubEnabled}
+		{#if data.googleEnabled || data.githubEnabled}
 			<div class="relative">
 				<div class="absolute inset-0 flex items-center">
 					<span class="w-full border-t"></span>
@@ -110,9 +112,17 @@
 					<span class="bg-card text-muted-foreground px-2">Or</span>
 				</div>
 			</div>
-			<Button type="button" variant="outline" class="w-full" disabled={loading} onclick={signInGithub}>
-				Continue with GitHub
-			</Button>
+			<div class="flex flex-col gap-2">
+				<Button
+					type="button"
+					variant="outline"
+					class="w-full"
+					disabled={loading}
+					onclick={signInGoogle}
+				>
+					Continue with Google
+				</Button>
+			</div>
 		{/if}
 
 		<p class="text-muted-foreground text-center text-sm">
