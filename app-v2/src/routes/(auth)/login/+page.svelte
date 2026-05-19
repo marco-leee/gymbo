@@ -23,7 +23,7 @@
 	const redirectTo = $derived($page.url.searchParams.get('redirectTo') || '/app-v2/sessions');
 	/** Absolute URL required for OAuth callbacks; must not use server-only env on the client. */
 	// const callbackURL = $derived(new URL(redirectTo, $page.url.origin).href);
-	const callbackURL = "http://localhost:5173/api/auth/callback/google"
+	const callbackURL = `http://localhost:5173/${redirectTo}`
 
 	async function signInEmail(e: SubmitEvent) {
 		e.preventDefault();
@@ -46,6 +46,7 @@
 		error = '';
 		await authClient.signIn.social({
 			provider: 'google',
+			callbackURL: `http://localhost:5173${redirectTo}`
 		});
 	}
 </script>
