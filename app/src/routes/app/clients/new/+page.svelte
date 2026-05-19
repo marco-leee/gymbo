@@ -2,7 +2,6 @@
 	import { goto } from '$app/navigation';
 	import { createMutation } from '@tanstack/svelte-query';
 	import { Button } from '$lib/components/ui/button/index.js';
-	import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '$lib/components/ui/card/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
 	import { Label } from '$lib/components/ui/label/index.js';
 	import { Textarea } from '$lib/components/ui/textarea/index.js';
@@ -10,9 +9,18 @@
 	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
 	import { createClient } from '$lib/api/clients';
 	import { queryClient } from '$lib/query-client';
-	import type { CreateClientInput } from '$lib/services/models/client';
 
-	let formData = $state<CreateClientInput>({
+	type NewClientForm = {
+		email: string;
+		full_name: string;
+		first_name: string;
+		last_name: string;
+		gender: string;
+		height_cm: number;
+		weight_kg: number;
+	};
+
+	let formData = $state<NewClientForm>({
 		email: '',
 		full_name: '',
 		first_name: '',
@@ -22,7 +30,7 @@
 		weight_kg: 0
 	});
 
-	let errors = $state<Partial<Record<keyof CreateClientInput, string>>>({});
+	let errors = $state<Partial<Record<keyof NewClientForm, string>>>({});
 
 	const clientMutation = createMutation(() => ({
 		mutationFn: createClient,
@@ -61,107 +69,109 @@
 	}
 </script>
 
-<div class="flex flex-1 flex-col gap-4 p-4 pt-0">
-	<div class="flex items-center gap-2">
-		<Button href="/app/clients" variant="ghost" size="icon">
-			<ChevronLeftIcon class="h-4 w-4" />
+<div class="flex flex-col gap-6">
+	<div class="flex flex-wrap items-center gap-2">
+		<Button href="/app/clients" variant="ghost" size="icon" class="app-ghost min-h-11 min-w-11">
+			<ChevronLeftIcon class="h-5 w-5" aria-hidden="true" />
+			<span class="sr-only">Back to clients</span>
 		</Button>
-		<h1 class="text-2xl font-semibold">New Client</h1>
+		<h1 class="app-display text-3xl md:text-4xl" style="color: var(--app-text);">New client</h1>
 	</div>
 
-	<Card class="mx-auto max-w-2xl">
-		<CardHeader>
-			<CardTitle>Client Information</CardTitle>
-			<CardDescription>Enter the details for your new client</CardDescription>
-		</CardHeader>
-		<CardContent>
-			<form onsubmit={handleSubmit} class="space-y-4">
-				<div class="grid gap-4 md:grid-cols-2">
-					<div class="space-y-2">
-						<Label for="name">Full Name *</Label>
-						<Input
-							id="name"
-							placeholder="John Doe"
-							bind:value={formData.full_name}
-							aria-invalid={errors.full_name ? 'true' : undefined}
-						/>
-						{#if errors.full_name}
-							<p class="text-destructive text-sm">{errors.full_name}</p>
-						{/if}
-					</div>
-					<div class="space-y-2">
-						<Label for="email">Email *</Label>
-						<Input
-							id="email"
-							type="email"
-							placeholder="john@example.com"
-							bind:value={formData.email}
-							aria-invalid={errors.email ? 'true' : undefined}
-						/>
-						{#if errors.email}
-							<p class="text-destructive text-sm">{errors.email}</p>
-						{/if}
-					</div>
-				</div>
+	<div class="app-card mx-auto w-full max-w-3xl p-6 md:p-8">
+		<h2 class="text-lg font-semibold">Client information</h2>
+		<p class="mt-1 text-sm" style="color: var(--app-muted);">Enter details for your new client.</p>
 
-				<div class="grid gap-4 md:grid-cols-3">
-					<div class="space-y-2">
-						<Label for="gender">Gender</Label>
-						<Select.Root
-							type="single"
-							value={formData.gender}
-							onValueChange={(v) => formData.gender = v}
-						>
-							<Select.Trigger class="w-full">
-								{formData.gender ? formData.gender : 'Select'}
-							</Select.Trigger>
-							<Select.Content>
-								<Select.Item value="male">Male</Select.Item>
-								<Select.Item value="female">Female</Select.Item>
-								<Select.Item value="other">Other</Select.Item>
-							</Select.Content>
-						</Select.Root>
-					</div>
-					<div class="space-y-2">
-						<Label for="height">Height (cm)</Label>
-						<Input
-							id="height"
-							type="number"
-							placeholder="175"
-							min="0"
-							bind:value={formData.height_cm}
-						/>
-					</div>
-					<div class="space-y-2">
-						<Label for="weight">Weight (kg)</Label>
-						<Input
-							id="weight"
-							type="number"
-							placeholder="70"
-							min="0"
-							bind:value={formData.weight_kg}
-						/>
-					</div>
-				</div>
-
+		<form onsubmit={handleSubmit} class="mt-6 space-y-4">
+			<div class="grid gap-4 md:grid-cols-2">
 				<div class="space-y-2">
-					<Label for="notes">Injuries / Notes</Label>
-					<Textarea id="notes" placeholder="Any injuries or special considerations..." />
+					<Label for="name">Full name *</Label>
+					<Input
+						id="name"
+						class="min-h-11 border-zinc-600 bg-zinc-900/50"
+						placeholder="John Doe"
+						bind:value={formData.full_name}
+						aria-invalid={errors.full_name ? 'true' : undefined}
+					/>
+					{#if errors.full_name}
+						<p class="text-sm text-red-400">{errors.full_name}</p>
+					{/if}
 				</div>
-
-				{#if clientMutation.isError}
-					<p class="text-destructive text-sm">
-						Failed to create client: {clientMutation.error.message}
-					</p>
-				{/if}
-
-				<div class="flex gap-2 pt-4">
-					<Button type="submit" disabled={clientMutation.isPending}>
-						{clientMutation.isPending ? 'Creating...' : 'Create Client'}
-					</Button>
-					<Button href="/app/clients" variant="outline" type="button">Cancel</Button>
+				<div class="space-y-2">
+					<Label for="email">Email *</Label>
+					<Input
+						id="email"
+						type="email"
+						class="min-h-11 border-zinc-600 bg-zinc-900/50"
+						placeholder="john@example.com"
+						bind:value={formData.email}
+						aria-invalid={errors.email ? 'true' : undefined}
+					/>
+					{#if errors.email}
+						<p class="text-sm text-red-400">{errors.email}</p>
+					{/if}
 				</div>
-			</form>
-		</CardContent>
-	</Card>
+			</div>
+
+			<div class="grid gap-4 md:grid-cols-3">
+				<div class="space-y-2">
+					<Label for="gender">Gender</Label>
+					<Select.Root type="single" value={formData.gender} onValueChange={(v) => (formData.gender = v)}>
+						<Select.Trigger class="min-h-11 w-full border-zinc-600 bg-zinc-900/50">
+							{formData.gender ? formData.gender : 'Select'}
+						</Select.Trigger>
+						<Select.Content>
+							<Select.Item value="male">Male</Select.Item>
+							<Select.Item value="female">Female</Select.Item>
+							<Select.Item value="other">Other</Select.Item>
+						</Select.Content>
+					</Select.Root>
+				</div>
+				<div class="space-y-2">
+					<Label for="height">Height (cm)</Label>
+					<Input
+						id="height"
+						type="number"
+						class="min-h-11 border-zinc-600 bg-zinc-900/50"
+						placeholder="175"
+						min="0"
+						bind:value={formData.height_cm}
+					/>
+				</div>
+				<div class="space-y-2">
+					<Label for="weight">Weight (kg)</Label>
+					<Input
+						id="weight"
+						type="number"
+						class="min-h-11 border-zinc-600 bg-zinc-900/50"
+						placeholder="70"
+						min="0"
+						bind:value={formData.weight_kg}
+					/>
+				</div>
+			</div>
+
+			<div class="space-y-2">
+				<Label for="notes">Injuries / notes</Label>
+				<Textarea
+					id="notes"
+					class="min-h-[100px] border-zinc-600 bg-zinc-900/50"
+					placeholder="Any injuries or special considerations…"
+				/>
+			</div>
+
+			{#if clientMutation.isError}
+				<p class="text-sm text-red-400">Failed to create client: {clientMutation.error.message}</p>
+			{/if}
+
+			<div class="flex flex-wrap gap-3 pt-4">
+				<Button type="submit" class="app-cta min-h-11" disabled={clientMutation.isPending}>
+					{clientMutation.isPending ? 'Creating…' : 'Create client'}
+				</Button>
+				<Button href="/app/clients" variant="outline" type="button" class="app-outline min-h-11">
+					Cancel
+				</Button>
+			</div>
+		</form>
+	</div>
 </div>

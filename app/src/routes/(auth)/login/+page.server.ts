@@ -4,7 +4,7 @@ import { env } from '$lib/env';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
 	if (locals.user) {
-		const redirectTo = url.searchParams.get('redirectTo') || '/app-v2/sessions';
+		const redirectTo = url.searchParams.get('redirectTo') || '/app/sessions';
 		redirect(303, redirectTo);
 	}
 

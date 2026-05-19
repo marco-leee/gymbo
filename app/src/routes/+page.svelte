@@ -13,7 +13,7 @@
 
 	let { data } = $props();
 
-	const primaryHref = $derived(data.isSignedIn ? '/app-v2/sessions' : '/signup');
+	const primaryHref = $derived(data.isSignedIn ? '/app/sessions' : '/signup');
 	const primaryLabel = $derived(data.isSignedIn ? 'Open app' : 'Get started');
 
 	const features = [

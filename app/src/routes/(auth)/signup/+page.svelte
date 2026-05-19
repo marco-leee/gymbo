@@ -20,7 +20,7 @@
 	let error = $state('');
 	let loading = $state(false);
 
-	const callbackURL = 'http://localhost:5173/app-v2/sessions';
+	const callbackURL = 'http://localhost:5173/app/sessions';
 
 	async function signUpEmail(e: SubmitEvent) {
 		e.preventDefault();
@@ -37,7 +37,7 @@
 			error = result.error.message ?? 'Sign up failed';
 			return;
 		}
-		await goto('/app-v2/sessions');
+		await goto('/app/sessions');
 	}
 
 	async function signInGoogle() {

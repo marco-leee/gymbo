@@ -33,28 +33,28 @@
 {#if view === 'session'}
 	<div class="flex flex-col gap-10">
 		<!-- At a glance -->
-		<section aria-labelledby="session-glance-heading" class="app-v2-card overflow-hidden">
+		<section aria-labelledby="session-glance-heading" class="app-card overflow-hidden">
 			<div class="grid gap-6 p-6 md:grid-cols-[1fr_auto] md:items-center">
 				<div>
-					<h2 id="session-glance-heading" class="app-v2-display text-2xl text-[var(--app-v2-accent)]">
+					<h2 id="session-glance-heading" class="app-display text-2xl text-[var(--app-accent)]">
 						At a glance
 					</h2>
-					<p class="mt-2 max-w-prose text-sm" style="color: var(--app-v2-muted);">
+					<p class="mt-2 max-w-prose text-sm" style="color: var(--app-muted);">
 						Start execution for a minimal full-screen recorder, or open the table recorder.
 					</p>
 					<div class="mt-6 flex flex-wrap gap-2">
 						{#if data.session.status === 'completed'}
-							<Button href="/app-v2/sessions/{sessionId}?view=analysis" class="app-v2-cta min-h-12 rounded-lg px-6">
+							<Button href="/app/sessions/{sessionId}?view=analysis" class="app-cta min-h-12 rounded-lg px-6">
 								<BarChart3Icon class="mr-2 h-5 w-5" aria-hidden="true" />
 								View analysis
 							</Button>
 						{:else if showRecordPrimary}
-							<Button href="/app-v2/sessions/{sessionId}/record" class="app-v2-cta min-h-12 rounded-lg px-6 text-base">
+							<Button href="/app/sessions/{sessionId}/record" class="app-cta min-h-12 rounded-lg px-6 text-base">
 								<VideoIcon class="mr-2 h-5 w-5" aria-hidden="true" />
 								{data.session.status === 'in-progress' ? 'Continue workout' : 'Start workout'}
 							</Button>
 						{:else}
-							<Button href="/app-v2/sessions/{sessionId}?view=analysis" variant="outline" class="app-v2-outline min-h-12 rounded-lg">
+							<Button href="/app/sessions/{sessionId}?view=analysis" variant="outline" class="app-outline min-h-12 rounded-lg">
 								Analysis
 							</Button>
 						{/if}
@@ -62,16 +62,16 @@
 				</div>
 				<div class="grid grid-cols-3 gap-3 text-center md:text-left">
 					<div>
-						<p class="app-v2-hero-num">{data.session.exercises?.length ?? 0}</p>
-						<p class="text-xs font-semibold uppercase tracking-wide" style="color: var(--app-v2-muted);">Exercises</p>
+						<p class="app-hero-num">{data.session.exercises?.length ?? 0}</p>
+						<p class="text-xs font-semibold uppercase tracking-wide" style="color: var(--app-muted);">Exercises</p>
 					</div>
 					<div>
-						<p class="app-v2-hero-num">{setsCompleted}<span class="text-lg text-zinc-500">/{setsPlanned}</span></p>
-						<p class="text-xs font-semibold uppercase tracking-wide" style="color: var(--app-v2-muted);">Sets</p>
+						<p class="app-hero-num">{setsCompleted}<span class="text-lg text-zinc-500">/{setsPlanned}</span></p>
+						<p class="text-xs font-semibold uppercase tracking-wide" style="color: var(--app-muted);">Sets</p>
 					</div>
 					<div>
 						{#if data.session.started_at && data.session.completed_at}
-							<p class="app-v2-hero-num">
+							<p class="app-hero-num">
 								{Math.round(
 									(new Date(data.session.completed_at).getTime() -
 										new Date(data.session.started_at).getTime()) /
@@ -79,18 +79,18 @@
 								)}
 							</p>
 						{:else}
-							<p class="app-v2-hero-num">—</p>
+							<p class="app-hero-num">—</p>
 						{/if}
-						<p class="text-xs font-semibold uppercase tracking-wide" style="color: var(--app-v2-muted);">Min</p>
+						<p class="text-xs font-semibold uppercase tracking-wide" style="color: var(--app-muted);">Min</p>
 					</div>
 				</div>
 			</div>
 		</section>
 
 		{#if data.session.notes}
-			<section class="app-v2-card p-6">
-				<h2 class="text-sm font-bold uppercase tracking-wider" style="color: var(--app-v2-muted);">Notes</h2>
-				<p class="mt-2 whitespace-pre-wrap text-sm leading-relaxed" style="color: var(--app-v2-text);">
+			<section class="app-card p-6">
+				<h2 class="text-sm font-bold uppercase tracking-wider" style="color: var(--app-muted);">Notes</h2>
+				<p class="mt-2 whitespace-pre-wrap text-sm leading-relaxed" style="color: var(--app-text);">
 					{data.session.notes}
 				</p>
 			</section>
@@ -102,8 +102,8 @@
 {:else if view === 'analysis'}
 	{#await import('./session-v2-analysis-panel.svelte')}
 		<div
-			class="app-v2-card py-16 text-center text-sm"
-			style="color: var(--app-v2-muted);"
+			class="app-card py-16 text-center text-sm"
+			style="color: var(--app-muted);"
 			role="status"
 		>
 			Loading analysis…

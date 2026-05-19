@@ -68,7 +68,7 @@
 		if (!sessionId) return;
 		try {
 			await deleteSession(sessionId);
-			await goto('/app-v2/sessions');
+			await goto('/app/sessions');
 		} catch (e) {
 			alert(e instanceof Error ? e.message : 'Failed to delete');
 		}
@@ -78,38 +78,38 @@
 <div class="flex flex-col gap-6">
 	<div class="flex flex-wrap items-start gap-4">
 		<Button
-			href="/app-v2/sessions"
+			href="/app/sessions"
 			variant="ghost"
 			size="icon"
-			class="app-v2-ghost shrink-0"
+			class="app-ghost shrink-0"
 			aria-label="Back to sessions"
 		>
 			<ChevronLeftIcon class="h-5 w-5" />
 		</Button>
 		<div class="min-w-0 flex-1">
-			<nav aria-label="Breadcrumb" class="mb-2 text-xs font-medium uppercase tracking-wider" style="color: var(--app-v2-muted);">
+			<nav aria-label="Breadcrumb" class="mb-2 text-xs font-medium uppercase tracking-wider" style="color: var(--app-muted);">
 				<ol class="flex flex-wrap items-center gap-2">
 					<li>
-						<a href="/app-v2/sessions" class="hover:text-[var(--app-v2-accent)]">Sessions</a>
+						<a href="/app/sessions" class="hover:text-[var(--app-accent)]">Sessions</a>
 					</li>
 					<li aria-hidden="true">/</li>
-					<li class="truncate text-[var(--app-v2-text)]">{clientLabel}</li>
+					<li class="truncate text-[var(--app-text)]">{clientLabel}</li>
 					<li aria-hidden="true">/</li>
 					<li class="tabular-nums">{formatDate(data.session.scheduled_at)}</li>
 				</ol>
 			</nav>
 			<div class="flex flex-wrap items-center gap-3">
-				<h1 class="app-v2-display text-3xl md:text-4xl" style="color: var(--app-v2-text);">Session</h1>
+				<h1 class="app-display text-3xl md:text-4xl" style="color: var(--app-text);">Session</h1>
 				<Badge variant={getStatusBadgeVariant(data.session.status)} class="capitalize">
 					{data.session.status.replace('-', ' ')}
 				</Badge>
 			</div>
-			<p class="mt-1 text-sm tabular-nums" style="color: var(--app-v2-muted);">
+			<p class="mt-1 text-sm tabular-nums" style="color: var(--app-muted);">
 				{formatDate(data.session.scheduled_at)} · {formatTime(data.session.scheduled_at)}
 			</p>
 		</div>
 		<div class="flex flex-wrap items-center gap-2">
-			<Button type="button" variant="outline" size="sm" class="app-v2-outline min-h-10" onclick={() => (editOpen = true)}>
+			<Button type="button" variant="outline" size="sm" class="app-outline min-h-10" onclick={() => (editOpen = true)}>
 				<PencilIcon class="mr-2 h-4 w-4" aria-hidden="true" />
 				Edit
 			</Button>
@@ -122,22 +122,22 @@
 		</div>
 	</div>
 
-	<nav aria-label="Session" class="app-v2-segment w-full max-w-md">
+	<nav aria-label="Session" class="app-segment w-full max-w-md">
 		<a
-			href="/app-v2/sessions/{sessionId}?view=session"
+			href="/app/sessions/{sessionId}?view=session"
 			aria-current={view === 'session' ? 'page' : undefined}
 		>
 			Session
 		</a>
 		<a
-			href="/app-v2/sessions/{sessionId}?view=analysis"
+			href="/app/sessions/{sessionId}?view=analysis"
 			aria-current={view === 'analysis' ? 'page' : undefined}
 		>
 			Analysis
 		</a>
 	</nav>
 
-	<main id="app-v2-session-main">
+	<main id="app-session-main">
 		{@render children()}
 	</main>
 </div>

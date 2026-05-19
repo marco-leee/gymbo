@@ -44,7 +44,7 @@
 	<Label
 		for="ex-notes-{exerciseId}"
 		class="text-xs font-semibold uppercase tracking-wider"
-		style="color: var(--app-v2-muted);"
+		style="color: var(--app-muted);"
 	>
 		Exercise notes
 	</Label>
@@ -55,19 +55,19 @@
 			rows={3}
 			placeholder="Coaching cues, equipment, substitutions…"
 			class="min-h-[5rem]"
-			style="color: var(--app-v2-text);"
+			style="color: var(--app-text);"
 		/>
 		<Button
 			type="button"
 			size="sm"
 			variant="outline"
-			class="min-h-9 app-v2-outline"
+			class="min-h-9 app-outline"
 			disabled={saving || !dirty}
 			onclick={saveNotes}
 		>
 			{saving ? 'Saving…' : 'Save notes'}
 		</Button>
 	{:else if notes?.trim()}
-		<p class="whitespace-pre-wrap text-sm leading-relaxed" style="color: var(--app-v2-muted);">{notes}</p>
+		<p class="whitespace-pre-wrap text-sm leading-relaxed" style="color: var(--app-muted);">{notes}</p>
 	{/if}
 </div>

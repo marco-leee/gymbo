@@ -15,11 +15,11 @@ export const load: LayoutLoad = async ({ params, url, fetch }): Promise<AppV2Ses
 	let view = raw;
 
 	if (!view || (!VIEWS.includes(view as (typeof VIEWS)[number]) && view !== 'overview' && view !== 'plan')) {
-		redirect(302, `/app-v2/sessions/${params.id}?view=session`);
+		redirect(302, `/app/sessions/${params.id}?view=session`);
 	}
 
 	if (view === 'overview' || view === 'plan') {
-		redirect(302, `/app-v2/sessions/${params.id}?view=session`);
+		redirect(302, `/app/sessions/${params.id}?view=session`);
 	}
 
 	const session = await getSession(params.id, fetch, {

@@ -103,15 +103,15 @@
 
 <section id="workout-plan" aria-labelledby="workout-plan-heading" class="flex flex-col gap-4">
 	<div class="flex items-center gap-2">
-		<h2 id="workout-plan-heading" class="app-v2-display text-2xl" style="color: var(--app-v2-text);">
+		<h2 id="workout-plan-heading" class="app-display text-2xl" style="color: var(--app-text);">
 			Workout plan
 		</h2>
 		<ChevronDownIcon class="h-5 w-5 text-zinc-500" aria-hidden="true" />
 	</div>
-	<p class="text-sm" style="color: var(--app-v2-muted);">Targets and logged sets for this session.</p>
+	<p class="text-sm" style="color: var(--app-muted);">Targets and logged sets for this session.</p>
 
 	{#if !canEditPlan}
-		<p class="text-xs" style="color: var(--app-v2-muted);">
+		<p class="text-xs" style="color: var(--app-muted);">
 			You can&apos;t edit the exercise plan once the session is completed, cancelled, or has uploaded
 			videos.
 		</p>
@@ -129,19 +129,19 @@
 						else if (openedId === exercise.id) openedId = null;
 					}}
 				>
-					<div class="app-v2-card overflow-hidden p-0">
+					<div class="app-card overflow-hidden p-0">
 						<div
 							class="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b px-4 py-3"
-							style="border-color: var(--app-v2-border);"
+							style="border-color: var(--app-border);"
 						>
 							<Collapsible.Trigger
 								class="flex min-h-11 min-w-0 flex-1 basis-0 items-center gap-2 text-left font-semibold hover:opacity-90"
-								style="color: var(--app-v2-text);"
+								style="color: var(--app-text);"
 								aria-expanded={openedId === exercise.id}
 							>
 								<ChevronDownIcon
 									class={`h-5 w-5 shrink-0 transition-transform ${openedId === exercise.id ? 'rotate-180' : ''}`}
-									style="color: var(--app-v2-muted);"
+									style="color: var(--app-muted);"
 									aria-hidden="true"
 								/>
 								<span class="min-w-0 truncate text-lg font-bold">{exercise.name}</span>
@@ -150,13 +150,13 @@
 								{#if metaLine}
 									<p
 										class="min-w-0 max-w-[min(28rem,calc(100vw-11rem))] truncate text-xs tabular-nums sm:max-w-sm md:max-w-md"
-										style="color: var(--app-v2-muted);"
+										style="color: var(--app-muted);"
 										title={metaLine}
 									>
 										{metaLine}
 									</p>
 								{/if}
-								<Badge variant="outline" class="shrink-0 border-[var(--app-v2-border)] bg-white/5">
+								<Badge variant="outline" class="shrink-0 border-[var(--app-border)] bg-white/5">
 									{exerciseTypeLabel(exercise.type)}
 								</Badge>
 								{#if canRemoveExercise}
@@ -176,28 +176,28 @@
 						</div>
 						<Collapsible.Content>
 							<div class="space-y-3 p-4">
-								<div class="overflow-x-auto rounded-lg border" style="border-color: var(--app-v2-border);">
+								<div class="overflow-x-auto rounded-lg border" style="border-color: var(--app-border);">
 									<Table.Root>
 										<Table.Header>
-											<Table.Row class="border-[var(--app-v2-border)] hover:bg-transparent">
-												<Table.Head class="text-[var(--app-v2-muted)]">Set</Table.Head>
-												<Table.Head class="text-[var(--app-v2-muted)]">Target</Table.Head>
-												<Table.Head class="text-[var(--app-v2-muted)]">Actual</Table.Head>
-												<Table.Head class="text-[var(--app-v2-muted)]">Weight</Table.Head>
-												<Table.Head class="text-[var(--app-v2-muted)]">Status</Table.Head>
+											<Table.Row class="border-[var(--app-border)] hover:bg-transparent">
+												<Table.Head class="text-[var(--app-muted)]">Set</Table.Head>
+												<Table.Head class="text-[var(--app-muted)]">Target</Table.Head>
+												<Table.Head class="text-[var(--app-muted)]">Actual</Table.Head>
+												<Table.Head class="text-[var(--app-muted)]">Weight</Table.Head>
+												<Table.Head class="text-[var(--app-muted)]">Status</Table.Head>
 											</Table.Row>
 										</Table.Header>
 										<Table.Body>
 											{#each (exercise.sets ?? []).sort((a, b) => a.set_number - b.set_number) as set (set.id)}
-												<Table.Row class="border-[var(--app-v2-border)]">
+												<Table.Row class="border-[var(--app-border)]">
 													<Table.Cell class="tabular-nums font-medium">{set.set_number}</Table.Cell>
 													<Table.Cell>
 														{#if exercise.measurement === 'reps'}
 															{exercise.target_reps ?? '—'} reps{#if exercise.target_weight_kg != null}
-																<span class="text-[var(--app-v2-muted)]"> · </span>{exercise.target_weight_kg} kg{/if}
+																<span class="text-[var(--app-muted)]"> · </span>{exercise.target_weight_kg} kg{/if}
 														{:else}
 															{exercise.target_duration ?? '—'}s{#if exercise.target_weight_kg != null}
-																<span class="text-[var(--app-v2-muted)]"> · </span>{exercise.target_weight_kg} kg{/if}
+																<span class="text-[var(--app-muted)]"> · </span>{exercise.target_weight_kg} kg{/if}
 														{/if}
 													</Table.Cell>
 													<Table.Cell class="tabular-nums">
@@ -217,7 +217,7 @@
 									</Table.Root>
 								</div>
 								{#if !exercise.sets?.length}
-									<p class="py-1 text-sm" style="color: var(--app-v2-muted);">No sets yet.</p>
+									<p class="py-1 text-sm" style="color: var(--app-muted);">No sets yet.</p>
 								{/if}
 								<SessionExerciseNotes
 									sessionId={session.id}
@@ -232,12 +232,12 @@
 			{/each}
 
 			{#if draftRow}
-				<div class="overflow-hidden rounded-xl border bg-white/[0.02] p-0" style="border-color: var(--app-v2-accent);">
+				<div class="overflow-hidden rounded-xl border bg-white/[0.02] p-0" style="border-color: var(--app-accent);">
 					<div
 						class="flex flex-wrap items-center justify-between gap-2 border-b px-4 py-3"
-						style="border-color: var(--app-v2-border);"
+						style="border-color: var(--app-border);"
 					>
-						<span class="min-h-11 flex flex-1 items-center text-left text-sm font-medium" style="color: var(--app-v2-text);">
+						<span class="min-h-11 flex flex-1 items-center text-left text-sm font-medium" style="color: var(--app-text);">
 							{draftRow.name.trim() || 'New exercise'}
 						</span>
 						{#if canEditPlan}
@@ -259,13 +259,13 @@
 								<div class="flex flex-wrap gap-2">
 									<Button
 										type="button"
-										class="app-v2-cta min-h-11"
+										class="app-cta min-h-11"
 										disabled={savingDraft}
 										onclick={saveDraft}
 									>
 										{savingDraft ? 'Saving…' : 'Save exercise'}
 									</Button>
-									<Button type="button" variant="outline" class="min-h-11 app-v2-outline" onclick={discardDraft}>
+									<Button type="button" variant="outline" class="min-h-11 app-outline" onclick={discardDraft}>
 										Cancel
 									</Button>
 								</div>
@@ -276,8 +276,8 @@
 		</div>
 	{:else}
 		<div
-			class="app-v2-card py-12 text-center text-sm"
-			style="color: var(--app-v2-muted);"
+			class="app-card py-12 text-center text-sm"
+			style="color: var(--app-muted);"
 			aria-live="polite"
 		>
 			No exercises in this session.
@@ -286,7 +286,7 @@
 
 	{#if canEditPlan && !draftRow}
 		<div>
-			<Button type="button" variant="outline" class="w-full min-h-11 app-v2-outline sm:w-auto" onclick={startDraft}>
+			<Button type="button" variant="outline" class="w-full min-h-11 app-outline sm:w-auto" onclick={startDraft}>
 				<PlusIcon class="mr-2 h-4 w-4" aria-hidden="true" />
 				Add exercise
 			</Button>

@@ -20,7 +20,7 @@
 	let error = $state('');
 	let loading = $state(false);
 
-	const redirectTo = $derived($page.url.searchParams.get('redirectTo') || '/app-v2/sessions');
+	const redirectTo = $derived($page.url.searchParams.get('redirectTo') || '/app/sessions');
 	/** Absolute URL required for OAuth callbacks; must not use server-only env on the client. */
 	// const callbackURL = $derived(new URL(redirectTo, $page.url.origin).href);
 	const callbackURL = `http://localhost:5173/${redirectTo}`

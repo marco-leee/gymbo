@@ -2,7 +2,6 @@
 	import { goto } from '$app/navigation';
 	import { createQuery } from '@tanstack/svelte-query';
 	import { Button } from '$lib/components/ui/button/index.js';
-	import * as Table from '$lib/components/ui/table/index.js';
 	import * as Select from '$lib/components/ui/select/index.js';
 	import { Badge } from '$lib/components/ui/badge/index.js';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
@@ -13,21 +12,17 @@
 	import EyeIcon from '@lucide/svelte/icons/eye';
 	import VideoIcon from '@lucide/svelte/icons/video';
 	import BarChart3Icon from '@lucide/svelte/icons/bar-chart-3';
-	import PencilIcon from '@lucide/svelte/icons/pencil';
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';
 	import { listSessions, deleteSession, type Session } from '$lib/api/sessions';
 	import { listClients } from '$lib/api/clients';
 
-	// Filter states
 	let selectedClientId = $state<string>('');
 	let selectedStatus = $state<string>('');
 	let datePreset = $state<string>('today');
 
-	// Get date range based on preset
 	function getDateRange(preset: string): { from?: string; to?: string } {
 		const today = new Date();
 		today.setHours(0, 0, 0, 0);
-
 		switch (preset) {
 			case 'today':
 				return {
@@ -50,23 +45,24 @@
 
 	const clientsQuery = createQuery(() => ({
 		queryKey: ['clients', 'all'],
-		queryFn: () => listClients(),
+		queryFn: () => listClients()
 	}));
 
 	const sessionsQuery = createQuery(() => {
 		const { from, to } = getDateRange(datePreset);
 		return {
-			queryKey: ['sessions', selectedClientId, selectedStatus, datePreset],
-			queryFn: () => listSessions({
-				client: selectedClientId || undefined,
-				status: selectedStatus || undefined,
-				from,
-				to,
-				limit: 20,
-				offset: 0,
-				includePoseChartData: false,
-				includeVideoPlayUrl: false
-			}),
+			queryKey: ['sessions', 'app', selectedClientId, selectedStatus, datePreset],
+			queryFn: () =>
+				listSessions({
+					client: selectedClientId || undefined,
+					status: selectedStatus || undefined,
+					from,
+					to,
+					limit: 20,
+					offset: 0,
+					includePoseChartData: false,
+					includeVideoPlayUrl: false
+				})
 		};
 	});
 
@@ -106,7 +102,21 @@
 	}
 
 	function hasVideos(session: Session): boolean {
-		return session.exercises?.some(ex => ex.sets?.some(s => s.video_url)) ?? false;
+		return session.exercises?.some((ex) => ex.sets?.some((s) => s.video_url)) ?? false;
+	}
+
+	function hubUrl(sessionId: string, view: 'session' | 'analysis') {
+		return `/app/sessions/${sessionId}?view=${view}`;
+	}
+
+	function primaryRowAction(session: Session): { label: string; href: string } {
+		if (session.status === 'completed') {
+			return { label: 'Review', href: hubUrl(session.id, 'analysis') };
+		}
+		if (session.status === 'in-progress') {
+			return { label: 'Continue', href: `/app/sessions/${session.id}/run` };
+		}
+		return { label: 'Open', href: hubUrl(session.id, 'session') };
 	}
 
 	async function handleDelete(sessionId: string, e: MouseEvent) {
@@ -121,29 +131,29 @@
 	}
 </script>
 
-<div class="flex flex-1 flex-col gap-4 p-4 pt-0">
-	<div class="flex items-center justify-between">
-		<h1 class="text-2xl font-semibold">Sessions</h1>
-		<Button href="/app/sessions/new">
-			<PlusIcon class="mr-2 h-4 w-4" />
-			New Session
+<div class="flex flex-col gap-8">
+	<div class="flex flex-wrap items-end justify-between gap-4">
+		<div>
+			<h1 class="app-display text-4xl md:text-5xl" style="color: var(--app-text);">Sessions</h1>
+			<p class="mt-1 max-w-xl text-sm" style="color: var(--app-muted);">
+				Bold layout — jump in with one tap. Live workouts use execution mode.
+			</p>
+		</div>
+		<Button href="/app/sessions/new" class="app-cta min-h-12 rounded-lg px-6 text-base">
+			<PlusIcon class="mr-2 h-5 w-5" aria-hidden="true" />
+			New session
 		</Button>
 	</div>
 
-	<!-- Filter Panel -->
-	<div class="flex flex-wrap items-center gap-3 rounded-lg border p-3">
-		<!-- Client Selector -->
+	<div class="app-card flex flex-wrap items-center gap-3 p-4">
 		<div class="flex items-center gap-2">
-			<SearchIcon class="h-4 w-4 text-muted-foreground" />
-			<Select.Root
-				type="single"
-				value={selectedClientId}
-				onValueChange={(val) => selectedClientId = val}
-			>
-				<Select.Trigger class="w-[200px]">
-					<span class={selectedClientId ? '' : 'text-muted-foreground'}>
+			<SearchIcon class="h-4 w-4 shrink-0" style="color: var(--app-muted);" aria-hidden="true" />
+			<Select.Root type="single" value={selectedClientId} onValueChange={(val) => (selectedClientId = val)}>
+				<Select.Trigger class="w-[200px] border-zinc-600 bg-zinc-900/50">
+					<span class={selectedClientId ? '' : 'text-zinc-500'}>
 						{selectedClientId
-							? clientsQuery.data?.clients.find(c => c.id === selectedClientId)?.full_name ?? 'Select client...'
+							? (clientsQuery.data?.clients.find((c) => c.id === selectedClientId)?.full_name ??
+								'Client')
 							: 'All clients'}
 					</span>
 				</Select.Trigger>
@@ -157,184 +167,140 @@
 				</Select.Content>
 			</Select.Root>
 		</div>
-
-		<!-- Date Range Presets -->
 		<div class="flex items-center gap-2">
-			<CalendarIcon class="h-4 w-4 text-muted-foreground" />
-			<div class="flex rounded-md border">
-				<Button
-					variant={datePreset === 'today' ? 'default' : 'ghost'}
-					size="sm"
-					onclick={() => datePreset = 'today'}
-				>
-					Today
-				</Button>
-				<Button
-					variant={datePreset === 'week' ? 'default' : 'ghost'}
-					size="sm"
-					onclick={() => datePreset = 'week'}
-				>
-					This Week
-				</Button>
-				<Button
-					variant={datePreset === 'month' ? 'default' : 'ghost'}
-					size="sm"
-					onclick={() => datePreset = 'month'}
-				>
-					This Month
-				</Button>
-				<Button
-					variant={datePreset === 'all' ? 'default' : 'ghost'}
-					size="sm"
-					onclick={() => datePreset = 'all'}
-				>
-					All
-				</Button>
+			<CalendarIcon class="h-4 w-4 shrink-0" style="color: var(--app-muted);" aria-hidden="true" />
+			<div class="flex flex-wrap gap-1 rounded-lg border p-1" style="border-color: var(--app-border);">
+				{#each ['today', 'week', 'month', 'all'] as preset}
+					<Button
+						variant={datePreset === preset ? 'default' : 'ghost'}
+						size="sm"
+						class="min-h-9 rounded-md {datePreset === preset ? 'app-cta' : 'app-ghost'}"
+						onclick={() => (datePreset = preset)}
+					>
+						{preset === 'today'
+							? 'Today'
+							: preset === 'week'
+								? 'Week'
+								: preset === 'month'
+									? 'Month'
+									: 'All'}
+					</Button>
+				{/each}
 			</div>
 		</div>
-
-		<!-- Status Filter -->
-		<div class="flex items-center gap-2">
-			<Select.Root
-				type="single"
-				value={selectedStatus}
-				onValueChange={(val) => selectedStatus = val}
-			>
-				<Select.Trigger class="w-[160px]">
-					<span class={selectedStatus ? '' : 'text-muted-foreground'}>
-						{selectedStatus ? selectedStatus.charAt(0).toUpperCase() + selectedStatus.slice(1) : 'All statuses'}
-					</span>
-				</Select.Trigger>
-				<Select.Content>
-					<Select.Item value="">All statuses</Select.Item>
-					<Select.Item value="scheduled">Scheduled</Select.Item>
-					<Select.Item value="in-progress">In Progress</Select.Item>
-					<Select.Item value="completed">Completed</Select.Item>
-					<Select.Item value="cancelled">Cancelled</Select.Item>
-				</Select.Content>
-			</Select.Root>
-		</div>
-
-		<!-- Clear Filters -->
+		<Select.Root type="single" value={selectedStatus} onValueChange={(val) => (selectedStatus = val)}>
+			<Select.Trigger class="w-[160px] border-zinc-600 bg-zinc-900/50">
+				<span class={selectedStatus ? '' : 'text-zinc-500'}>
+					{selectedStatus
+						? selectedStatus.charAt(0).toUpperCase() + selectedStatus.slice(1)
+						: 'All statuses'}
+				</span>
+			</Select.Trigger>
+			<Select.Content>
+				<Select.Item value="">All statuses</Select.Item>
+				<Select.Item value="scheduled">Scheduled</Select.Item>
+				<Select.Item value="in-progress">In Progress</Select.Item>
+				<Select.Item value="completed">Completed</Select.Item>
+				<Select.Item value="cancelled">Cancelled</Select.Item>
+			</Select.Content>
+		</Select.Root>
 		{#if selectedClientId || selectedStatus || datePreset !== 'today'}
-			<Button variant="ghost" size="sm" onclick={() => {
+			<Button variant="ghost" size="sm" class="app-ghost min-h-9" onclick={() => {
 				selectedClientId = '';
 				selectedStatus = '';
 				datePreset = 'today';
 			}}>
-				Clear filters
+				Clear
 			</Button>
 		{/if}
 	</div>
 
-	<!-- Sessions Table -->
-	<div class="rounded-md border">
-		<Table.Root>
-			<Table.Header>
-				<Table.Row>
-					<Table.Head>Date & Time</Table.Head>
-					<Table.Head>Client</Table.Head>
-					<Table.Head>Exercises</Table.Head>
-					<Table.Head>Status</Table.Head>
-					<Table.Head class="text-right">Actions</Table.Head>
-				</Table.Row>
-			</Table.Header>
-			<Table.Body>
-				{#if sessionsQuery.isLoading}
-					<Table.Row>
-						<Table.Cell colspan={5} class="py-8 text-center">
-							Loading...
-						</Table.Cell>
-					</Table.Row>
-				{:else if sessionsQuery.isError}
-					<Table.Row>
-						<Table.Cell colspan={5} class="text-destructive py-8 text-center">
-							Error: {sessionsQuery.error.message}
-						</Table.Cell>
-					</Table.Row>
-				{:else if sessionsQuery.data && sessionsQuery.data.sessions.length > 0}
-					{#each sessionsQuery.data.sessions as session (session.id)}
-						<Table.Row
-							class="cursor-pointer hover:bg-muted/50"
-							onclick={() => goto(`/app/sessions/${session.id}`)}
-						>
-							<Table.Cell>
-								<div class="font-medium">{formatDate(session.scheduled_at)}</div>
-								<div class="text-muted-foreground text-sm">{formatTime(session.scheduled_at)}</div>
-							</Table.Cell>
-							<Table.Cell class="font-medium">
-								{session.client_name ||  session.client_id}
-							</Table.Cell>
-							<Table.Cell>
-								{getExerciseCount(session)} exercise{getExerciseCount(session) === 1 ? '' : 's'}
-							</Table.Cell>
-							<Table.Cell>
-								<Badge variant={getStatusBadgeVariant(session.status)}>
-									{session.status.charAt(0).toUpperCase() + session.status.slice(1)}
-								</Badge>
-							</Table.Cell>
-							<Table.Cell class="text-right">
-								<DropdownMenu.Root>
-									<DropdownMenu.Trigger
-										class="focus:outline-none"
-										onclick={(e) => e.stopPropagation()}
+	{#if sessionsQuery.isLoading}
+		<p style="color: var(--app-muted);">Loading…</p>
+	{:else if sessionsQuery.isError}
+		<p class="text-red-400">Error: {sessionsQuery.error.message}</p>
+	{:else if sessionsQuery.data && sessionsQuery.data.sessions.length > 0}
+		<ul class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+			{#each sessionsQuery.data.sessions as session (session.id)}
+				{@const act = primaryRowAction(session)}
+				<li class="app-card flex flex-col gap-4 p-5">
+					<div class="flex items-start justify-between gap-2">
+						<div>
+							<p class="app-display text-2xl leading-none" style="color: var(--app-accent);">
+								{formatTime(session.scheduled_at)}
+							</p>
+							<p class="mt-1 text-sm" style="color: var(--app-muted);">
+								{formatDate(session.scheduled_at)}
+							</p>
+						</div>
+						<Badge variant={getStatusBadgeVariant(session.status)} class="shrink-0 capitalize">
+							{session.status.replace('-', ' ')}
+						</Badge>
+					</div>
+					<p class="text-lg font-semibold leading-tight">
+						{session.client_name || session.client_id}
+					</p>
+					<p class="text-sm" style="color: var(--app-muted);">
+						{getExerciseCount(session)} exercise{getExerciseCount(session) === 1 ? '' : 's'}
+					</p>
+					<div class="mt-auto flex flex-wrap items-center gap-2">
+						<Button href={act.href} class="app-cta min-h-11 flex-1 rounded-lg">
+							{act.label}
+						</Button>
+						<DropdownMenu.Root>
+							<DropdownMenu.Trigger
+								class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-accent)]"
+								style="border-color: var(--app-border);"
+								aria-label="More actions"
+							>
+								<MoreHorizontalIcon class="h-4 w-4" />
+							</DropdownMenu.Trigger>
+							<DropdownMenu.Content align="end">
+								<DropdownMenu.Item onclick={() => goto(hubUrl(session.id, 'session'))}>
+									<EyeIcon class="mr-2 h-4 w-4" />
+									Session hub
+								</DropdownMenu.Item>
+								{#if session.status === 'scheduled' || session.status === 'in-progress'}
+									<DropdownMenu.Item onclick={() => goto(`/app/sessions/${session.id}/run`)}>
+										<VideoIcon class="mr-2 h-4 w-4" />
+										Execution
+									</DropdownMenu.Item>
+									<DropdownMenu.Item onclick={() => goto(`/app/sessions/${session.id}/record`)}>
+										Table recorder
+									</DropdownMenu.Item>
+								{/if}
+								{#if session.status === 'completed'}
+									<DropdownMenu.Item onclick={() => goto(hubUrl(session.id, 'analysis'))}>
+										<BarChart3Icon class="mr-2 h-4 w-4" />
+										Analysis
+									</DropdownMenu.Item>
+								{/if}
+								{#if (session.status === 'scheduled' || session.status === 'in-progress') && !hasVideos(session)}
+									<DropdownMenu.Separator />
+									<DropdownMenu.Item
+										class="text-destructive focus:text-destructive"
+										onclick={(e) => handleDelete(session.id, e)}
 									>
-										<Button variant="ghost" size="icon">
-											<MoreHorizontalIcon class="h-4 w-4" />
-										</Button>
-									</DropdownMenu.Trigger>
-									<DropdownMenu.Content align="end" onclick={(e) => e.stopPropagation()}>
-										<DropdownMenu.Item onclick={(e) => { e.stopPropagation(); goto(`/app/sessions/${session.id}`); }}>
-											<EyeIcon class="mr-2 h-4 w-4" />
-											View
-										</DropdownMenu.Item>
-										{#if session.status === 'scheduled' || session.status === 'in-progress'}
-											<DropdownMenu.Item onclick={(e) => { e.stopPropagation(); goto(`/app/sessions/${session.id}/record`); }}>
-												<VideoIcon class="mr-2 h-4 w-4" />
-												Record
-											</DropdownMenu.Item>
-										{/if}
-										{#if session.status === 'completed'}
-											<DropdownMenu.Item onclick={(e) => { e.stopPropagation(); goto(`/app/sessions/${session.id}/analysis`); }}>
-												<BarChart3Icon class="mr-2 h-4 w-4" />
-												Analysis
-											</DropdownMenu.Item>
-										{/if}
-										{#if session.status === 'scheduled' && !hasVideos(session)}
-											<DropdownMenu.Item onclick={(e) => { e.stopPropagation(); goto(`/app/sessions/${session.id}/edit`); }}>
-												<PencilIcon class="mr-2 h-4 w-4" />
-												Edit
-											</DropdownMenu.Item>
-										{/if}
-										{#if (session.status === 'scheduled' || session.status === 'in-progress') && !hasVideos(session)}
-											<DropdownMenu.Separator />
-											<DropdownMenu.Item
-												class="text-destructive focus:text-destructive"
-												onclick={(e) => handleDelete(session.id, e)}
-											>
-												<Trash2Icon class="mr-2 h-4 w-4" />
-												Delete
-											</DropdownMenu.Item>
-										{/if}
-									</DropdownMenu.Content>
-								</DropdownMenu.Root>
-							</Table.Cell>
-						</Table.Row>
-					{/each}
-				{:else}
-					<Table.Row>
-						<Table.Cell colspan={5} class="text-muted-foreground py-8 text-center">
-							No sessions found. Create your first session to get started.
-						</Table.Cell>
-					</Table.Row>
-				{/if}
-			</Table.Body>
-		</Table.Root>
-	</div>
+										<Trash2Icon class="mr-2 h-4 w-4" />
+										Delete
+									</DropdownMenu.Item>
+								{/if}
+							</DropdownMenu.Content>
+						</DropdownMenu.Root>
+					</div>
+				</li>
+			{/each}
+		</ul>
+	{:else}
+		<div class="app-card py-16 text-center">
+			<p style="color: var(--app-muted);">No sessions match. Create one to start.</p>
+			<Button href="/app/sessions/new" class="app-cta mt-4">New session</Button>
+		</div>
+	{/if}
 
 	{#if sessionsQuery.data && sessionsQuery.data.total > 0}
-		<p class="text-muted-foreground text-sm">
-			Showing {sessionsQuery.data.sessions.length} of {sessionsQuery.data.total} sessions
+		<p class="text-sm" style="color: var(--app-muted);">
+			Showing {sessionsQuery.data.sessions.length} of {sessionsQuery.data.total}
 		</p>
 	{/if}
 </div>

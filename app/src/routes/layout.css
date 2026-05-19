@@ -164,3 +164,141 @@
     letter-spacing: -0.01em;
   }
 }
+
+.app-root {
+	--app-display: 'Bebas Neue', Impact, system-ui, sans-serif;
+	--app-body: 'DM Sans', ui-sans-serif, system-ui, sans-serif;
+	--app-accent: #c8ff00;
+	--app-accent-foreground: #0a0a0b;
+	--app-surface: #0f0f12;
+	--app-surface-2: #18181c;
+	--app-border: rgba(255, 255, 255, 0.12);
+	--app-muted: #a1a1aa;
+	--app-text: #fafafa;
+
+	--sidebar: var(--app-surface-2);
+	--sidebar-foreground: var(--app-text);
+	--sidebar-primary: var(--app-accent);
+	--sidebar-primary-foreground: var(--app-accent-foreground);
+	--sidebar-accent: color-mix(in oklab, var(--app-text) 10%, transparent);
+	--sidebar-accent-foreground: var(--app-text);
+	--sidebar-border: var(--app-border);
+	--sidebar-ring: var(--app-accent);
+
+	font-family: var(--app-body);
+	background: var(--app-surface);
+	color: var(--app-text);
+	min-height: 100dvh;
+}
+
+.app-root h1,
+.app-root .app-display {
+	font-family: var(--app-display);
+	letter-spacing: 0.02em;
+}
+
+.app-root .app-segment {
+	display: inline-flex;
+	gap: 0.25rem;
+	padding: 0.25rem;
+	border-radius: 0.75rem;
+	background: var(--app-surface-2);
+	border: 1px solid var(--app-border);
+}
+
+.app-root .app-segment a {
+	border-radius: 0.5rem;
+	padding: 0.5rem 1rem;
+	font-size: 0.875rem;
+	font-weight: 600;
+	color: var(--app-muted);
+	text-decoration: none;
+	transition: background 0.15s ease, color 0.15s ease;
+}
+
+.app-root .app-segment a:hover {
+	color: var(--app-text);
+}
+
+.app-root .app-segment a[aria-current='page'] {
+	background: var(--app-accent);
+	color: var(--app-accent-foreground);
+}
+
+.app-root .app-card {
+	background: var(--app-surface-2);
+	border: 1px solid var(--app-border);
+	border-radius: 1rem;
+}
+
+.app-root .app-cta {
+	background: var(--app-accent) !important;
+	color: var(--app-accent-foreground) !important;
+	font-weight: 700;
+	border: none;
+}
+
+.app-root .app-cta:hover {
+	filter: brightness(1.05);
+}
+
+.app-root .app-outline {
+	border-color: var(--app-border) !important;
+	color: var(--app-text) !important;
+	background: transparent !important;
+}
+
+.app-root .app-ghost {
+	color: var(--app-muted) !important;
+}
+
+.app-root .app-hero-num {
+	font-family: var(--app-display);
+	font-size: clamp(2rem, 5vw, 3rem);
+	line-height: 1;
+	color: var(--app-accent);
+}
+
+/* Execution overlay: near-black, neon accent */
+.app-run {
+	--app-accent: #c8ff00;
+	background: #050506;
+	color: #f4f4f5;
+}
+
+.app-root [data-slot='sidebar-inset'] {
+	background: var(--app-surface);
+	color: var(--app-text);
+}
+
+.app-root [data-sidebar='menu-button'] {
+	min-height: 2.75rem;
+}
+
+@media (min-width: 768px) {
+	.app-root [data-sidebar='menu-button'] {
+		min-height: 2rem;
+	}
+}
+
+.app-root [data-slot='sidebar-trigger'] {
+	width: 2.75rem;
+	height: 2.75rem;
+	min-width: 2.75rem;
+	min-height: 2.75rem;
+}
+
+@media (min-width: 768px) {
+	.app-root [data-slot='sidebar-trigger'] {
+		width: 2.25rem;
+		height: 2.25rem;
+		min-width: 2.25rem;
+		min-height: 2.25rem;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.app-root .app-segment a {
+		transition: none;
+	}
+}
