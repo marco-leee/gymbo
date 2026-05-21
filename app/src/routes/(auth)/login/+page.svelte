@@ -21,9 +21,6 @@
 	let loading = $state(false);
 
 	const redirectTo = $derived($page.url.searchParams.get('redirectTo') || '/app/sessions');
-	/** Absolute URL required for OAuth callbacks; must not use server-only env on the client. */
-	// const callbackURL = $derived(new URL(redirectTo, $page.url.origin).href);
-	const callbackURL = `http://localhost:5173/${redirectTo}`
 
 	async function signInEmail(e: SubmitEvent) {
 		e.preventDefault();
@@ -32,7 +29,7 @@
 		const result = await authClient.signIn.email({
 			email,
 			password,
-			callbackURL
+			callbackURL: redirectTo
 		});
 		loading = false;
 		if (result.error) {
@@ -46,7 +43,7 @@
 		error = '';
 		await authClient.signIn.social({
 			provider: 'google',
-			callbackURL: `http://localhost:5173${redirectTo}`
+			callbackURL: redirectTo
 		});
 	}
 </script>
