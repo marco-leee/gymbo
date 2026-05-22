@@ -20,8 +20,8 @@ export const env = {
 		privateEnv.BETTER_AUTH_SECRET ||
 		'dev-only-better-auth-secret-change-in-production-32chars',
 	BETTER_AUTH_URL: privateEnv.BETTER_AUTH_URL || 'http://localhost:5173',
-	GITHUB_CLIENT_ID: privateEnv.GITHUB_CLIENT_ID,
-	GITHUB_CLIENT_SECRET: privateEnv.GITHUB_CLIENT_SECRET,
 	GOOGLE_CLIENT_ID: privateEnv.GOOGLE_CLIENT_ID,
 	GOOGLE_CLIENT_SECRET: privateEnv.GOOGLE_CLIENT_SECRET
 };
+
+console.log(env);
