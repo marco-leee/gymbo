@@ -1,0 +1,13 @@
+{
+  "input": {
+    "session_id": "000000000000000000000001",
+    "exercise_id": "000000000000000000000002",
+    "set_id": "000000000000000000000003",
+    "r2_key": "session/example/exercises/example/sets/example/video.mp4",
+    "job_id": "00000000-0000-7000-8000-000000000001",
+    "exercise_key": "squat",
+    "metadata": {
+      "camera_view": "RIGHT"
+    }
+  }
+}

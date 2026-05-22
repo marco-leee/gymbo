@@ -116,3 +116,65 @@ Artifacts and aggregates to store for history, dashboards, and retraining/debug:
 - **Measurement results** — Reps, sets, angles, hinge/back metrics aligned to time or rep index.
 - **Feedback results** — What was shown or generated as coaching output for audit and UX iteration.
 
+## Video queue worker (Redis + RunPod)
+
+Async set video processing: download from S3/R2 → `AnalysisPipeline` → remux → upload processed MP4 → Mongo.
+
+| Entrypoint | Use |
+| ---------- | --- |
+| `PYTHONPATH=src uv run python src/__main__.py` | Local/dev: drain Redis list (`REDIS_URL`, `REDIS_VIDEO_QUEUE_KEY`) via `RPOP` until empty |
+| `uv run python src/runpod_video_handler.py` | RunPod Serverless queue worker (`runpod.serverless.start`) |
+
+Shared logic lives in `src/video_queue_worker.py`. RunPod job envelope parsing (no ML imports) is in `src/runpod_job.py`.
+
+### Runtime GPU debug
+
+On startup, both entrypoints print CUDA status to **stdout** (no fail-fast):
+
+```text
+[gpu] cuda_available=True
+[gpu] device_count=1
+[gpu] device_0=NVIDIA ...
+```
+
+Ultralytics YOLO uses GPU automatically when CUDA is visible.
+
+### Environment (worker)
+
+| Variable | Purpose |
+| -------- | ------- |
+| `MONGO_URI` / `MONGODB_URI` | MongoDB connection |
+| `MONGODB_DATABASE`, `MONGODB_AUTH_SOURCE` | Optional DB config |
+| `S3_ACCESS_KEY`, `S3_SECRET`, `S3_BUCKET`, `S3_ENDPOINT`, `S3_REGION` | Object storage |
+| `REDIS_URL`, `REDIS_VIDEO_QUEUE_KEY` | Redis drain worker only |
+| `LOG_LEVEL` | Optional logging level |
+
+### Docker image (RunPod)
+
+```bash
+cd backend
+docker build --platform linux/amd64 -f Dockerfile.video-worker -t gymbo-video-worker .
+```
+
+Deploy the image to a RunPod **Serverless** endpoint (queue worker, not load-balanced). Set worker env vars in the RunPod console.
+
+App enqueue (deployed): set `VIDEO_QUEUE_RUNPOD_URL` to `https://api.runpod.ai/v2/<ENDPOINT_ID>/run` (async `/run`, not `/runsync`) and `VIDEO_QUEUE_RUNPOD_API_KEY`. The app POSTs `{ "input": <VideoProcessingJob> }`.
+
+### Local RunPod handler test
+
+Edit `test_input.json` with real Mongo ids and an object key, then:
+
+```bash
+cd backend
+PYTHONPATH=src uv run python src/runpod_video_handler.py
+```
+
+RunPod SDK reads `test_input.json` from the working directory when executed locally.
+
+### Tests
+
+```bash
+cd backend
+uv run pytest tests/test_runpod_video_handler.py -q
+```
+

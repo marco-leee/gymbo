@@ -15,7 +15,7 @@ export async function pushVideoJobRunpod(job: VideoProcessingJob): Promise<void>
 	const res = await fetch(url, {
 		method: 'POST',
 		headers,
-		body: JSON.stringify(job)
+		body: JSON.stringify({ input: job })
 	});
 
 	if (!res.ok) {

@@ -5,9 +5,10 @@ __pycache__
 .ruff_cache
 .git
 .gitignore
+# Local pose_models/ omitted from context; Dockerfiles fetch weights at build time.
 pose_models
 
-# Large media / artifacts (weights under src/pose_models must stay in context)
+# Large media / artifacts
 *.MOV
 *.mp4
 **/*.MOV
