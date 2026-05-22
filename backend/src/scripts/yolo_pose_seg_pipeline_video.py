@@ -116,7 +116,7 @@ def main() -> None:
     )
 
     pipe = AnalysisPipeline(ctx)
-    overall = pipe.run_with_video_overlays(
+    overall, _stats = pipe.run_with_video_overlays(
         mp4_output=args.output,
         output_json_path=args.output_json,
         mongodb_persist=MongodbPersistConfig(

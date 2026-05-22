@@ -5,12 +5,14 @@ from __future__ import annotations
 import logging
 import os
 import sys
+import time
 from pathlib import Path
 
 from bson import ObjectId
 from bson.errors import InvalidId
 
 from analysis_pipeline import AnalysisPipeline
+from database.mongodb import collections as col
 from database.mongodb.client import get_mongo_database
 from database.mongodb.video_queue_persist import (
     VideoProcessingJob,
@@ -30,7 +32,8 @@ from utils import (
     S3_SECRET,
     get_temp_file_path,
 )
-from utils.video import Video
+from utils.video import CameraView, Video
+from utils.video_probe import probe_video_duration_sec
 from utils.video_web import remux_mp4_for_browser_playback
 
 _ROOT = Path(__file__).resolve().parent
@@ -41,6 +44,9 @@ logging.basicConfig(
     level=_LOGGING_LEVEL, format="%(asctime)s %(levelname)s %(name)s %(message)s"
 )
 log = logging.getLogger("video_queue_worker")
+
+_DURATION_MISMATCH_WARN_SEC = 1.0
+_DURATION_DECODE_FAIL_SEC = 2.0
 
 
 def print_gpu_status() -> None:
@@ -82,6 +88,78 @@ def _pipeline_context(video_path: Path, job: VideoProcessingJob) -> SessionConte
     )
 
 
+def _validate_downloaded_video(
+    *,
+    job_id: str,
+    local_path: Path,
+    s3_bytes: int,
+    camera_view: CameraView,
+    upload_metadata: dict | None,
+) -> None:
+    """Fail fast on truncated downloads; warn on duration probe mismatches."""
+    local_path = Path(local_path)
+    local_bytes = local_path.stat().st_size
+    ffprobe_sec = probe_video_duration_sec(local_path)
+
+    vid = Video(str(local_path.resolve()), camera_view)
+    try:
+        opencv_duration = vid.duration
+        opencv_frames = vid.total_frames
+        opencv_fps = vid.fps
+    finally:
+        vid.release()
+
+    log.info(
+        "[%s] video probe s3_bytes=%s local_bytes=%s ffprobe_sec=%s "
+        "opencv_fps=%s opencv_frames=%s opencv_duration_sec=%.2f path=%s",
+        job_id,
+        s3_bytes,
+        local_bytes,
+        ffprobe_sec,
+        opencv_fps,
+        opencv_frames,
+        opencv_duration,
+        local_path,
+    )
+
+    if upload_metadata:
+        up_dur = upload_metadata.get("duration_sec")
+        up_frames = upload_metadata.get("total_frames")
+        log.debug(
+            "[%s] upload video_metadata duration_sec=%s total_frames=%s",
+            job_id,
+            up_dur,
+            up_frames,
+        )
+        if isinstance(up_dur, (int, float)) and opencv_duration > 0:
+            if abs(float(up_dur) - opencv_duration) > _DURATION_MISMATCH_WARN_SEC:
+                log.warning(
+                    "[%s] worker OpenCV duration %.2fs differs from upload "
+                    "metadata %.2fs",
+                    job_id,
+                    opencv_duration,
+                    float(up_dur),
+                )
+
+    if ffprobe_sec is not None and opencv_duration > 0:
+        if abs(ffprobe_sec - opencv_duration) > _DURATION_MISMATCH_WARN_SEC:
+            log.warning(
+                "[%s] ffprobe duration %.2fs vs OpenCV %.2fs",
+                job_id,
+                ffprobe_sec,
+                opencv_duration,
+            )
+        if (
+            ffprobe_sec > opencv_duration + _DURATION_DECODE_FAIL_SEC
+            and ffprobe_sec > 5.0
+        ):
+            raise RuntimeError(
+                f"[{job_id}] OpenCV decode duration ({opencv_duration:.2f}s) is much "
+                f"shorter than ffprobe ({ffprobe_sec:.2f}s); input may be corrupt "
+                "or partially readable"
+            )
+
+
 def run_video_job(s3: S3StorageProvider, job: VideoProcessingJob) -> None:
     jid = job.job_id
     try:
@@ -99,6 +177,12 @@ def run_video_job(s3: S3StorageProvider, job: VideoProcessingJob) -> None:
         log.error("[%s] Session %s not found", jid, job.session_id)
         return
 
+    set_doc = db[col.EXERCISE_SETS].find_one(
+        {
+            "_id": ObjectId(job.set_id),
+            "exercise_id": ObjectId(job.exercise_id),
+        }
+    )
     status = get_set_status_for_job(db=db, job=job)
     if status is None:
         log.error(
@@ -114,20 +198,63 @@ def run_video_job(s3: S3StorageProvider, job: VideoProcessingJob) -> None:
         )
         return
 
+    upload_metadata = None
+    if set_doc and isinstance(set_doc.get("video_metadata"), dict):
+        upload_metadata = set_doc["video_metadata"]
+
+    log.info(
+        "[%s] Job accepted r2_key=%s exercise_key=%s set_status=%s",
+        jid,
+        job.r2_key,
+        job.exercise_key,
+        status,
+    )
+    log.debug("[%s] job payload=%s", jid, job.model_dump())
+
     local_in = get_temp_file_path(suffix=".mp4")
     local_out = get_temp_file_path(suffix=".mp4")
     local_out_web = get_temp_file_path(suffix=".mp4")
     try:
         log.info("[%s] Download object key=%s", jid, job.r2_key)
-        s3.download_object(job.r2_key, Path(local_in))
+        t_dl = time.perf_counter()
+        s3_bytes = s3.download_object(job.r2_key, Path(local_in))
+        log.info("[%s] Download stage elapsed_sec=%.2f", jid, time.perf_counter() - t_dl)
+
+        cam = camera_view_from_job_metadata(job.metadata)
+        _validate_downloaded_video(
+            job_id=jid,
+            local_path=Path(local_in),
+            s3_bytes=s3_bytes,
+            camera_view=cam,
+            upload_metadata=upload_metadata,
+        )
 
         ctx = _pipeline_context(Path(local_in), job)
+        log.info(
+            "[%s] Pipeline config camera_view=%s conf_threshold=%s detect=%s pose=%s seg=%s",
+            jid,
+            ctx.camera_view.value,
+            ctx.conf_threshold,
+            ctx.yolo_detect_weights,
+            ctx.yolo_pose_weights,
+            ctx.yolo_seg_weights,
+        )
+
         pipeline = AnalysisPipeline(ctx)
         log.info("[%s] Running AnalysisPipeline", jid)
-        overall = pipeline.run_with_video_overlays(
+        t_pipe = time.perf_counter()
+        overall, pipe_stats = pipeline.run_with_video_overlays(
             mp4_output=Path(local_out),
             output_json_path=None,
             mongodb_persist=None,
+        )
+        log.info(
+            "[%s] Pipeline stage elapsed_sec=%.2f chart_points=%s overall_results=%s %s",
+            jid,
+            time.perf_counter() - t_pipe,
+            len(overall_results_to_pose_chart_data(overall)),
+            len(overall.results),
+            pipe_stats.summary(),
         )
 
         chart = overall_results_to_pose_chart_data(overall)
@@ -139,9 +266,22 @@ def run_video_job(s3: S3StorageProvider, job: VideoProcessingJob) -> None:
 
         out_key = processed_video_object_key(job)
         log.info("[%s] Remux processed video for web playback", jid)
+        t_remux = time.perf_counter()
         remux_mp4_for_browser_playback(Path(local_out), Path(local_out_web))
+        raw_out_bytes = Path(local_out).stat().st_size
+        web_out_bytes = Path(local_out_web).stat().st_size
+        log.info(
+            "[%s] Remux stage elapsed_sec=%.2f raw_out_bytes=%s web_out_bytes=%s",
+            jid,
+            time.perf_counter() - t_remux,
+            raw_out_bytes,
+            web_out_bytes,
+        )
+
         log.info("[%s] Upload processed video key=%s", jid, out_key)
+        t_up = time.perf_counter()
         s3.upload_object(Path(local_out_web), out_key)
+        log.info("[%s] Upload stage elapsed_sec=%.2f", jid, time.perf_counter() - t_up)
 
         persist_video_job_success(
             db,
@@ -150,7 +290,12 @@ def run_video_job(s3: S3StorageProvider, job: VideoProcessingJob) -> None:
             video_metadata=vmeta,
             processed_video_uri=out_key,
         )
-        log.info("[%s] Persisted Mongo + completed", jid)
+        log.info(
+            "[%s] Persisted Mongo + completed processed_video_uri=%s worker_vmeta_duration_sec=%s",
+            jid,
+            out_key,
+            vmeta.get("duration_sec"),
+        )
     finally:
         for p in (local_in, local_out, local_out_web):
             try:

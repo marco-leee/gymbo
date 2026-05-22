@@ -39,6 +39,7 @@ def remux_mp4_for_browser_playback(source: Path, destination: Path) -> Path:
         str(destination),
     ]
     log.info("Remuxing %s -> %s for web playback", source, destination)
+    log.debug("ffmpeg command: %s", " ".join(cmd))
     try:
         subprocess.run(
             cmd,
