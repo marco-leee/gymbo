@@ -53,7 +53,7 @@ ARG ULTRALYTICS_ASSETS_RELEASE=v8.4.0
 RUN set -eux; \
     mkdir -p /app/src/pose_models; \
     cd /app/src/pose_models; \
-    for f in yolo26n.pt yolo26n-pose.pt yolo26n-seg.pt; do \
+    for f in yolo26x.pt yolo26x-pose.pt yolo26x-seg.pt; do \
       if [ ! -s "$f" ]; then \
         curl -fsSL -o "$f" \
           "https://github.com/ultralytics/assets/releases/download/${ULTRALYTICS_ASSETS_RELEASE}/$f"; \

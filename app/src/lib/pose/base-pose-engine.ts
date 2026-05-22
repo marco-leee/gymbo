@@ -136,7 +136,7 @@ export abstract class BasePoseEngine<TAnalysis, TChartPoint> {
 
 	chartPointFromIteration?(
 		_iteration: PoseEngineIteration<TAnalysis>,
-	): TChartPoint | null;
+	): TChartPoint;
 
 	protected logIteration?(_iteration: PoseEngineIteration<TAnalysis>): void;
 

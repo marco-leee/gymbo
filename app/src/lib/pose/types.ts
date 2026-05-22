@@ -72,12 +72,7 @@ export type SquatFrameAnalysis = Record<
 	SquatInterestPoint
 >;
 
-export type SquatChartPoint = {
-	frame: number;
-	timestampSec: number;
-	insideKnee: number;
-	outsideHip: number;
-};
+export type { SquatPoseChartPoint as SquatChartPoint } from './pose-chart-types';
 
 export function scaleKeypointToSource(
 	keypoint: PoseKeypoint,

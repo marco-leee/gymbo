@@ -35,12 +35,9 @@ export function exerciseTypeLabel(type: SessionExercise['type']): string {
 	}
 }
 
-export interface PoseChartPoint {
-	frame: number;
-	timestampSec: number;
-	insideKnee: number;
-	outsideHip: number;
-}
+import type { PoseChartPoint } from '$lib/pose/pose-chart-types';
+
+export type { PoseChartPoint };
 
 /** Persisted with set rows (split storage / embedded); aligns with backend VideoMetadata. */
 export interface ExerciseSetVideoMetadata {

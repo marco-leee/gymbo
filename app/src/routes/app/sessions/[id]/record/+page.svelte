@@ -126,8 +126,10 @@
 	let poseChartSheet = $state<{
 		exerciseName: string;
 		setNumber: number;
+		exerciseKey?: string;
 		points: PoseChartPoint[];
 	} | null>(null);
+	let poseChartSheetVideoEl = $state<HTMLVideoElement | null>(null);
 	let poseChartSheetVideoUrl = $state<string | null>(null);
 	let poseChartSheetVideoLoading = $state(false);
 	let poseChartSheetVideoError = $state("");
@@ -157,12 +159,18 @@
 		);
 	}
 
-	async function openPoseChartSheet(exerciseName: string, set: ExerciseSet) {
+	async function openPoseChartSheet(
+		exerciseName: string,
+		set: ExerciseSet,
+		exerciseKey?: string
+	) {
 		poseChartSheet = {
 			exerciseName,
 			setNumber: set.set_number,
+			exerciseKey,
 			points: set.pose_chart_data ? [...set.pose_chart_data] : [],
 		};
+		poseChartSheetVideoEl = null;
 		poseChartSheetVideoUrl = null;
 		poseChartSheetVideoError = "";
 		poseChartSheetVideoLoading = true;
@@ -902,7 +910,11 @@
 										class="shrink-0 rounded-lg border-[var(--app-border)] bg-white/5 px-2.5 text-xs text-zinc-100 hover:bg-white/10"
 										onclick={() => {
 											if (!currentExercise) return;
-											void openPoseChartSheet(currentExercise.name, set);
+											void openPoseChartSheet(
+												currentExercise.name,
+												set,
+												currentExercise.exercise_key
+											);
 										}}
 										aria-label="View pose angle charts for this set"
 									>
@@ -1403,6 +1415,7 @@
 							{#key poseChartSheetVideoUrl}
 								<!-- svelte-ignore a11y_media_has_caption -->
 								<video
+									bind:this={poseChartSheetVideoEl}
 									src={poseChartSheetVideoUrl}
 									controls
 									class="max-h-full w-full rounded-md object-contain"
@@ -1424,11 +1437,15 @@
 						Chart
 					</p>
 					<div
-						class="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain touch-pan-y"
+						class="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain touch-pan-y p-6"
 					>
 						{#if poseChartSheet?.points.length}
 							<div class="flex flex-col gap-6 pb-1">
-								<SetPoseChart data={poseChartSheet.points} />
+								<SetPoseChart
+									data={poseChartSheet.points}
+									exerciseKey={poseChartSheet.exerciseKey}
+									video={poseChartSheetVideoEl}
+								/>
 							</div>
 						{:else}
 							<p class="text-sm text-zinc-400" role="status">

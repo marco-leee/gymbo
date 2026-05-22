@@ -49,12 +49,7 @@ export async function serializeSession(
 						video_url?: string;
 						processed_video_url?: string;
 						video_metadata?: Record<string, unknown>;
-						pose_chart_data?: {
-							frame: number;
-							timestampSec: number;
-							insideKnee: number;
-							outsideHip: number;
-						}[];
+						pose_chart_data?: import('$lib/pose/pose-chart-types').PoseChartPoint[];
 						video_play_url?: string;
 						processed_video_play_url?: string;
 						status: string;

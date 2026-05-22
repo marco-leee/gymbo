@@ -11,8 +11,10 @@ from pymongo.database import Database
 
 from database.mongodb import collections as col
 from database.mongodb.repositories.mongo import set_biometrics_repo
+from exercises.chart_keys import pose_chart_kip_names
 from models.exercise import ExerciseType
 from models.overall_results import OverallResults
+from models.pose_chart import PoseChartPoint
 from utils.video import CameraView
 
 SESSIONS = "sessions"
@@ -75,29 +77,42 @@ def get_set_status_for_job(*, db: Database, job: VideoProcessingJob) -> str | No
     return _split_visible_status(doc) if doc else None
 
 
-def overall_results_to_pose_chart_data(overall: OverallResults) -> list[dict[str, Any]]:
-    out: list[dict[str, Any]] = []
+def overall_results_to_pose_chart_data(overall: OverallResults) -> list[PoseChartPoint]:
+    try:
+        exercise_type = ExerciseType.from_string(overall.exercise_type or "SQUAT")
+    except KeyError:
+        exercise_type = ExerciseType.SQUAT
+    try:
+        camera_view = CameraView[(overall.camera_view or "RIGHT").upper()]
+    except KeyError:
+        camera_view = CameraView.RIGHT
+
+    expected_kips = pose_chart_kip_names(exercise_type, camera_view)
+    out: list[PoseChartPoint] = []
+
     for row in overall.results:
-        if row.biometrics is None:
-            continue
-        kips = row.biometrics.get("key_interest_points_2d")
-        if not isinstance(kips, dict):
-            continue
-        ik = kips.get("INSIDE_KNEE")
-        oh = kips.get("OUTSIDE_HIP")
-        if not isinstance(ik, dict) or not isinstance(oh, dict):
-            continue
-        ia, oa = ik.get("angle"), oh.get("angle")
-        if ia is None or oa is None:
-            continue
-        out.append(
-            {
-                "frame": row.idx,
-                "timestampSec": float(row.timestamp),
-                "insideKnee": float(ia),
-                "outsideHip": float(oa),
-            }
-        )
+        kips: dict | None = None
+        if row.biometrics is not None:
+            raw = row.biometrics.get("key_interest_points_2d")
+            if isinstance(raw, dict):
+                kips = raw
+
+        point: PoseChartPoint = {
+            "frame": row.idx,
+            "timestampSec": float(row.timestamp),
+        }
+        for kip_name in expected_kips:
+            angle_val: float | None = None
+            if kips is not None:
+                kip_data = kips.get(kip_name)
+                if isinstance(kip_data, dict):
+                    angle = kip_data.get("angle")
+                    if angle is not None:
+                        angle_val = float(angle)
+            point[kip_name] = angle_val  # type: ignore[literal-required]
+
+        out.append(point)
+
     return out
 
 
@@ -112,7 +127,7 @@ def persist_set_biometrics(
     db: Database,
     *,
     set_id: ObjectId,
-    pose_chart_data: list[dict[str, Any]],
+    pose_chart_data: list[PoseChartPoint],
     version: int = 1,
 ) -> None:
     set_biometrics_repo(db).upsert_pose_chart(
@@ -124,7 +139,7 @@ def persist_video_job_success(
     db: Database,
     *,
     job: VideoProcessingJob,
-    pose_chart_data: list[dict[str, Any]],
+    pose_chart_data: list[PoseChartPoint],
     video_metadata: dict[str, Any],
     processed_video_uri: str,
 ) -> None:

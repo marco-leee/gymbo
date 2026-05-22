@@ -5,31 +5,13 @@
 	import * as Sheet from '$lib/components/ui/sheet/index.js';
 	import * as Chart from '$lib/components/ui/chart/index.js';
 	import * as Table from '$lib/components/ui/table/index.js';
-	import { LineChart } from 'layerchart';
+	import PoseCombinedChart from '$lib/pose/pose-combined-chart.svelte';
 	import BarChart3Icon from '@lucide/svelte/icons/bar-chart-3';
 	import { getMediaPlayUrl } from '$lib/api/media';
 	import { exerciseTypeLabel, type ExerciseSet, type SessionExercise } from '$lib/api/sessions';
-
-	type CombinedChartRow = {
-		frame: number;
-		timestampSec: number;
-	} & Record<string, number | undefined>;
+	import { buildCombinedAnalysisChart } from '$lib/pose/pose-chart-series';
 
 	let { data } = $props();
-
-	const chartPalette = [
-		{ inside: '#EF4444', outside: '#F97316' },
-		{ inside: '#7C3AED', outside: '#A78BFA' },
-		{ inside: '#2563EB', outside: '#06B6D4' },
-		{ inside: '#059669', outside: '#84CC16' },
-		{ inside: '#D97706', outside: '#EAB308' }
-	];
-
-	type CombinedChartLegendItem = {
-		key: string;
-		label: string;
-		color: string;
-	};
 
 	let analysisSheetOpen = $state(false);
 	let selectedAnalysisContext = $state<{
@@ -38,6 +20,7 @@
 	} | null>(null);
 	let playUrls = $state<Record<string, string>>({});
 	let loadingVideoSetIds = $state<Record<string, boolean>>({});
+	let activeChartSeekVideo = $state<HTMLVideoElement | null>(null);
 
 	function durationMinutes(): number {
 		if (!data.session.started_at || !data.session.completed_at) return 0;
@@ -75,62 +58,9 @@
 		) ?? 0
 	);
 	const volume = $derived(totalVolume(data.session.exercises ?? []));
-	const combinedAnalysisChart = $derived.by(() => {
-		const rows = new Map<number, CombinedChartRow>();
-		const legend: CombinedChartLegendItem[] = [];
-		const config: Chart.ChartConfig = {};
-		const series: { key: string; color: string }[] = [];
-		let analyzedSetIndex = 0;
-
-		for (const exercise of data.session.exercises ?? []) {
-			for (const set of exercise.sets ?? []) {
-				if (!set.pose_chart_data?.length) continue;
-
-				const safeExerciseId = exercise.id.replace(/[^a-zA-Z0-9_]/g, '_');
-				const safeSetId = set.id.replace(/[^a-zA-Z0-9_]/g, '_');
-				const setKeyPrefix = `${safeExerciseId}_${safeSetId}_${set.set_number}`;
-				const palette = chartPalette[analyzedSetIndex % chartPalette.length];
-				const insideKey = `${setKeyPrefix}_insideKnee`;
-				const outsideKey = `${setKeyPrefix}_outsideHip`;
-				const insideLabel = `${exercise.name} - Set ${set.set_number} - Inside Knee`;
-				const outsideLabel = `${exercise.name} - Set ${set.set_number} - Outside Hip`;
-
-				legend.push(
-					{ key: insideKey, label: insideLabel, color: palette.inside },
-					{ key: outsideKey, label: outsideLabel, color: palette.outside }
-				);
-				series.push(
-					{ key: insideKey, color: palette.inside },
-					{ key: outsideKey, color: palette.outside }
-				);
-				config[insideKey] = { label: insideLabel, color: palette.inside };
-				config[outsideKey] = { label: outsideLabel, color: palette.outside };
-
-				for (const point of set.pose_chart_data) {
-					const row: CombinedChartRow =
-						rows.get(point.frame) ??
-						({
-							frame: point.frame,
-							timestampSec: point.timestampSec
-						} as CombinedChartRow);
-					row[insideKey] = point.insideKnee;
-					row[outsideKey] = point.outsideHip;
-					rows.set(point.frame, row);
-				}
-
-				analyzedSetIndex += 1;
-			}
-		}
-
-		const final = [...rows.values()].sort((a, b) => a.frame - b.frame);
-
-		return {
-			data: final,
-			legend,
-			series: [...series].reverse(),
-			config
-		};
-	});
+	const combinedAnalysisChart = $derived(
+		buildCombinedAnalysisChart(data.session.exercises ?? [])
+	);
 	const hasCombinedAnalysisData = $derived(combinedAnalysisChart.series.length > 0);
 
 	function openCombinedAnalysisSheet(exerciseName: string, set: ExerciseSet) {
@@ -293,6 +223,9 @@
 														muted
 														playsinline
 														preload="metadata"
+														onpointerdown={(e) => {
+															activeChartSeekVideo = e.currentTarget;
+														}}
 													></video>
 												{:else if set.video_url}
 													<Badge variant="secondary">Recorded</Badge>
@@ -372,15 +305,17 @@
 						{/each}
 					</div>
 
-					<Chart.Container config={combinedAnalysisChart.config} class="min-h-[320px] w-full">
-						<LineChart
-							data={combinedAnalysisChart.data}
-							x={(d) => d.timestampSec}
-							series={combinedAnalysisChart.series}
-							grid={true}
-							legend
-						/>
-					</Chart.Container>
+					<PoseCombinedChart
+						data={combinedAnalysisChart.data}
+						series={combinedAnalysisChart.series}
+						config={combinedAnalysisChart.config}
+						video={activeChartSeekVideo}
+					/>
+					{#if activeChartSeekVideo}
+						<p class="text-muted-foreground text-xs">
+							Click the chart to jump to that time in the set video you last selected above.
+						</p>
+					{/if}
 				</div>
 			{:else}
 				<div

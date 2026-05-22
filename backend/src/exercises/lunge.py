@@ -9,11 +9,24 @@ from typing import Dict
 from utils.video import CameraView
 
 from .squat import Squat
-from .base import KeyInterestPoint2D
+from .base import KeyInterestPoint2D, KeyInterestPointEnum
 
 
 class Lunge(Squat):
     PRIMARY_REP_ANGLE_KEY = "FRONT_KNEE"
+
+    def get_key_interest_point_enum(self) -> KeyInterestPointEnum:
+        squat_enum = Squat().get_key_interest_point_enum().root
+        return KeyInterestPointEnum(
+            **{
+                CameraView.LEFT.value: {
+                    "FRONT_KNEE": squat_enum[CameraView.LEFT.value]["INSIDE_KNEE"],
+                },
+                CameraView.RIGHT.value: {
+                    "FRONT_KNEE": squat_enum[CameraView.RIGHT.value]["INSIDE_KNEE"],
+                },
+            }
+        )
 
     def get_2d_key_points(
         self, result, camera_view: CameraView, img_height: int, img_width: int
