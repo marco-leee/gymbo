@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { page } from '$app/stores';
 	import { authClient } from '$lib/auth-client';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import {
@@ -20,7 +21,7 @@
 	let error = $state('');
 	let loading = $state(false);
 
-	const callbackURL = 'http://localhost:5173/app/sessions';
+	const redirectTo = $derived($page.url.searchParams.get('redirectTo') || '/app/sessions');
 
 	async function signUpEmail(e: SubmitEvent) {
 		e.preventDefault();
@@ -30,21 +31,21 @@
 			name,
 			email,
 			password,
-			callbackURL
+			callbackURL: redirectTo
 		});
 		loading = false;
 		if (result.error) {
 			error = result.error.message ?? 'Sign up failed';
 			return;
 		}
-		await goto('/app/sessions');
+		await goto(redirectTo);
 	}
 
 	async function signInGoogle() {
 		error = '';
 		await authClient.signIn.social({
 			provider: 'google',
-			callbackURL
+			callbackURL: redirectTo
 		});
 	}
 </script>

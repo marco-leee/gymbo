@@ -23,5 +23,3 @@ export const env = {
 	GOOGLE_CLIENT_ID: privateEnv.GOOGLE_CLIENT_ID,
 	GOOGLE_CLIENT_SECRET: privateEnv.GOOGLE_CLIENT_SECRET
 };
-
-console.log(env);
