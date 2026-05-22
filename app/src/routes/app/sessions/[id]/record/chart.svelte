@@ -1,34 +1,20 @@
 <script lang="ts">
-	import * as Chart from "$lib/components/ui/chart/index.js";
-	import type { SquatChartPoint } from "$lib/pose/types";
-	import { LineChart } from "layerchart";
-	export type ChartPoint = SquatChartPoint;
+	import PoseSetChart from '$lib/pose/pose-set-chart.svelte';
+	import type { PoseChartPoint } from '$lib/pose/pose-chart-types';
 
-	let { data = [] }: { data?: ChartPoint[] } = $props();
+	export type ChartPoint = PoseChartPoint;
 
-	const series = [
-		{ key: "insideKnee", color: "red" },
-		{ key: "outsideHip", color: "blue" },
-	];
-
-	const chartConfig = {
-		insideKnee: {
-			label: "Inside Knee",
-			color: "hsl(var(--chart-1))",
-		},
-		outsideHip: {
-			label: "Outside Hip",
-			color: "hsl(var(--chart-2))",
-		},
-	} satisfies Chart.ChartConfig;
+	let {
+		data = [],
+		exerciseKey = 'squat',
+		video = null,
+		emptyHint
+	}: {
+		data?: readonly Record<string, unknown>[];
+		exerciseKey?: string;
+		video?: HTMLVideoElement | null;
+		emptyHint?: string;
+	} = $props();
 </script>
 
-<Chart.Container config={chartConfig} class="min-h-[200px] w-full">
-	{#if data.length > 0}
-		<LineChart data={data} x={(d) => d.frame} series={series} grid={true} />
-	{:else}
-		<div class="text-muted-foreground flex min-h-[200px] items-center justify-center text-sm">
-			Upload a video to populate the squat angle chart.
-		</div>
-	{/if}
-</Chart.Container>
+<PoseSetChart {data} {exerciseKey} {video} {emptyHint} />

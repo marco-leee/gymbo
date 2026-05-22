@@ -11,6 +11,9 @@ import { z } from 'zod';
 import { env } from '$lib/env';
 import { parseObjectId, objectIdToString } from '$lib/services/object-id';
 import { CATALOG_KEYS } from '$lib/exercises/catalog';
+import { PoseChartPointSchema } from '$lib/pose/pose-chart-types';
+
+export { PoseChartPointSchema } from '$lib/pose/pose-chart-types';
 
 const MONGO_URI = env.MONGO_URI;
 
@@ -43,13 +46,6 @@ export async function getDb() {
 }
 
 // Session Schemas
-
-export const PoseChartPointSchema = z.object({
-	frame: z.number().int().nonnegative(),
-	timestampSec: z.number().nonnegative(),
-	insideKnee: z.number(),
-	outsideHip: z.number()
-});
 
 /** Stored on `exercise_sets` rows (backend VideoMetadata shape). */
 export const ExerciseSetVideoMetadataSchema = z

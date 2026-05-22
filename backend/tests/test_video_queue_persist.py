@@ -14,7 +14,7 @@ from models.overall_results import OverallResult, OverallResults
 from utils.video import CameraView, Video
 
 
-def test_overall_results_to_pose_chart_maps_kips():
+def test_overall_results_to_pose_chart_maps_squat_kips():
     o = OverallResults(
         results=[
             OverallResult(
@@ -44,12 +44,91 @@ def test_overall_results_to_pose_chart_maps_kips():
         exercise_type="SQUAT",
     )
     pts = overall_results_to_pose_chart_data(o)
-    assert len(pts) == 1
+    assert len(pts) == 2
     assert pts[0] == {
         "frame": 0,
         "timestampSec": 0.05,
-        "insideKnee": 91.0,
-        "outsideHip": 102.0,
+        "INSIDE_KNEE": 91.0,
+        "OUTSIDE_HIP": 102.0,
+    }
+    assert pts[1] == {
+        "frame": 1,
+        "timestampSec": 0.1,
+        "INSIDE_KNEE": None,
+        "OUTSIDE_HIP": None,
+    }
+
+
+def test_overall_results_to_pose_chart_null_kips_when_empty_biometrics_dict():
+    o = OverallResults(
+        results=[
+            OverallResult(
+                idx=0,
+                timestamp=0.0,
+                pose_estimation_result={},
+                segmentation_result={},
+                biometrics={"key_interest_points_2d": {}},
+            ),
+        ],
+        exercise_type="SQUAT",
+        camera_view="RIGHT",
+    )
+    pts = overall_results_to_pose_chart_data(o)
+    assert pts[0]["INSIDE_KNEE"] is None
+    assert pts[0]["OUTSIDE_HIP"] is None
+
+
+def test_overall_results_to_pose_chart_maps_deadlift_kips():
+    o = OverallResults(
+        results=[
+            OverallResult(
+                idx=0,
+                timestamp=0.1,
+                pose_estimation_result={},
+                segmentation_result={},
+                biometrics={
+                    "key_interest_points_2d": {
+                        "HIP_HINGE": {"angle": 135},
+                    }
+                },
+            ),
+        ],
+        camera_view="RIGHT",
+        exercise_type="DEADLIFT",
+    )
+    pts = overall_results_to_pose_chart_data(o)
+    assert len(pts) == 1
+    assert pts[0] == {
+        "frame": 0,
+        "timestampSec": 0.1,
+        "HIP_HINGE": 135.0,
+    }
+
+
+def test_overall_results_to_pose_chart_maps_lunge_kips():
+    o = OverallResults(
+        results=[
+            OverallResult(
+                idx=2,
+                timestamp=0.2,
+                pose_estimation_result={},
+                segmentation_result={},
+                biometrics={
+                    "key_interest_points_2d": {
+                        "FRONT_KNEE": {"angle": 88},
+                    }
+                },
+            ),
+        ],
+        camera_view="LEFT",
+        exercise_type="LUNGE",
+    )
+    pts = overall_results_to_pose_chart_data(o)
+    assert len(pts) == 1
+    assert pts[0] == {
+        "frame": 2,
+        "timestampSec": 0.2,
+        "FRONT_KNEE": 88.0,
     }
 
 
@@ -97,7 +176,9 @@ def test_video_metadata_for_storage(monkeypatch):
 def test_persist_set_biometrics_upserts_via_repo():
     db = MagicMock()
     set_id = ObjectId()
-    chart = [{"frame": 0, "timestampSec": 0.1, "insideKnee": 90.0, "outsideHip": 100.0}]
+    chart = [
+        {"frame": 0, "timestampSec": 0.1, "INSIDE_KNEE": 90.0, "OUTSIDE_HIP": 100.0}
+    ]
     repo = MagicMock()
 
     with patch(
@@ -119,7 +200,9 @@ def test_persist_video_job_success_writes_set_biometrics_not_exercise_sets_chart
         r2_key="k",
         job_id="j1",
     )
-    chart = [{"frame": 0, "timestampSec": 0.1, "insideKnee": 90.0, "outsideHip": 100.0}]
+    chart = [
+        {"frame": 0, "timestampSec": 0.1, "INSIDE_KNEE": 90.0, "OUTSIDE_HIP": 100.0}
+    ]
     vmeta = {"camera_view": "RIGHT", "fps": 30}
 
     db = MagicMock()

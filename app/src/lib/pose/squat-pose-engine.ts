@@ -26,16 +26,21 @@ export class SquatPoseEngine extends BasePoseEngine<
 
 	chartPointFromIteration(
 		iteration: PoseEngineIteration<SquatFrameAnalysis>,
-	): SquatChartPoint | null {
+	): SquatChartPoint {
 		if (!iteration.analysis) {
-			return null;
+			return {
+				frame: iteration.frameIndex,
+				timestampSec: iteration.timestampSec,
+				INSIDE_KNEE: null,
+				OUTSIDE_HIP: null
+			};
 		}
 
 		return {
 			frame: iteration.frameIndex,
 			timestampSec: iteration.timestampSec,
-			insideKnee: iteration.analysis.INSIDE_KNEE.angle,
-			outsideHip: iteration.analysis.OUTSIDE_HIP.angle,
+			INSIDE_KNEE: iteration.analysis.INSIDE_KNEE.angle,
+			OUTSIDE_HIP: iteration.analysis.OUTSIDE_HIP.angle
 		};
 	}
 

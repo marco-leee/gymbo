@@ -1,4 +1,5 @@
 import type { SessionExercise, SessionExerciseType } from '$lib/api/sessions';
+import type { KipName } from '$lib/pose/pose-chart-types';
 
 /**
  * Managed exercise presets for UI + `exercise_key` on session exercises.
@@ -14,6 +15,7 @@ export type ExerciseCatalogEntry = Readonly<
 		readonly target_weight_kg: number;
 		readonly target_sets: number;
 		readonly rest_seconds: number;
+		readonly pose_chart_series: readonly { readonly key: KipName; readonly label: string }[];
 	}>
 >;
 
@@ -33,18 +35,24 @@ export const EXERCISE_CATALOG: readonly ExerciseCatalogEntry[] = [
 		label: 'Squat',
 		type: 'strength',
 		measurement: 'reps',
+		pose_chart_series: [
+			{ key: 'INSIDE_KNEE', label: 'Inside Knee' },
+			{ key: 'OUTSIDE_HIP', label: 'Outside Hip' }
+		]
 	},
 	{
 		key: 'deadlift',
 		label: 'Deadlift',
 		type: 'strength',
 		measurement: 'reps',
+		pose_chart_series: [{ key: 'HIP_HINGE', label: 'Hip Hinge' }]
 	},
 	{
 		key: 'lunges',
 		label: 'Lunges',
 		type: 'strength',
 		measurement: 'reps',
+		pose_chart_series: [{ key: 'FRONT_KNEE', label: 'Front Knee' }]
 	}
 ];
 

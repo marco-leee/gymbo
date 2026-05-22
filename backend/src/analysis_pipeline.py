@@ -152,24 +152,27 @@ class AnalysisPipeline:
                     segmenter=segmenter,
                     pose_model=pose_model,
                 )
-                if st.overall_result is None:
-                    continue
+                if st.overall_result is not None:
+                    overall_results.results.append(st.overall_result)
+                    bio = compute_frame_biometrics(
+                        st,
+                        exercise_type=ctx.exercise_type,
+                        camera_view=ctx.camera_view,
+                    )
+                    if bio is not None:
+                        st.overall_result.biometrics = bio.model_dump(mode="json")
+                else:
+                    overall_results.results.append(
+                        OverallResult(
+                            idx=count,
+                            timestamp=ts,
+                            pose_estimation_result={},
+                            segmentation_result={},
+                            biometrics=None,
+                        )
+                    )
 
-                overall_results.results.append(st.overall_result)
-
-                # Stage 2: Biometrics (attached on ``overall_result`` when present)
-                bio = compute_frame_biometrics(
-                    st,
-                    exercise_type=ctx.exercise_type,
-                    camera_view=ctx.camera_view,
-                )
-                if bio is not None:
-                    st.overall_result.biometrics = bio.model_dump(mode="json")
-
-                # Stage 3: Feedback
-
-                # Stage 4: Save the results
-
+                # Always write a frame: overlays when detected, otherwise original
                 vis = render_overlays(frame, st.perception_record)
                 writer.write(vis)
         finally:

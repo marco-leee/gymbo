@@ -108,6 +108,7 @@
 	let isAutoSavingPose = $state(false);
 	let isLoadingExistingVideo = $state(false);
 	let chartData = $state<ChartPoint[]>([]);
+	let drawerPreviewVideoEl = $state<HTMLVideoElement | null>(null);
 	let videoInputEl = $state<HTMLInputElement | null>(null);
 	let durationCheckVideoEl = $state<HTMLVideoElement | null>(null);
 
@@ -363,9 +364,8 @@
 			let nextChartData: ChartPoint[] = [];
 
 			for await (const iteration of engine.analyzeVideo({ file })) {
-				const point = engine.chartPointFromIteration?.(iteration);
-				if (!point) continue;
-
+				if (!engine.chartPointFromIteration) continue;
+				const point = engine.chartPointFromIteration(iteration);
 				nextChartData = [...nextChartData, point];
 				chartData = nextChartData;
 			}
@@ -416,8 +416,8 @@
 				})) {
 					if (signal.aborted) break;
 
-					const point = engine.chartPointFromIteration?.(iteration);
-					if (point) {
+					if (engine.chartPointFromIteration) {
+						const point = engine.chartPointFromIteration(iteration);
 						chartBuf = [...chartBuf, point];
 						if (chartBuf.length > 400) chartBuf = chartBuf.slice(-400);
 						liveChartData = chartBuf;
@@ -881,6 +881,7 @@
 						{#if getVideoDisplaySrc()}
 							<div class="rounded-md border bg-muted/30 overflow-hidden">
 								<video
+									bind:this={drawerPreviewVideoEl}
 									src={getVideoDisplaySrc()!}
 									controls
 									class="w-full max-h-48"
@@ -904,7 +905,11 @@
 
 				<div class="space-y-2 border-t p-4 pt-4">
 					<h3 class="text-sm font-medium">Set analysis (angle over time)</h3>
-					<Chart data={chartData} />
+					<Chart
+						data={chartData}
+						exerciseKey={selectedExercise?.exercise_key}
+						video={drawerPreviewVideoEl}
+					/>
 				</div>
 			</div>
 		</Sheet.Content>

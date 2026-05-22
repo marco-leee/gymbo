@@ -10,6 +10,7 @@ import { serializeSession } from '$lib/server/sessions';
 import { isValidObjectIdParam } from '$lib/services/object-id';
 import { enqueueVideoProcessingJob } from '$lib/server/video-queue/enqueue';
 import { assertSessionOwned, getTrainerId, requireTrainer } from '$lib/server/trainer-auth';
+import { PoseChartPointSchema } from '$lib/pose/pose-chart-types';
 
 const IdParamSchema = z.object({
 	id: z.string().refine(val => ObjectId.isValid(val), {
@@ -41,12 +42,7 @@ const UpdateSetSchema = z.object({
 	rpe: z.number().int().min(1).max(10).optional(),
 	video_url: z.string().optional(),
 	video_metadata: VideoMetadataUpdateSchema.optional(),
-	pose_chart_data: z.array(z.object({
-		frame: z.number().int().nonnegative(),
-		timestampSec: z.number().nonnegative(),
-		insideKnee: z.number(),
-		outsideHip: z.number()
-	})).optional(),
+	pose_chart_data: z.array(PoseChartPointSchema).optional(),
 	status: z.enum(['pending', 'completed', 'processing']).optional(),
 	notes: z.string().optional()
 });
