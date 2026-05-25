@@ -32,6 +32,10 @@
 	}
 </script>
 
+<svelte:head>
+	<title>Clients | Gymbo</title>
+</svelte:head>
+
 <div class="flex flex-col gap-8">
 	<div class="flex flex-wrap items-end justify-between gap-4">
 		<div>

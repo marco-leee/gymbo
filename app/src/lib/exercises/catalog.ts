@@ -47,13 +47,13 @@ export const EXERCISE_CATALOG: readonly ExerciseCatalogEntry[] = [
 		measurement: 'reps',
 		pose_chart_series: [{ key: 'HIP_HINGE', label: 'Hip Hinge' }]
 	},
-	{
-		key: 'lunges',
-		label: 'Lunges',
-		type: 'strength',
-		measurement: 'reps',
-		pose_chart_series: [{ key: 'FRONT_KNEE', label: 'Front Knee' }]
-	}
+	// {
+	// 	key: 'lunges',
+	// 	label: 'Lunges',
+	// 	type: 'strength',
+	// 	measurement: 'reps',
+	// 	pose_chart_series: [{ key: 'FRONT_KNEE', label: 'Front Knee' }]
+	// }
 ];
 
 export const CATALOG_KEYS = EXERCISE_CATALOG.map((e) => e.key);

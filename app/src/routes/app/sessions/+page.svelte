@@ -30,13 +30,17 @@
 					to: new Date(today.getTime() + 24 * 60 * 60 * 1000).toISOString()
 				};
 			case 'week': {
-				const weekEnd = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
-				return { from: today.toISOString(), to: weekEnd.toISOString() };
+				const weekStart = new Date(today);
+				const daysSinceMonday = (weekStart.getDay() + 6) % 7;
+				weekStart.setDate(weekStart.getDate() - daysSinceMonday);
+				const weekEnd = new Date(weekStart);
+				weekEnd.setDate(weekEnd.getDate() + 7);
+				return { from: weekStart.toISOString(), to: weekEnd.toISOString() };
 			}
 			case 'month': {
-				const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-				monthEnd.setHours(23, 59, 59, 999);
-				return { from: today.toISOString(), to: monthEnd.toISOString() };
+				const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+				const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+				return { from: monthStart.toISOString(), to: monthEnd.toISOString() };
 			}
 			default:
 				return {};
@@ -130,6 +134,10 @@
 		}
 	}
 </script>
+
+<svelte:head>
+	<title>Sessions | Gymbo</title>
+</svelte:head>
 
 <div class="flex flex-col gap-8">
 	<div class="flex flex-wrap items-end justify-between gap-4">
@@ -247,7 +255,8 @@
 						<Button href={act.href} class="app-cta min-h-11 flex-1 rounded-lg">
 							{act.label}
 						</Button>
-						<DropdownMenu.Root>
+						<!-- TODO: Review this dropdown menu -->
+						<!-- <DropdownMenu.Root>
 							<DropdownMenu.Trigger
 								class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-accent)]"
 								style="border-color: var(--app-border);"
@@ -286,7 +295,7 @@
 									</DropdownMenu.Item>
 								{/if}
 							</DropdownMenu.Content>
-						</DropdownMenu.Root>
+						</DropdownMenu.Root> -->
 					</div>
 				</li>
 			{/each}

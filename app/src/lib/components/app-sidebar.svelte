@@ -71,8 +71,7 @@
 								<DumbbellIcon class="size-4" aria-hidden="true" />
 							</div>
 							<div class="grid flex-1 text-start text-sm leading-tight">
-								<span class="app-display truncate font-medium tracking-wide">GYMBO</span>
-								<span class="truncate text-xs opacity-80">App v2</span>
+								<span class="app-display truncate font-large">GYMBO</span>
 							</div>
 						</a>
 					{/snippet}

@@ -54,6 +54,7 @@
 		"ioredis": "^5.9.1",
 		"mode-watcher": "^1.1.0",
 		"mongodb": "^7.1.0",
+		"posthog-js": "^1.376.0",
 		"uuid": "^13.0.0",
 		"zod": "^4.3.6"
 	}

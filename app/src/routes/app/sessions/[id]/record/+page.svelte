@@ -70,8 +70,8 @@
 	type CameraViewChoice = "FRONT" | "BACK" | "LEFT" | "RIGHT";
 
 	const CAMERA_VIEW_OPTIONS: { value: CameraViewChoice; label: string }[] = [
-		{ value: "FRONT", label: "Front" },
-		{ value: "BACK", label: "Back" },
+		// { value: "FRONT", label: "Front" },
+		// { value: "BACK", label: "Back" },
 		{ value: "LEFT", label: "Left" },
 		{ value: "RIGHT", label: "Right" },
 	];

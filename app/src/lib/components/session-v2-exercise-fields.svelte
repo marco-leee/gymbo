@@ -48,7 +48,7 @@
 				{#each EXERCISE_CATALOG as entry (entry.key)}
 					<Select.Item value={entry.key}>{catalogEntryLabel(entry)}</Select.Item>
 				{/each}
-				<Select.Item value={CUSTOM_PRESET_VALUE}>Custom</Select.Item>
+				<!-- <Select.Item value={CUSTOM_PRESET_VALUE}>Custom</Select.Item> -->
 			</Select.Content>
 		</Select.Root>
 	</div>

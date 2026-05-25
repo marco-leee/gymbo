@@ -66,7 +66,7 @@
 						</div>
 					</div>
 				</DropdownMenu.Label>
-				<DropdownMenu.Separator />
+				<!-- <DropdownMenu.Separator />
 				<DropdownMenu.Group>
 					<DropdownMenu.Item>
 						<SparklesIcon />
@@ -88,7 +88,7 @@
 						Notifications
 					</DropdownMenu.Item>
 				</DropdownMenu.Group>
-				<DropdownMenu.Separator />
+				<DropdownMenu.Separator /> -->
 				<DropdownMenu.Item onclick={() => onLogout?.()}>
 					<LogOutIcon />
 					Log out
