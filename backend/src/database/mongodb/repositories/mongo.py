@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from typing import Any
 
 from bson import ObjectId
@@ -227,9 +228,17 @@ class MongoSetBiometricsRepository:
         *,
         version: int = 1,
     ) -> None:
-        self._col.replace_one(
+        now = datetime.now(UTC)
+        self._col.update_one(
             {"set_id": set_id, "version": version},
-            {"set_id": set_id, "version": version, "pose_chart_data": pose_chart_data},
+            {
+                "$set": {"pose_chart_data": pose_chart_data},
+                "$setOnInsert": {
+                    "set_id": set_id,
+                    "version": version,
+                    "created_at": now,
+                },
+            },
             upsert=True,
         )
 
