@@ -81,8 +81,8 @@ export type SessionExerciseFormRow = {
 
 export function emptySessionExerciseFormRow(): SessionExerciseFormRow {
 	return {
-		catalogKey: CUSTOM_PRESET_VALUE,
-		name: '',
+		catalogKey: 'squat',
+		name: 'Squat',
 		type: 'strength',
 		measurement: 'reps',
 		rest_seconds: 60,

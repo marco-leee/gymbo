@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { tick } from 'svelte';
 	import { createQuery, createMutation } from '@tanstack/svelte-query';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import {
@@ -26,6 +27,7 @@
 		sessionExerciseApiBodyFromFormRow,
 		type SessionExerciseFormRow
 	} from '$lib/exercises/catalog';
+	import { advanceTourToExerciseFields, advanceTourAfterSessionCreated, resumeTourForPath } from '$lib/ui-tour';
 
 	type ExerciseRow = SessionExerciseFormRow;
 
@@ -55,13 +57,18 @@
 			notes?: string;
 			exercises: Omit<import('$lib/api/sessions').SessionExercise, 'id'>[];
 		}) => createSession(payload),
-		onSuccess: (session) => {
-			goto(`/app/sessions/${session.id}?view=session`);
+		onSuccess: async (session) => {
+			advanceTourAfterSessionCreated();
+			await goto(`/app/sessions/${session.id}?view=session`);
+			await tick();
+			await resumeTourForPath(`/app/sessions/${session.id}`, new URLSearchParams('view=session'));
 		}
 	}));
 
-	function addExercise() {
+	async function addExercise() {
 		exercises = [...exercises, defaultExerciseRow()];
+		await tick();
+		await advanceTourToExerciseFields();
 	}
 
 	function removeExercise(index: number) {
@@ -123,7 +130,7 @@
 	</div>
 
 	<div class="flex w-full justify-center">
-		<Card class="w-full max-w-6xl">
+		<Card class="w-full max-w-6xl" data-tour="sessions-form">
 			<CardHeader>
 				<CardTitle>Session Information</CardTitle>
 				<CardDescription>Set up a new training session (hub v2)</CardDescription>
@@ -177,7 +184,7 @@
 						<p class="text-muted-foreground text-xs">Add exercises to this session (optional).</p>
 					</div>
 					<div class="space-y-2">
-						{#each exercises as row, index (index)}
+						{#each exercises as row, index}
 							<Collapsible.Root open={exercises.length === 1 || index === exercises.length - 1}>
 								<Card>
 									<CardHeader class="flex flex-row items-center justify-between space-y-0 py-3">
@@ -204,14 +211,23 @@
 									</CardHeader>
 									<Collapsible.Content>
 										<CardContent class="space-y-4 pt-0">
-											<SessionV2ExerciseFields bind:row={exercises[index]} idPrefix={`sess-ex-${index}`} />
+											<div
+												data-tour={index === exercises.length - 1 ? 'sessions-exercise-fields' : undefined}
+											>
+												<SessionV2ExerciseFields bind:row={exercises[index]} idPrefix={`sess-ex-${index}`} />
+											</div>
 										</CardContent>
 									</Collapsible.Content>
 								</Card>
 							</Collapsible.Root>
 						{/each}
 					</div>
-					<Button type="button" variant="outline" onclick={addExercise} class="w-full min-h-11 sm:w-auto">
+					<Button
+						type="button"
+						variant="outline"
+						onclick={addExercise}
+						class="w-full min-h-11 sm:w-auto"
+					>
 						<PlusIcon class="mr-2 h-4 w-4" />
 						Add exercise
 					</Button>

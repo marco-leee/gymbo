@@ -302,3 +302,71 @@
 		transition: none;
 	}
 }
+
+/* Shepherd.js onboarding tour */
+.gymbo-shepherd-step.shepherd-element {
+	font-family: var(--font-sans);
+	max-width: min(20rem, calc(100vw - 2rem));
+	border-radius: var(--radius-lg);
+	border: 1px solid var(--app-border);
+	background: var(--app-surface-2);
+	color: var(--app-text);
+	box-shadow: 0 12px 40px rgb(0 0 0 / 0.35);
+}
+
+.gymbo-shepherd-step .shepherd-text {
+	font-size: 0.9375rem;
+	line-height: 1.5;
+	padding: 1rem 1rem 0.75rem;
+	color: var(--app-text);
+}
+
+.gymbo-shepherd-step .shepherd-text p {
+	margin: 0 0 0.625rem;
+}
+
+.gymbo-shepherd-step .shepherd-text p:last-child {
+	margin-bottom: 0;
+}
+
+.gymbo-shepherd-step .shepherd-footer {
+	padding: 0 1rem 1rem;
+	display: flex;
+	justify-content: flex-end;
+	gap: 0.5rem;
+}
+
+.gymbo-shepherd-step .shepherd-button {
+	font-family: var(--font-sans);
+	font-size: 0.875rem;
+	font-weight: 500;
+	border-radius: var(--radius-md);
+	padding: 0.5rem 0.875rem;
+	min-height: 2.25rem;
+	cursor: pointer;
+	border: 1px solid transparent;
+}
+
+.gymbo-shepherd-step .shepherd-button:not(.shepherd-button-secondary) {
+	background: var(--app-accent);
+	color: var(--app-surface);
+}
+
+.gymbo-shepherd-step .shepherd-button-secondary {
+	background: transparent;
+	color: var(--app-muted);
+	border-color: var(--app-border);
+}
+
+.gymbo-shepherd-step .shepherd-button:hover {
+	opacity: 0.9;
+}
+
+.gymbo-shepherd-step .shepherd-arrow::before {
+	background: var(--app-surface-2);
+	border: 1px solid var(--app-border);
+}
+
+.shepherd-modal-overlay-container.shepherd-modal-is-visible {
+	opacity: 0;
+}

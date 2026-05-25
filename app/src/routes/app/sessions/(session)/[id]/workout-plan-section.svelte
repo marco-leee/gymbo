@@ -286,7 +286,13 @@
 
 	{#if canEditPlan && !draftRow}
 		<div>
-			<Button type="button" variant="outline" class="w-full min-h-11 app-outline sm:w-auto" onclick={startDraft}>
+			<Button
+				type="button"
+				variant="outline"
+				data-tour="session-hub-add-exercise"
+				class="w-full min-h-11 app-outline sm:w-auto"
+				onclick={startDraft}
+			>
 				<PlusIcon class="mr-2 h-4 w-4" aria-hidden="true" />
 				Add exercise
 			</Button>

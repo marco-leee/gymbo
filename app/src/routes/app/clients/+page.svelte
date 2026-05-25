@@ -44,7 +44,7 @@
 				Search and open a client. Add new clients in one tap.
 			</p>
 		</div>
-		<Button href="/app/clients/new" class="app-cta min-h-12 rounded-lg px-6 text-base">
+		<Button href="/app/clients/new" data-tour="clients-new" class="app-cta min-h-12 rounded-lg px-6 text-base">
 			<PlusIcon class="mr-2 h-5 w-5" aria-hidden="true" />
 			New client
 		</Button>
@@ -93,7 +93,7 @@
 	{:else}
 		<div class="app-card py-16 text-center">
 			<p style="color: var(--app-muted);">No clients match. Create your first one.</p>
-			<Button href="/app/clients/new" class="app-cta mt-4 min-h-11">New client</Button>
+			<Button href="/app/clients/new" data-tour="clients-new" class="app-cta mt-4 min-h-11">New client</Button>
 		</div>
 	{/if}
 

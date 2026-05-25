@@ -144,10 +144,10 @@
 		<div>
 			<h1 class="app-display text-4xl md:text-5xl" style="color: var(--app-text);">Sessions</h1>
 			<p class="mt-1 max-w-xl text-sm" style="color: var(--app-muted);">
-				Bold layout — jump in with one tap. Live workouts use execution mode.
+				Create a new workout session for your client. You may plan the session in advance or run it as you go.
 			</p>
 		</div>
-		<Button href="/app/sessions/new" class="app-cta min-h-12 rounded-lg px-6 text-base">
+		<Button href="/app/sessions/new" data-tour="sessions-new" class="app-cta min-h-12 rounded-lg px-6 text-base">
 			<PlusIcon class="mr-2 h-5 w-5" aria-hidden="true" />
 			New session
 		</Button>
@@ -303,7 +303,7 @@
 	{:else}
 		<div class="app-card py-16 text-center">
 			<p style="color: var(--app-muted);">No sessions match. Create one to start.</p>
-			<Button href="/app/sessions/new" class="app-cta mt-4">New session</Button>
+			<Button href="/app/sessions/new" data-tour="sessions-new" class="app-cta mt-4">New session</Button>
 		</div>
 	{/if}
 

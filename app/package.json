@@ -55,6 +55,7 @@
 		"mode-watcher": "^1.1.0",
 		"mongodb": "^7.1.0",
 		"posthog-js": "^1.376.0",
+		"shepherd.js": "^15.2.2",
 		"uuid": "^13.0.0",
 		"zod": "^4.3.6"
 	}

@@ -32,6 +32,16 @@
 		type PoseChartPoint,
 	} from "$lib/api/sessions";
 	import { createMutation } from "@tanstack/svelte-query";
+	import { onMount, tick } from "svelte";
+	import {
+		advanceTourAfterSetCreated,
+		advanceTourToRecordVideoTip,
+		getActiveTourStep,
+		isTourActive,
+		resumeTourForPath,
+		setTourRecordPrepareHandler,
+		type TourStepId,
+	} from "$lib/ui-tour";
 
 	let { data } = $props();
 	const sessionId = $derived($page.params.id);
@@ -39,7 +49,11 @@
 
 	const startMutation = createMutation(() => ({
 		mutationFn: () => startSession(sessionId!),
-		onSuccess: () => invalidateAll(),
+		onSuccess: async () => {
+			await invalidateAll();
+			await tick();
+			await advanceTourToRecordVideoTip();
+		},
 	}));
 
 	const completeMutation = createMutation(() => ({
@@ -405,12 +419,40 @@
 
 			newSetForm = seedNewSetFormFromExercise(ex);
 			openedSetId = newSet.id;
+
+			if (isTourActive() && getActiveTourStep() === 'record-create-set') {
+				await tick();
+				await advanceTourAfterSetCreated();
+			}
 		} catch (e) {
 			console.error(e);
 		} finally {
 			creatingNewSet = false;
 		}
 	}
+
+	async function prepareRecordTourStep(stepId: TourStepId) {
+		if (stepId === 'record-set-accordion' || stepId === 'record-upload-video') {
+			const sets = sortedSetsForCurrent;
+			if (sets.length > 0) {
+				openedSetId = sets[0].id;
+				await tick();
+			}
+		}
+	}
+
+	onMount(() => {
+		setTourRecordPrepareHandler(prepareRecordTourStep);
+
+		void (async () => {
+			await tick();
+			await resumeTourForPath($page.url.pathname);
+		})();
+
+		return () => {
+			setTourRecordPrepareHandler(null);
+		};
+	});
 
 	function revokeUploadBlobOnly() {
 		if (uploadPreviewUrl) {
@@ -696,6 +738,7 @@
 			</Badge>
 			{#if session?.status === "scheduled"}
 				<Button
+					data-tour="record-start"
 					class="app-cta rounded-lg"
 					onclick={() => startMutation.mutate()}
 					disabled={startMutation.isPending}
@@ -718,6 +761,7 @@
 
 	<div class="flex w-full min-h-0 flex-1 flex-col gap-3 overflow-hidden">
 		<Card
+			data-tour="record-video-tip"
 			class="w-full shrink-0 gap-0 rounded-xl border-white/15 bg-black/30 py-0 text-zinc-100 shadow-none"
 		>
 			<CardContent class="p-3 sm:p-4">
@@ -749,7 +793,7 @@
 					</p>
 				{/if}
 
-				{#each sortedSetsForCurrent as set (set.id)}
+				{#each sortedSetsForCurrent as set, setIndex (set.id)}
 					{@const summaryTitle = setAccordionSummaryTitle(currentExercise, set)}
 					{@const planVol = volumePlanSecondary(currentExercise)}
 					<Collapsible.Root
@@ -765,6 +809,7 @@
 								style="border-color: var(--app-border);"
 							>
 								<Collapsible.Trigger
+									data-tour={setIndex === 0 ? 'record-set-accordion' : undefined}
 									class="flex min-w-0 flex-1 gap-3 text-left hover:opacity-90"
 									style="color: var(--app-text);"
 									aria-expanded={openedSetId === set.id}
@@ -1032,6 +1077,7 @@
 													<Button
 														type="button"
 														variant="outline"
+														data-tour={setIndex === 0 ? 'record-upload-video' : undefined}
 														class="rounded-lg border-[var(--app-border)] bg-white/5 text-zinc-100"
 														disabled={recordSetMutation.isPending ||
 															uploadingVideoSetId === set.id}
@@ -1150,6 +1196,7 @@
 						</div>
 						<Button
 							type="button"
+							data-tour="record-create-set"
 							class="app-cta w-full rounded-lg sm:w-auto"
 							disabled={creatingNewSet ||
 								recordSetMutation.isPending ||

@@ -27,9 +27,9 @@
 			<Collapsible.Root open={mainItem.isActive}>
 				{#snippet child({ props })}
 					<Sidebar.MenuItem {...props}>
-						<Sidebar.MenuButton tooltipContent={mainItem.title} isActive={mainItem.isActive ?? false}>
+						<Sidebar.MenuButton tooltipContent={mainItem.title} isActive={mainItem.isActive ?? false} id={mainItem.title.toLowerCase()}>
 							{#snippet child({ props })}
-								<a href={mainItem.url} {...props}>
+								<a href={mainItem.url} data-tour-nav={mainItem.title.toLowerCase()} {...props}>
 									<mainItem.icon />
 									<span>{mainItem.title}</span>
 								</a>

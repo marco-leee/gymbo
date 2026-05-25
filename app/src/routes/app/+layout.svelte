@@ -1,5 +1,6 @@
 <script lang="ts">
 	import AppSidebar from '$lib/components/app-sidebar.svelte';
+	import UiTourRunner from '$lib/components/ui-tour-runner.svelte';
 	import { Separator } from '$lib/components/ui/separator/index.js';
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
 	import DumbbellIcon from '@lucide/svelte/icons/dumbbell';
@@ -9,6 +10,7 @@
 
 <div class="app-root min-h-dvh">
 	<Sidebar.Provider>
+		<UiTourRunner />
 		<AppSidebar user={data.user} />
 		<Sidebar.Inset class="min-h-dvh">
 			<header

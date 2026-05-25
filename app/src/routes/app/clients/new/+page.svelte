@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { tick } from 'svelte';
 	import { createMutation } from '@tanstack/svelte-query';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
@@ -9,6 +10,7 @@
 	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
 	import { createClient } from '$lib/api/clients';
 	import { queryClient } from '$lib/query-client';
+	import { advanceTourAfterClientCreated, resumeTourForPath } from '$lib/ui-tour';
 
 	type NewClientForm = {
 		email: string;
@@ -34,9 +36,12 @@
 
 	const clientMutation = createMutation(() => ({
 		mutationFn: createClient,
-		onSuccess: () => {
+		onSuccess: async () => {
 			queryClient.invalidateQueries({ queryKey: ['clients'] });
-			goto('/app/clients');
+			advanceTourAfterClientCreated();
+			await goto('/app/clients');
+			await tick();
+			await resumeTourForPath('/app/clients');
 		},
 		onError: (error: Error) => {
 			console.error('Failed to create client:', error);
@@ -78,7 +83,7 @@
 		<h1 class="app-display text-3xl md:text-4xl" style="color: var(--app-text);">New client</h1>
 	</div>
 
-	<div class="app-card mx-auto w-full max-w-3xl p-6 md:p-8">
+	<div class="app-card mx-auto w-full max-w-3xl p-6 md:p-8" data-tour="clients-form">
 		<h2 class="text-lg font-semibold">Client information</h2>
 		<p class="mt-1 text-sm" style="color: var(--app-muted);">Enter details for your new client.</p>
 

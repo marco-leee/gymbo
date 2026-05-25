@@ -113,7 +113,7 @@
 	{#if row.measurement === 'reps'}
 		<div class="grid gap-4 sm:grid-cols-2">
 			<div class="space-y-2">
-				<Label for={`${idPrefix}-treps`}>Target reps</Label>
+				<Label for={`${idPrefix}-treps`}>Target Reps</Label>
 				<Input
 					id={`${idPrefix}-treps`}
 					type="number"
@@ -124,7 +124,7 @@
 				/>
 			</div>
 			<div class="space-y-2">
-				<Label for={`${idPrefix}-tw`}>Target weight (kg)</Label>
+				<Label for={`${idPrefix}-tw`}>Target Weight (kg)</Label>
 				<Input
 					id={`${idPrefix}-tw`}
 					type="number"
@@ -139,7 +139,7 @@
 	{:else}
 		<div class="grid gap-4 sm:grid-cols-2">
 			<div class="space-y-2">
-				<Label for={`${idPrefix}-tdur`}>Target duration (sec)</Label>
+				<Label for={`${idPrefix}-tdur`}>Target Duration (sec)</Label>
 				<Input
 					id={`${idPrefix}-tdur`}
 					type="number"
@@ -150,7 +150,7 @@
 				/>
 			</div>
 			<div class="space-y-2">
-				<Label for={`${idPrefix}-tw2`}>Target weight (kg)</Label>
+				<Label for={`${idPrefix}-tw2`}>Target Weight (kg)</Label>
 				<Input
 					id={`${idPrefix}-tw2`}
 					type="number"
@@ -166,7 +166,7 @@
 
 	<div class="grid gap-4 sm:grid-cols-2">
 		<div class="space-y-2">
-			<Label for={`${idPrefix}-sets`}>Sets</Label>
+			<Label for={`${idPrefix}-sets`}>Number of Sets</Label>
 			<Input
 				id={`${idPrefix}-sets`}
 				type="number"
