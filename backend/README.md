@@ -132,12 +132,15 @@ Shared logic lives in `src/video_queue_worker.py`. RunPod job envelope parsing i
 On startup, both entrypoints print CUDA status to **stdout** (no fail-fast):
 
 ```text
+[gpu] torch=2.11.0 cuda_build=12.6
 [gpu] cuda_available=True
 [gpu] device_count=1
 [gpu] device_0=NVIDIA ...
 ```
 
 Ultralytics YOLO uses GPU automatically when CUDA is visible.
+
+**PyTorch CUDA version:** PyTorch 2.11 default PyPI wheels ship CUDA 13, which fails on RunPod hosts with CUDA 12.4 drivers (`driver too old`). Linux builds pin `torch` / `torchvision` to the official [cu126 index](https://download.pytorch.org/whl/cu126) in `pyproject.toml`; macOS dev keeps default PyPI wheels. After changing deps, rebuild with `--platform linux/amd64` and confirm `cuda_build=12.6` in worker logs.
 
 ### Environment (worker)
 

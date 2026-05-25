@@ -53,6 +53,10 @@ def print_gpu_status() -> None:
     """Stdout-only CUDA probe for RunPod / Docker debugging."""
     import torch
 
+    print(
+        f"[gpu] torch={torch.__version__} cuda_build={torch.version.cuda}",
+        flush=True,
+    )
     available = torch.cuda.is_available()
     print(f"[gpu] cuda_available={available}", flush=True)
     if available:
@@ -82,9 +86,9 @@ def _pipeline_context(video_path: Path, job: VideoProcessingJob) -> SessionConte
         input_source=InputSource.VIDEO_FILE,
         video_path=str(video_path.resolve()),
         conf_threshold=0.8,
-        yolo_detect_weights=str(pm_root / "yolo26n.pt"),
-        yolo_seg_weights=str(pm_root / "yolo26n-seg.pt"),
-        yolo_pose_weights=str(pm_root / "yolo26n-pose.pt"),
+        yolo_detect_weights=str(pm_root / "yolo26x.pt"),
+        yolo_seg_weights=str(pm_root / "yolo26x-seg.pt"),
+        yolo_pose_weights=str(pm_root / "yolo26x-pose.pt"),
     )
 
 
@@ -218,7 +222,9 @@ def run_video_job(s3: S3StorageProvider, job: VideoProcessingJob) -> None:
         log.info("[%s] Download object key=%s", jid, job.r2_key)
         t_dl = time.perf_counter()
         s3_bytes = s3.download_object(job.r2_key, Path(local_in))
-        log.info("[%s] Download stage elapsed_sec=%.2f", jid, time.perf_counter() - t_dl)
+        log.info(
+            "[%s] Download stage elapsed_sec=%.2f", jid, time.perf_counter() - t_dl
+        )
 
         cam = camera_view_from_job_metadata(job.metadata)
         _validate_downloaded_video(
@@ -296,6 +302,9 @@ def run_video_job(s3: S3StorageProvider, job: VideoProcessingJob) -> None:
             out_key,
             vmeta.get("duration_sec"),
         )
+    except Exception as e:
+        log.error("[%s] Error processing video: %s", jid, e)
+        raise e
     finally:
         for p in (local_in, local_out, local_out_web):
             try:
