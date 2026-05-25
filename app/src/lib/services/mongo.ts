@@ -802,12 +802,15 @@ export async function updateSetInExercise(
 	const setOid = new ObjectId(setId);
 	if (data.pose_chart_data !== undefined) {
 		const bioCol = await getSetBiometricsCollection();
-		await bioCol.replaceOne(
+		await bioCol.updateOne(
 			{ set_id: setOid, version: SET_BIOMETRICS_VERSION },
 			{
-				set_id: setOid,
-				version: SET_BIOMETRICS_VERSION,
-				pose_chart_data: data.pose_chart_data
+				$set: { pose_chart_data: data.pose_chart_data },
+				$setOnInsert: {
+					set_id: setOid,
+					version: SET_BIOMETRICS_VERSION,
+					created_at: now
+				}
 			},
 			{ upsert: true }
 		);

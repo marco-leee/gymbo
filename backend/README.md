@@ -125,19 +125,22 @@ Async set video processing: download from S3/R2 → `AnalysisPipeline` → remux
 | `PYTHONPATH=src uv run python src/__main__.py` | Local/dev: drain Redis list (`REDIS_URL`, `REDIS_VIDEO_QUEUE_KEY`) via `RPOP` until empty |
 | `uv run python src/runpod_video_handler.py` | RunPod Serverless queue worker (`runpod.serverless.start`) |
 
-Shared logic lives in `src/video_queue_worker.py`. RunPod job envelope parsing (no ML imports) is in `src/runpod_job.py`.
+Shared logic lives in `src/video_queue_worker.py`. RunPod job envelope parsing is in `src/runpod_video_handler.py` (`parse_runpod_job`).
 
 ### Runtime GPU debug
 
 On startup, both entrypoints print CUDA status to **stdout** (no fail-fast):
 
 ```text
+[gpu] torch=2.11.0 cuda_build=12.6
 [gpu] cuda_available=True
 [gpu] device_count=1
 [gpu] device_0=NVIDIA ...
 ```
 
 Ultralytics YOLO uses GPU automatically when CUDA is visible.
+
+**PyTorch CUDA version:** PyTorch 2.11 default PyPI wheels ship CUDA 13, which fails on RunPod hosts with CUDA 12.4 drivers (`driver too old`). Linux builds pin `torch` / `torchvision` to the official [cu126 index](https://download.pytorch.org/whl/cu126) in `pyproject.toml`; macOS dev keeps default PyPI wheels. After changing deps, rebuild with `--platform linux/amd64` and confirm `cuda_build=12.6` in worker logs.
 
 ### Environment (worker)
 
@@ -171,10 +174,25 @@ PYTHONPATH=src uv run python src/runpod_video_handler.py
 
 RunPod SDK reads `test_input.json` from the working directory when executed locally.
 
+### Partial-video debugging
+
+If processed output is shorter than the upload:
+
+1. Set `LOG_LEVEL=DEBUG` on the worker (RunPod endpoint env).
+2. Re-run the job; check logs for `[job_id] video probe` — `s3_bytes` vs `local_bytes`, `ffprobe_sec`, `opencv_duration_sec`.
+3. Compare pipeline summary: `decoded` should match `written`; `ok` may be lower when pose/seg fails.
+4. Locally verify durations:
+
+```bash
+ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 /path/to/video.mp4
+```
+
+Size mismatch or ffprobe ≫ OpenCV duration fails the job before processing (truncated download or decode issue). The pipeline writes **every decoded frame** to the output MP4 (failed perception frames still appear, without overlays).
+
 ### Tests
 
 ```bash
 cd backend
-uv run pytest tests/test_runpod_video_handler.py -q
+uv run pytest tests/test_runpod_video_handler.py tests/test_video_worker_validation.py -q
 ```
 

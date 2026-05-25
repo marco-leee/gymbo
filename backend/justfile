@@ -1,4 +1,4 @@
-image := "ghcr.io/marco-leee/gymbo/pose:yolov26-6"
-build-pose:
-    docker build --platform linux/amd64 -f Dockerfile.video-worker -t {{image}} .
-    docker push {{image}}
+image := "ghcr.io/marco-leee/gymbo/pose:yolov26"
+build-pose version:
+    docker build --platform linux/amd64 -f Dockerfile.video-worker -t {{image}}-{{version}} .
+    docker push {{image}}-{{version}}

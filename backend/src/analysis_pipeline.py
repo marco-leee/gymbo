@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+from collections import defaultdict
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -14,9 +16,14 @@ from pipeline.from_record import record_to_frame_state
 from pipeline.overlays import render_overlays
 from pipeline.runner import PerceptionRunConfig, perceive_frame_pipeline
 from pipeline.frame_state import FramePerceptionState
+from pipeline.run_stats import PipelineRunStats
 from session_context import InputSource, SessionContext
 from utils import Video
 from utils.video import CameraView
+
+log = logging.getLogger("analysis_pipeline")
+
+_DEBUG_FRAME_INTERVAL = 30
 
 if TYPE_CHECKING:
     from database.mongodb.ingest import MongodbPersistConfig
@@ -103,7 +110,7 @@ class AnalysisPipeline:
         output_json_path: str | Path | None = None,
         mongodb_persist: MongodbPersistConfig | None = None,
         mongodb_database: Database | None = None,
-    ) -> OverallResults:
+    ) -> tuple[OverallResults, PipelineRunStats]:
         """MP4 writer path: segmentation tint + pose skeleton + person bbox."""
         ctx = self.context
 
@@ -117,6 +124,16 @@ class AnalysisPipeline:
         mp4_path.parent.mkdir(parents=True, exist_ok=True)
         if output_json_path:
             Path(output_json_path).parent.mkdir(parents=True, exist_ok=True)
+
+        log.info(
+            "Video input path=%s width=%s height=%s fps=%s total_frames=%s duration_sec=%.2f",
+            ctx.video_path,
+            video.width,
+            video.height,
+            video.fps,
+            video.total_frames,
+            video.duration,
+        )
 
         overall_results = OverallResults(
             results=[],
@@ -141,9 +158,14 @@ class AnalysisPipeline:
         if not writer.isOpened():
             raise RuntimeError(f"Failed to open VideoWriter for {mp4_path}")
 
+        status_counts: dict[str, int] = defaultdict(int)
+        frames_decoded = 0
+        frames_written = 0
+        frames_ok = 0
+
         try:
             for count, ts, frame in video.get_frames():
-                # Stage 1: Perception
+                frames_decoded += 1
                 st = self._perceive_frame(
                     frame,
                     count,
@@ -152,8 +174,21 @@ class AnalysisPipeline:
                     segmenter=segmenter,
                     pose_model=pose_model,
                 )
+                status = st.perception_record.status.value
+                status_counts[status] += 1
+
+                if count % _DEBUG_FRAME_INTERVAL == 0:
+                    log.debug(
+                        "frame idx=%s timestamp=%.3f status=%s",
+                        count,
+                        ts,
+                        status,
+                    )
+
                 if st.overall_result is not None:
+                    frames_ok += 1
                     overall_results.results.append(st.overall_result)
+
                     bio = compute_frame_biometrics(
                         st,
                         exercise_type=ctx.exercise_type,
@@ -175,8 +210,17 @@ class AnalysisPipeline:
                 # Always write a frame: overlays when detected, otherwise original
                 vis = render_overlays(frame, st.perception_record)
                 writer.write(vis)
+                frames_written += 1
         finally:
             writer.release()
+
+        stats = PipelineRunStats(
+            frames_decoded=frames_decoded,
+            frames_written=frames_written,
+            frames_ok=frames_ok,
+            status_counts=dict(status_counts),
+        )
+        log.info("Pipeline finished %s", stats.summary())
 
         if output_json_path:
             Path(output_json_path).write_text(
@@ -199,4 +243,4 @@ class AnalysisPipeline:
                 database=db,
             )
 
-        return overall_results
+        return overall_results, stats

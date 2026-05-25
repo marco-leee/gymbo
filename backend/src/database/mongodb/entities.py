@@ -148,3 +148,4 @@ class SetBiometricsEntity(BaseModel):
     set_id: ObjectId
     version: int = 1
     pose_chart_data: list[dict[str, Any]] = Field(default_factory=list)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
