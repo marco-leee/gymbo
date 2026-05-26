@@ -77,7 +77,7 @@
 	}
 </script>
 
-<div class="app-root flex min-h-dvh flex-col" style="background: var(--app-bg);">
+<div class="flex min-h-dvh flex-col" style="background: var(--app-bg);">
 	<header
 		class="flex h-14 shrink-0 items-center justify-center border-b px-4 md:h-16"
 		style="border-color: var(--app-border);"
@@ -125,7 +125,7 @@
 						{@const selected = answers[currentStep.id] === option.value}
 						<label
 							class="flex min-h-12 cursor-pointer items-center rounded-lg border px-4 py-3 transition-colors {selected
-								? 'border-[var(--app-accent)] bg-[var(--app-accent)]/10 ring-1 ring-[var(--app-accent)]/35'
+								? 'border-[var(--color-accent)] bg-[var(--color-accent)]/10 ring-1 ring-[var(--color-accent)]/35'
 								: 'border-zinc-600 bg-zinc-900/50 hover:border-zinc-500'}"
 						>
 							<input
@@ -157,7 +157,7 @@
 						<Button
 							type="button"
 							variant="outline"
-							class="app-outline min-h-11"
+							class="min-h-11"
 							disabled={onboardingMutation.isPending}
 							onclick={goBack}
 						>
@@ -166,7 +166,7 @@
 					{/if}
 					<Button
 						type="button"
-						class="app-cta min-h-11"
+						class="min-h-11"
 						disabled={onboardingMutation.isPending}
 						onclick={goNext}
 					>

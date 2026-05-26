@@ -21,7 +21,7 @@
 						class="flex size-8 shrink-0 items-center justify-center rounded-full text-sm font-semibold transition-colors md:size-9 {isComplete
 							? 'bg-emerald-500 text-zinc-950'
 							: isCurrent
-								? 'bg-[var(--app-accent)] text-zinc-950 ring-2 ring-[var(--app-accent)]/35'
+								? 'bg-[var(--color-accent)] text-zinc-950 ring-2 ring-[var(--color-accent)]/35'
 								: 'border border-zinc-600 bg-zinc-900/50 text-zinc-400'}"
 						aria-current={isCurrent ? 'step' : undefined}
 					>
@@ -43,15 +43,13 @@
 				</div>
 				<div class="min-w-0 flex-1 pb-5 md:pb-6">
 					<p
-						class="text-xs font-medium uppercase tracking-wider {isCurrent || isComplete
-							? 'text-zinc-300'
-							: 'text-zinc-500'}"
+						class="text-xs font-medium uppercase tracking-wider text-[var(--color-muted-foreground)]"
 					>
 						Step {index + 1} of {steps.length}
 					</p>
 					<p
 						class="mt-0.5 text-sm md:text-base {isCurrent
-							? 'font-semibold text-zinc-100'
+							? 'font-semibold text-[var(--color-foreground)]'
 							: isComplete
 								? 'text-zinc-400'
 								: 'text-zinc-500'}"
