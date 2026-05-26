@@ -16,7 +16,7 @@
 		"packages/*"
 	],
 	"devDependencies": {
-		"@internationalized/date": "^3.10.0",
+		"@internationalized/date": "^3.12.0",
 		"@lucide/svelte": "^0.561.0",
 		"@sveltejs/adapter-auto": "^7.0.0",
 		"@sveltejs/adapter-cloudflare": "^7.2.8",
@@ -25,7 +25,7 @@
 		"@tailwindcss/typography": "^0.5.19",
 		"@tailwindcss/vite": "^4.1.18",
 		"@tanstack/table-core": "^8.21.3",
-		"bits-ui": "^2.14.4",
+		"bits-ui": "^2.16.3",
 		"clsx": "^2.1.1",
 		"layerchart": "2.0.0-next.43",
 		"onnxruntime-web": "1.24.3",
