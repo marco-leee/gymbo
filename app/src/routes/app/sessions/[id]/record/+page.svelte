@@ -107,7 +107,10 @@
 	let videoPreviewLoading = $state(false);
 	let videoPreviewError = $state("");
 
-	async function openVideoPreview(storageKeyOrUrl: string, presignedFallback?: string | null) {
+	async function openVideoPreview(
+		storageKeyOrUrl: string,
+		presignedFallback?: string | null,
+	) {
 		videoPreviewError = "";
 		videoPreviewUrl = null;
 		videoPreviewLoading = true;
@@ -148,7 +151,9 @@
 	let poseChartSheetVideoLoading = $state(false);
 	let poseChartSheetVideoError = $state("");
 
-	async function resolveChartSheetVideoUrl(set: ExerciseSet): Promise<string | null> {
+	async function resolveChartSheetVideoUrl(
+		set: ExerciseSet,
+	): Promise<string | null> {
 		const http = (s?: string | null) => {
 			const t = s?.trim();
 			return t && /^https?:\/\//i.test(t) ? t : null;
@@ -176,7 +181,7 @@
 	async function openPoseChartSheet(
 		exerciseName: string,
 		set: ExerciseSet,
-		exerciseKey?: string
+		exerciseKey?: string,
 	) {
 		poseChartSheet = {
 			exerciseName,
@@ -420,7 +425,7 @@
 			newSetForm = seedNewSetFormFromExercise(ex);
 			openedSetId = newSet.id;
 
-			if (isTourActive() && getActiveTourStep() === 'record-create-set') {
+			if (isTourActive() && getActiveTourStep() === "record-create-set") {
 				await tick();
 				await advanceTourAfterSetCreated();
 			}
@@ -432,7 +437,7 @@
 	}
 
 	async function prepareRecordTourStep(stepId: TourStepId) {
-		if (stepId === 'record-set-accordion' || stepId === 'record-upload-video') {
+		if (stepId === "record-set-accordion" || stepId === "record-upload-video") {
 			const sets = sortedSetsForCurrent;
 			if (sets.length > 0) {
 				openedSetId = sets[0].id;
@@ -707,21 +712,21 @@
 				href="/app/sessions/{sessionId}?view=session"
 				variant="ghost"
 				size="icon"
-				class="shrink-0 text-zinc-300 hover:bg-white/10 hover:text-white"
+				class="shrink-0"
 				aria-label="Back to session hub"
 			>
 				<ChevronLeftIcon class="h-5 w-5" />
 			</Button>
 			<div class="min-w-0">
 				<p
-					class="truncate text-xs font-medium uppercase tracking-wider text-zinc-500"
+					class="truncate text-xs font-medium uppercase tracking-wider"
 				>
 					Recording
 				</p>
-				<h1 class="truncate text-lg font-bold text-white md:text-xl">
+				<h1 class="truncate text-lg font-bold md:text-xl">
 					{data.client?.full_name ?? session?.client_name ?? session?.client_id}
 				</h1>
-				<p class="text-xs text-zinc-400">
+				<p class="text-xs">
 					{formatTime(session?.scheduled_at ?? "")}
 					{#if session?.status === "in-progress"}
 						· {elapsedMinutes()} min elapsed
@@ -732,7 +737,7 @@
 		<div class="flex shrink-0 flex-wrap items-center justify-end gap-2">
 			<Badge
 				variant={session?.status === "in-progress" ? "default" : "outline"}
-				class="capitalize border-white/20 bg-white/5 text-zinc-200"
+				class="capitalize"
 			>
 				{session?.status?.replace("-", " ") ?? "scheduled"}
 			</Badge>
@@ -780,7 +785,7 @@
 						}}
 					/>
 				{:else}
-					<p class="text-sm text-zinc-400">No exercises in this session.</p>
+					<p class="text-sm">No exercises in this session.</p>
 				{/if}
 			</CardContent>
 		</Card>
@@ -788,7 +793,7 @@
 		<div class="min-h-0 w-full flex-1 space-y-4 overflow-y-auto">
 			{#if currentExercise}
 				{#if sortedSetsForCurrent.length === 0}
-					<p class="text-center text-sm" style="color: var(--app-muted);">
+					<p class="text-center text-sm">
 						No sets yet. Add one below.
 					</p>
 				{/if}
@@ -804,19 +809,17 @@
 						}}
 					>
 						<div class="overflow-hidden p-0">
-							<div
-								class="flex items-start gap-2 border-b px-4 py-3"
-							>
+							<div class="flex items-start gap-2 border-b px-4 py-3">
 								<Collapsible.Trigger
-									data-tour={setIndex === 0 ? 'record-set-accordion' : undefined}
+									data-tour={setIndex === 0
+										? "record-set-accordion"
+										: undefined}
 									class="flex min-w-0 flex-1 gap-3 text-left hover:opacity-90"
-									style="color: var(--app-text);"
 									aria-expanded={openedSetId === set.id}
 									title={summaryTitle}
 								>
 									<ChevronDownIcon
 										class={`h-5 w-5 shrink-0 translate-y-0.5 transition-transform ${openedSetId === set.id ? "rotate-180" : ""}`}
-										style="color: var(--app-muted);"
 										aria-hidden="true"
 									/>
 									<div class="min-w-0 flex-1">
@@ -845,35 +848,24 @@
 										<div class="mt-2 space-y-2">
 											<div class="grid grid-cols-3 gap-x-3 gap-y-2 text-xs">
 												<div class="min-w-0">
-													<div
-														class="font-medium"
-														style="color: var(--app-muted);"
-													>
+													<div class="font-medium">
 														{mergedVolumeLabel(currentExercise)}
 													</div>
 													<div
-														class="mt-0.5 text-sm font-semibold tabular-nums text-zinc-100"
+														class="mt-0.5 text-sm font-semibold tabular-nums"
 													>
 														{volumeActualPrimary(currentExercise, set)}
 													</div>
 													{#if planVol}
-														<span
-															class="mt-0.5 block text-[11px] font-normal"
-															style="color: var(--app-muted);"
-														>
+														<span class="mt-0.5 block text-[11px] font-normal">
 															{planVol}
 														</span>
 													{/if}
 												</div>
 												<div class="min-w-0">
+													<div class="font-medium">Load</div>
 													<div
-														class="font-medium"
-														style="color: var(--app-muted);"
-													>
-														Load
-													</div>
-													<div
-														class="mt-0.5 text-sm font-semibold tabular-nums text-zinc-100"
+														class="mt-0.5 text-sm font-semibold tabular-nums"
 													>
 														{#if set.weight_kg != null}
 															{set.weight_kg} kg
@@ -883,7 +875,6 @@
 														{#if currentExercise.target_weight_kg != null}
 															<span
 																class="mt-0.5 block text-[11px] font-normal"
-																style="color: var(--app-muted);"
 															>
 																plan {currentExercise.target_weight_kg} kg
 															</span>
@@ -891,24 +882,16 @@
 													</div>
 												</div>
 												<div class="min-w-0">
+													<div class="font-medium">Rest</div>
 													<div
-														class="font-medium"
-														style="color: var(--app-muted);"
-													>
-														Rest
-													</div>
-													<div
-														class="mt-0.5 text-sm font-semibold tabular-nums text-zinc-100"
+														class="mt-0.5 text-sm font-semibold tabular-nums"
 													>
 														{restDisplayPrimary(currentExercise)}
 													</div>
 												</div>
 											</div>
 											{#if set.notes?.trim()}
-												<p
-													class="text-xs leading-snug break-words"
-													style="color: var(--app-muted);"
-												>
+												<p class="text-xs leading-snug break-words">
 													{set.notes.trim()}
 												</p>
 											{/if}
@@ -920,7 +903,7 @@
 										type="button"
 										variant="outline"
 										size="sm"
-										class="shrink-0 rounded-lg border-[var(--app-border)] bg-white/5 px-2.5 text-xs text-zinc-100 hover:bg-white/10"
+										class="shrink-0 rounded-lg border-[var(--app-border)] bg-white/5 px-2.5 text-xs hover:bg-white/10"
 										onclick={() =>
 											void openVideoPreview(set.video_url!, set.video_play_url)}
 										aria-label="View uploaded set video"
@@ -934,11 +917,11 @@
 										type="button"
 										variant="outline"
 										size="sm"
-										class="shrink-0 rounded-lg border-[var(--app-border)] bg-white/5 px-2.5 text-xs text-zinc-100 hover:bg-white/10"
+										class="shrink-0 rounded-lg border-[var(--app-border)] bg-white/5 px-2.5 text-xs hover:bg-white/10"
 										onclick={() =>
 											void openVideoPreview(
 												set.processed_video_url!,
-												set.processed_video_play_url
+												set.processed_video_play_url,
 											)}
 										aria-label="View processed set video"
 									>
@@ -951,13 +934,13 @@
 										type="button"
 										variant="outline"
 										size="sm"
-										class="shrink-0 rounded-lg border-[var(--app-border)] bg-white/5 px-2.5 text-xs text-zinc-100 hover:bg-white/10"
+										class="shrink-0 rounded-lg border-[var(--app-border)] bg-white/5 px-2.5 text-xs hover:bg-white/10"
 										onclick={() => {
 											if (!currentExercise) return;
 											void openPoseChartSheet(
 												currentExercise.name,
 												set,
-												currentExercise.exercise_key
+												currentExercise.exercise_key,
 											);
 										}}
 										aria-label="View pose angle charts for this set"
@@ -968,16 +951,11 @@
 								{/if}
 							</div>
 							<Collapsible.Content>
-								<div
-									class="border-t p-4"
-									style="border-color: var(--app-border);"
-								>
+								<div class="border-t p-4">
 									{#if openedSetDraft && openedSetDraft.setId === set.id}
 										{@const locked = setFieldsLocked(set)}
 										{#if locked}
-											<p
-												class="mb-4 text-xs"
-											>
+											<p class="mb-4 text-xs">
 												This set can’t be edited while it’s processing or after
 												it’s marked done.
 											</p>
@@ -988,7 +966,6 @@
 													<Label
 														for={"set-" + set.id + "-reps"}
 														class="text-xs"
-														style="color: var(--app-muted);"
 													>
 														Planned Reps
 													</Label>
@@ -1002,11 +979,7 @@
 												</div>
 											{:else}
 												<div class="space-y-2 sm:col-span-1">
-													<Label
-														for={"set-" + set.id + "-dur"}
-														class="text-xs"
-														style="color: var(--app-muted);"
-													>
+													<Label for={"set-" + set.id + "-dur"} class="text-xs">
 														Duration (s)
 														{#if currentExercise.target_duration != null}
 															<span class="font-normal opacity-75">
@@ -1024,11 +997,7 @@
 												</div>
 											{/if}
 											<div class="space-y-2 sm:col-span-1">
-												<Label
-													for={"set-" + set.id + "-wt"}
-													class="text-xs"
-													style="color: var(--app-muted);"
-												>
+												<Label for={"set-" + set.id + "-wt"} class="text-xs">
 													Planned Weight (kg)
 												</Label>
 												<Input
@@ -1041,10 +1010,8 @@
 												/>
 											</div>
 											<div class="space-y-2 sm:col-span-2">
-												<Label
-													for={"set-" + set.id + "-notes"}
-													class="text-xs"
-													style="color: var(--app-muted);">Notes</Label
+												<Label for={"set-" + set.id + "-notes"} class="text-xs"
+													>Notes</Label
 												>
 												<Textarea
 													id={"set-" + set.id + "-notes"}
@@ -1071,7 +1038,9 @@
 													<Button
 														type="button"
 														variant="outline"
-														data-tour={setIndex === 0 ? 'record-upload-video' : undefined}
+														data-tour={setIndex === 0
+															? "record-upload-video"
+															: undefined}
 														class="rounded-lg"
 														disabled={recordSetMutation.isPending ||
 															uploadingVideoSetId === set.id}
@@ -1102,7 +1071,6 @@
 						<h2
 							id="record-new-set-heading"
 							class="text-base font-bold"
-							style="color: var(--app-text);"
 						>
 							Create set
 						</h2>
@@ -1112,7 +1080,6 @@
 									<Label
 										for="new-set-reps"
 										class="text-xs"
-										style="color: var(--app-muted);"
 									>
 										Reps
 										{#if currentExercise.target_reps != null}
@@ -1133,7 +1100,6 @@
 									<Label
 										for="new-set-duration"
 										class="text-xs"
-										style="color: var(--app-muted);"
 									>
 										Duration (s)
 										{#if currentExercise.target_duration != null}
@@ -1154,7 +1120,6 @@
 								<Label
 									for="new-set-weight"
 									class="text-xs"
-									style="color: var(--app-muted);"
 								>
 									Weight (kg)
 									{#if currentExercise.target_weight_kg != null}
@@ -1175,7 +1140,7 @@
 								<Label
 									for="new-set-notes"
 									class="text-xs"
-									style="color: var(--app-muted);">Notes</Label
+								>Notes</Label
 								>
 								<Textarea
 									id="new-set-notes"
@@ -1226,7 +1191,7 @@
 				>
 					Upload set video
 				</Dialog.Title>
-				<Dialog.Description class="text-sm" style="color: var(--app-muted);">
+				<Dialog.Description class="text-sm">
 					Drop an MP4 here (max {MAX_VIDEO_DURATION_SEC}s, {(
 						MAX_VIDEO_SIZE /
 						(1024 * 1024)
@@ -1262,7 +1227,7 @@
 
 				{#if uploadPreviewUrl}
 					<div class="space-y-2">
-						<Label class="text-xs" style="color: var(--app-muted);"
+						<Label class="text-xs"
 							>Preview</Label
 						>
 						<!-- svelte-ignore a11y_media_has_caption -->
@@ -1292,7 +1257,6 @@
 					<Label
 						for="record-upload-camera-view"
 						class="text-xs"
-						style="color: var(--app-muted);"
 					>
 						Camera view
 					</Label>
@@ -1376,7 +1340,7 @@
 					Uploaded video for this set. Use the controls to play or pause.
 				</Dialog.Description>
 				{#if videoPreviewLoading}
-					<p class="text-sm" style="color: var(--app-muted);">Loading…</p>
+					<p class="text-sm">Loading…</p>
 				{:else if videoPreviewError}
 					<p class="text-sm text-red-400">{videoPreviewError}</p>
 				{:else if videoPreviewUrl}
@@ -1423,8 +1387,8 @@
 				</Sheet.Title>
 				{#if poseChartSheet}
 					<Sheet.Description class="text-sm text-zinc-400">
-						{poseChartSheet.exerciseName} · Set {poseChartSheet.setNumber} ·
-						Video preview and inside knee vs outside hip (degrees) by frame
+						{poseChartSheet.exerciseName} · Set {poseChartSheet.setNumber} · Video
+						preview and inside knee vs outside hip (degrees) by frame
 					</Sheet.Description>
 				{/if}
 			</Sheet.Header>

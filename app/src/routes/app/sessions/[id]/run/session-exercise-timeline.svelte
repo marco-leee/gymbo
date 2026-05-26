@@ -54,7 +54,7 @@
 		? ''
 		: 'rounded-lg border border-white/10 bg-white/[0.03]'}"
 >
-	<p class="mb-2 text-[11px] font-medium uppercase tracking-wider text-zinc-500">
+	<p class="mb-2 text-[11px] font-medium uppercase tracking-wider">
 		Session timeline
 	</p>
 	<div
@@ -76,43 +76,43 @@
 						<span
 							class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold {isCurrent
 								? 'bg-emerald-500 text-zinc-950'
-								: 'bg-zinc-700 text-zinc-200'}"
+								: 'bg-zinc-700'}"
 						>
 							{exerciseIndex + 1}
 						</span>
 						<Badge
 							variant="outline"
-							class="shrink-0 border-white/20 capitalize text-[10px] text-zinc-300"
+							class="shrink-0 border-white/20 capitalize text-[10px]"
 						>
 							{exerciseTypeLabel(exercise.type)}
 						</Badge>
 					</div>
 					<div
-						class="w-full rounded-md text-left text-zinc-100"
+						class="w-full rounded-md text-left"
 					>
 						<span class="line-clamp-2 text-sm font-medium text-white">
 							{exercise.name}
 						</span>
 						{#if exercise.notes?.trim()}
-							<span class="line-clamp-2 block text-[10px] leading-tight text-zinc-400">
+							<span class="line-clamp-2 block text-[10px] leading-tight">
 								{exercise.notes}
 							</span>
 						{/if}
 					</div>
-					<dl class="mt-2 space-y-0.5 text-[11px] leading-snug text-zinc-400">
+					<dl class="mt-2 space-y-0.5 text-[11px] leading-snug">
 						<div class="flex justify-between gap-1">
-							<dt class="text-zinc-500">Sets</dt>
-							<dd class="text-right text-zinc-300">
+							<dt>Sets</dt>
+							<dd class="text-right">
 								{progress.total} logged
-								<span class="text-zinc-500">·</span>
+								<span>·</span>
 								{progress.done} Done
-								<span class="text-zinc-500">·</span>
+								<span>·</span>
 								Goal {exercise.target_sets ?? "—"}
 							</dd>
 						</div>
 						<div class="flex justify-between gap-1">
-							<dt class="text-zinc-500">Target</dt>
-							<dd class="text-right font-medium text-zinc-200">
+							<dt>Target</dt>
+							<dd class="text-right font-medium">
 								{exerciseTargetRepsLabel(exercise)}
 							</dd>
 						</div>
