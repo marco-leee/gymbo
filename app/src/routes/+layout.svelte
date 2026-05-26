@@ -2,8 +2,10 @@
 	import { QueryClientProvider } from "@tanstack/svelte-query";
 	import { queryClient } from "$lib/query-client.js";
 	import { ModeWatcher } from "mode-watcher";
+	import { Button } from "$lib/components/ui/button/index.js";
+	import DumbbellIcon from "@lucide/svelte/icons/dumbbell";
 	import "./layout.css";
-	import 'shepherd.js/dist/css/shepherd.css';
+	import "shepherd.js/dist/css/shepherd.css";
 
 	let { children } = $props();
 	import posthog from "posthog-js";
@@ -11,7 +13,7 @@
 	import { onMount } from "svelte";
 
 	let isPosthogInitialized = $state(false);
-	
+
 	onMount(() => {
 		if (browser && !isPosthogInitialized) {
 			posthog.init("phc_qKaRhkRKcRP6oyW9udbBeSv84SG4Z22Ndnm7NGNuP6KH", {
@@ -20,7 +22,7 @@
 			});
 			isPosthogInitialized = true;
 		}
-	})
+	});
 </script>
 
 <svelte:head></svelte:head>
