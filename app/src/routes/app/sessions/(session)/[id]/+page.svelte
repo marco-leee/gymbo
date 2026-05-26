@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import { Button } from '$lib/components/ui/button/index.js';
+	import * as Card from '$lib/components/ui/card/index.js';
 	import VideoIcon from '@lucide/svelte/icons/video';
 	import BarChart3Icon from '@lucide/svelte/icons/bar-chart-3';
 	import type { SessionExercise } from '$lib/api/sessions';
@@ -33,64 +34,68 @@
 {#if view === 'session'}
 	<div class="flex flex-col gap-10">
 		<!-- At a glance -->
-		<section aria-labelledby="session-glance-heading" class="app-card overflow-hidden">
-			<div class="grid gap-6 p-6 md:grid-cols-[1fr_auto] md:items-center">
-				<div>
-					<h2 id="session-glance-heading" class="app-display text-2xl text-[var(--app-accent)]">
-						At a glance
-					</h2>
-					<p class="mt-2 max-w-prose text-sm" style="color: var(--app-muted);">
-						Start execution for a minimal full-screen recorder, or open the table recorder.
-					</p>
-					<div class="mt-6 flex flex-wrap gap-2">
-						{#if data.session.status === 'completed'}
-							<Button href="/app/sessions/{sessionId}?view=analysis" class="app-cta min-h-12 rounded-lg px-6">
-								<BarChart3Icon class="mr-2 h-5 w-5" aria-hidden="true" />
-								View analysis
-							</Button>
-						{:else if showRecordPrimary}
-							<Button href="/app/sessions/{sessionId}/record" class="app-cta min-h-12 rounded-lg px-6 text-base">
-								<VideoIcon class="mr-2 h-5 w-5" aria-hidden="true" />
-								{data.session.status === 'in-progress' ? 'Continue workout' : 'Start workout'}
-							</Button>
-						{:else}
-							<Button href="/app/sessions/{sessionId}?view=analysis" variant="outline" class="app-outline min-h-12 rounded-lg">
-								Analysis
-							</Button>
-						{/if}
-					</div>
-				</div>
-				<div class="grid grid-cols-3 gap-3 text-center md:text-left">
+		<section aria-labelledby="session-glance-heading">
+			<Card.Root class="overflow-hidden">
+				<Card.Content class="grid gap-6 md:grid-cols-[1fr_auto] md:items-center">
 					<div>
-						<p class="app-hero-num">{data.session.exercises?.length ?? 0}</p>
-						<p class="text-xs font-semibold uppercase tracking-wide" style="color: var(--app-muted);">Exercises</p>
+						<Card.Title id="session-glance-heading" class="app-display text-2xl">
+							At a glance
+						</Card.Title>
+						<Card.Description class="mt-2 max-w-prose">
+							Start execution for a minimal full-screen recorder, or open the table recorder.
+						</Card.Description>
+						<div class="mt-6 flex flex-wrap gap-2">
+							{#if data.session.status === 'completed'}
+								<Button href="/app/sessions/{sessionId}?view=analysis" class="app-cta min-h-12 rounded-lg px-6">
+									<BarChart3Icon class="mr-2 h-5 w-5" aria-hidden="true" />
+									View analysis
+								</Button>
+							{:else if showRecordPrimary}
+								<Button href="/app/sessions/{sessionId}/record" class="app-cta min-h-12 rounded-lg px-6 text-base">
+									<VideoIcon class="mr-2 h-5 w-5" aria-hidden="true" />
+									{data.session.status === 'in-progress' ? 'Continue workout' : 'Start workout'}
+								</Button>
+							{:else}
+								<Button href="/app/sessions/{sessionId}?view=analysis" variant="outline" class="app-outline min-h-12 rounded-lg">
+									Analysis
+								</Button>
+							{/if}
+						</div>
 					</div>
-					<div>
-						<p class="app-hero-num">{setsCompleted}<span class="text-lg text-zinc-500">/{setsPlanned}</span></p>
-						<p class="text-xs font-semibold uppercase tracking-wide" style="color: var(--app-muted);">Sets</p>
-					</div>
-					<div>
-						{#if data.session.started_at && data.session.completed_at}
+					<div class="grid grid-cols-3 gap-3 text-center md:text-left">
+						<div>
+							<p class="app-hero-num">{data.session.exercises?.length ?? 0}</p>
+							<p class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Exercises</p>
+						</div>
+						<div>
 							<p class="app-hero-num">
-								{Math.round(
-									(new Date(data.session.completed_at).getTime() -
-										new Date(data.session.started_at).getTime()) /
-										60000
-								)}
+								{setsCompleted}<span class="text-lg text-muted-foreground">/{setsPlanned}</span>
 							</p>
-						{:else}
-							<p class="app-hero-num">—</p>
-						{/if}
-						<p class="text-xs font-semibold uppercase tracking-wide" style="color: var(--app-muted);">Min</p>
+							<p class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Sets</p>
+						</div>
+						<div>
+							{#if data.session.started_at && data.session.completed_at}
+								<p class="app-hero-num">
+									{Math.round(
+										(new Date(data.session.completed_at).getTime() -
+											new Date(data.session.started_at).getTime()) /
+											60000
+									)}
+								</p>
+							{:else}
+								<p class="app-hero-num">—</p>
+							{/if}
+							<p class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Min</p>
+						</div>
 					</div>
-				</div>
-			</div>
+				</Card.Content>
+			</Card.Root>
 		</section>
 
 		{#if data.session.notes}
 			<section class="app-card p-6">
-				<h2 class="text-sm font-bold uppercase tracking-wider" style="color: var(--app-muted);">Notes</h2>
-				<p class="mt-2 whitespace-pre-wrap text-sm leading-relaxed" style="color: var(--app-text);">
+				<h2 class="text-sm font-bold uppercase tracking-wider">Notes</h2>
+				<p class="mt-2 whitespace-pre-wrap text-sm leading-relaxed">
 					{data.session.notes}
 				</p>
 			</section>
@@ -103,7 +108,6 @@
 	{#await import('./session-v2-analysis-panel.svelte')}
 		<div
 			class="app-card py-16 text-center text-sm"
-			style="color: var(--app-muted);"
 			role="status"
 		>
 			Loading analysis…

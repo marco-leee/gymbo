@@ -13,6 +13,7 @@
 	import VideoIcon from '@lucide/svelte/icons/video';
 	import BarChart3Icon from '@lucide/svelte/icons/bar-chart-3';
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';
+	import * as Card from '$lib/components/ui/card/index.js';
 	import { listSessions, deleteSession, type Session } from '$lib/api/sessions';
 	import { listClients } from '$lib/api/clients';
 
@@ -118,7 +119,7 @@
 			return { label: 'Review', href: hubUrl(session.id, 'analysis') };
 		}
 		if (session.status === 'in-progress') {
-			return { label: 'Continue', href: `/app/sessions/${session.id}/run` };
+			return { label: 'Continue', href: `/app/sessions/${session.id}/record` };
 		}
 		return { label: 'Open', href: hubUrl(session.id, 'session') };
 	}
@@ -157,8 +158,8 @@
 		<div class="flex items-center gap-2">
 			<SearchIcon class="h-4 w-4 shrink-0" style="color: var(--app-muted);" aria-hidden="true" />
 			<Select.Root type="single" value={selectedClientId} onValueChange={(val) => (selectedClientId = val)}>
-				<Select.Trigger class="w-[200px] border-zinc-600 bg-zinc-900/50">
-					<span class={selectedClientId ? '' : 'text-zinc-500'}>
+				<Select.Trigger class="w-[200px] bg-background">
+					<span class={selectedClientId ? '' : 'text-muted-foreground'}>
 						{selectedClientId
 							? (clientsQuery.data?.clients.find((c) => c.id === selectedClientId)?.full_name ??
 								'Client')
@@ -197,8 +198,8 @@
 			</div>
 		</div>
 		<Select.Root type="single" value={selectedStatus} onValueChange={(val) => (selectedStatus = val)}>
-			<Select.Trigger class="w-[160px] border-zinc-600 bg-zinc-900/50">
-				<span class={selectedStatus ? '' : 'text-zinc-500'}>
+			<Select.Trigger class="w-[160px] bg-background">
+				<span class={selectedStatus ? '' : 'text-muted-foreground'}>
 					{selectedStatus
 						? selectedStatus.charAt(0).toUpperCase() + selectedStatus.slice(1)
 						: 'All statuses'}
@@ -231,72 +232,78 @@
 		<ul class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
 			{#each sessionsQuery.data.sessions as session (session.id)}
 				{@const act = primaryRowAction(session)}
-				<li class="app-card flex flex-col gap-4 p-5">
-					<div class="flex items-start justify-between gap-2">
-						<div>
-							<p class="app-display text-2xl leading-none" style="color: var(--app-accent);">
-								{formatTime(session.scheduled_at)}
-							</p>
-							<p class="mt-1 text-sm" style="color: var(--app-muted);">
-								{formatDate(session.scheduled_at)}
-							</p>
-						</div>
-						<Badge variant={getStatusBadgeVariant(session.status)} class="shrink-0 capitalize">
-							{session.status.replace('-', ' ')}
-						</Badge>
-					</div>
-					<p class="text-lg font-semibold leading-tight">
-						{session.client_name || session.client_id}
-					</p>
-					<p class="text-sm" style="color: var(--app-muted);">
-						{getExerciseCount(session)} exercise{getExerciseCount(session) === 1 ? '' : 's'}
-					</p>
-					<div class="mt-auto flex flex-wrap items-center gap-2">
-						<Button href={act.href} class="app-cta min-h-11 flex-1 rounded-lg">
-							{act.label}
-						</Button>
-						<!-- TODO: Review this dropdown menu -->
-						<!-- <DropdownMenu.Root>
-							<DropdownMenu.Trigger
-								class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-accent)]"
-								style="border-color: var(--app-border);"
-								aria-label="More actions"
-							>
-								<MoreHorizontalIcon class="h-4 w-4" />
-							</DropdownMenu.Trigger>
-							<DropdownMenu.Content align="end">
-								<DropdownMenu.Item onclick={() => goto(hubUrl(session.id, 'session'))}>
-									<EyeIcon class="mr-2 h-4 w-4" />
-									Session hub
-								</DropdownMenu.Item>
-								{#if session.status === 'scheduled' || session.status === 'in-progress'}
-									<DropdownMenu.Item onclick={() => goto(`/app/sessions/${session.id}/run`)}>
-										<VideoIcon class="mr-2 h-4 w-4" />
-										Execution
+				<li class="h-full">
+					<Card.Root class="h-full">
+						<Card.Header>
+							<div>
+								<p class="app-display text-2xl leading-none" style="color: var(--app-accent);">
+									{formatTime(session.scheduled_at)}
+								</p>
+								<Card.Description class="mt-1">
+									{formatDate(session.scheduled_at)}
+								</Card.Description>
+							</div>
+							<Card.Action>
+								<Badge variant={getStatusBadgeVariant(session.status)} class="shrink-0 capitalize">
+									{session.status.replace('-', ' ')}
+								</Badge>
+							</Card.Action>
+						</Card.Header>
+						<Card.Content class="pt-0">
+							<Card.Title class="text-lg leading-tight">
+								{session.client_name || session.client_id}
+							</Card.Title>
+							<Card.Description>
+								{getExerciseCount(session)} exercise{getExerciseCount(session) === 1 ? '' : 's'}
+							</Card.Description>
+						</Card.Content>
+						<Card.Footer class="mt-auto flex flex-wrap items-center gap-2">
+							<Button href={act.href} class="app-cta min-h-11 flex-1 rounded-lg">
+								{act.label}
+							</Button>
+							<!-- TODO: Review this dropdown menu -->
+							<!-- <DropdownMenu.Root>
+								<DropdownMenu.Trigger
+									class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-accent)]"
+									style="border-color: var(--app-border);"
+									aria-label="More actions"
+								>
+									<MoreHorizontalIcon class="h-4 w-4" />
+								</DropdownMenu.Trigger>
+								<DropdownMenu.Content align="end">
+									<DropdownMenu.Item onclick={() => goto(hubUrl(session.id, 'session'))}>
+										<EyeIcon class="mr-2 h-4 w-4" />
+										Session hub
 									</DropdownMenu.Item>
-									<DropdownMenu.Item onclick={() => goto(`/app/sessions/${session.id}/record`)}>
-										Table recorder
-									</DropdownMenu.Item>
-								{/if}
-								{#if session.status === 'completed'}
-									<DropdownMenu.Item onclick={() => goto(hubUrl(session.id, 'analysis'))}>
-										<BarChart3Icon class="mr-2 h-4 w-4" />
-										Analysis
-									</DropdownMenu.Item>
-								{/if}
-								{#if (session.status === 'scheduled' || session.status === 'in-progress') && !hasVideos(session)}
-									<DropdownMenu.Separator />
-									<DropdownMenu.Item
-										class="text-destructive focus:text-destructive"
-										onclick={(e) => handleDelete(session.id, e)}
-									>
-										<Trash2Icon class="mr-2 h-4 w-4" />
-										Delete
-									</DropdownMenu.Item>
-								{/if}
-							</DropdownMenu.Content>
-						</DropdownMenu.Root> -->
-					</div>
+									{#if session.status === 'scheduled' || session.status === 'in-progress'}
+										<DropdownMenu.Item onclick={() => goto(`/app/sessions/${session.id}/run`)}>
+											<VideoIcon class="mr-2 h-4 w-4" />
+											Execution
+										</DropdownMenu.Item>
+										<DropdownMenu.Item onclick={() => goto(`/app/sessions/${session.id}/record`)}>
+											Table recorder
+										</DropdownMenu.Item>
+									{/if}
+									{#if session.status === 'completed'}
+										<DropdownMenu.Item onclick={() => goto(hubUrl(session.id, 'analysis'))}>
+											<BarChart3Icon class="mr-2 h-4 w-4" />
+											Analysis
+										</DropdownMenu.Item>
+									{/if}
+									{#if (session.status === 'scheduled' || session.status === 'in-progress') && !hasVideos(session)}
+										<DropdownMenu.Separator />
+										<DropdownMenu.Item
+											class="text-destructive focus:text-destructive"
+											onclick={(e) => handleDelete(session.id, e)}
+										>
+											<Trash2Icon class="mr-2 h-4 w-4" />
+											Delete
+										</DropdownMenu.Item>
+									{/if}
+								</DropdownMenu.Content>
+							</DropdownMenu.Root> -->
+						</Card.Footer>
+					</Card.Root>
 				</li>
 			{/each}
 		</ul>

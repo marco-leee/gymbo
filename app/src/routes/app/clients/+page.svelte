@@ -6,6 +6,7 @@
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import SearchIcon from '@lucide/svelte/icons/search';
 	import { listClients, getClient } from '$lib/api/clients';
+	import * as Card from '$lib/components/ui/card/index.js';
 
 	let search = $state('');
 	let selectedClientId = $state<string | null>(null);
@@ -50,7 +51,7 @@
 		</Button>
 	</div>
 
-	<div class="app-card flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
+	<div class="flex flex-col gap-3 sm:flex-row sm:items-center">
 		<div class="relative w-full sm:max-w-sm">
 			<SearchIcon
 				class="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2"
@@ -60,7 +61,7 @@
 			<Input
 				type="search"
 				placeholder="Search clients…"
-				class="min-h-11 border-zinc-600 bg-zinc-900/50 pl-9"
+				class="min-h-11 pl-9"
 				bind:value={search}
 			/>
 		</div>
@@ -73,25 +74,31 @@
 	{:else if clientsQuery.data && clientsQuery.data.clients.length > 0}
 		<ul class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
 			{#each clientsQuery.data.clients as client (client.id)}
-				<li class="app-card flex flex-col gap-3 p-5">
-					<div>
-						<p class="text-lg font-semibold leading-tight">{client.full_name}</p>
-						<p class="mt-1 text-sm" style="color: var(--app-muted);">{client.email}</p>
-					</div>
-					<p class="text-sm" style="color: var(--app-muted);">
-						Added {formatDate(client.created_at)}
-					</p>
-					<Button
-						class="app-cta mt-auto min-h-11 w-full rounded-lg"
-						onclick={() => openClientDrawer(client.id)}
-					>
-						View details
-					</Button>
+				<li class="h-full">
+					<Card.Root class="h-full">
+						<Card.Header>
+							<Card.Title class="text-lg leading-tight">{client.full_name}</Card.Title>
+							<Card.Description>{client.email}</Card.Description>
+						</Card.Header>
+						<Card.Content class="pt-0">
+							<p class="text-sm text-muted-foreground">
+								Added {formatDate(client.created_at)}
+							</p>
+						</Card.Content>
+						<Card.Footer class="mt-auto">
+							<Button
+								class="app-cta min-h-11 w-full rounded-lg"
+								onclick={() => openClientDrawer(client.id)}
+							>
+								View details
+							</Button>
+						</Card.Footer>
+					</Card.Root>
 				</li>
 			{/each}
 		</ul>
 	{:else}
-		<div class="app-card py-16 text-center">
+		<div class="py-16 text-center">
 			<p style="color: var(--app-muted);">No clients match. Create your first one.</p>
 			<Button href="/app/clients/new" data-tour="clients-new" class="app-cta mt-4 min-h-11">New client</Button>
 		</div>
@@ -117,7 +124,7 @@
 			</Sheet.Description>
 		</Sheet.Header>
 
-		<div class="py-6">
+		<div class="p-4">
 			{#if clientDetailQuery.isLoading}
 				<p style="color: var(--app-muted);">Loading client details…</p>
 			{:else if clientDetailQuery.isError}

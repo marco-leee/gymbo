@@ -133,7 +133,7 @@
 		<Card class="w-full max-w-6xl" data-tour="sessions-form">
 			<CardHeader>
 				<CardTitle>Session Information</CardTitle>
-				<CardDescription>Set up a new training session (hub v2)</CardDescription>
+				<CardDescription>Set up a new training session</CardDescription>
 			</CardHeader>
 			<CardContent class="space-y-4">
 				<div class="space-y-2">

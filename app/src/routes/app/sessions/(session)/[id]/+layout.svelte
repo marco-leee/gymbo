@@ -3,6 +3,7 @@
 	import { invalidateAll } from '$app/navigation';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Badge } from '$lib/components/ui/badge/index.js';
+	import * as Tabs from '$lib/components/ui/tabs/index.js';
 	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
 	import PencilIcon from '@lucide/svelte/icons/pencil';
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';
@@ -122,19 +123,21 @@
 		</div>
 	</div>
 
-	<nav aria-label="Session" class="app-segment w-full max-w-md">
-		<a
-			href="/app/sessions/{sessionId}?view=session"
-			aria-current={view === 'session' ? 'page' : undefined}
+	<nav aria-label="Session" class="w-full max-w-md">
+		<Tabs.Root
+			value={view}
+			onValueChange={(v) => {
+				if (v === 'session' || v === 'analysis') {
+					goto(`/app/sessions/${sessionId}?view=${v}`, { keepFocus: true });
+				}
+			}}
+			class="w-full"
 		>
-			Session
-		</a>
-		<a
-			href="/app/sessions/{sessionId}?view=analysis"
-			aria-current={view === 'analysis' ? 'page' : undefined}
-		>
-			Analysis
-		</a>
+			<Tabs.List class="grid w-full grid-cols-2">
+				<Tabs.Trigger value="session">Session</Tabs.Trigger>
+				<Tabs.Trigger value="analysis">Analysis</Tabs.Trigger>
+			</Tabs.List>
+		</Tabs.Root>
 	</nav>
 
 	<main id="app-session-main">

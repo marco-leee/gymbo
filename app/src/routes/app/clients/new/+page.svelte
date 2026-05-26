@@ -6,6 +6,7 @@
 	import { Input } from '$lib/components/ui/input/index.js';
 	import { Label } from '$lib/components/ui/label/index.js';
 	import { Textarea } from '$lib/components/ui/textarea/index.js';
+	import * as Card from '$lib/components/ui/card/index.js';
 	import * as Select from '$lib/components/ui/select/index.js';
 	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
 	import { createClient } from '$lib/api/clients';
@@ -82,101 +83,106 @@
 		</Button>
 		<h1 class="app-display text-3xl md:text-4xl" style="color: var(--app-text);">New client</h1>
 	</div>
+	<Card.Root class="mx-auto w-full" data-tour="clients-form">
+		<Card.Header>
+			<Card.Title>Client information</Card.Title>
+			<Card.Description>Enter details for your new client.</Card.Description>
+		</Card.Header>
 
-	<div class="app-card mx-auto w-full max-w-3xl p-6 md:p-8" data-tour="clients-form">
-		<h2 class="text-lg font-semibold">Client information</h2>
-		<p class="mt-1 text-sm" style="color: var(--app-muted);">Enter details for your new client.</p>
+		<form onsubmit={handleSubmit}>
+			<Card.Content class="space-y-4">
+				<div class="grid gap-4 md:grid-cols-2">
+					<div class="space-y-2">
+						<Label for="name">Full name *</Label>
+						<Input
+							id="name"
+							class="min-h-11 bg-background"
+							placeholder="John Doe"
+							bind:value={formData.full_name}
+							aria-invalid={errors.full_name ? 'true' : undefined}
+						/>
+						{#if errors.full_name}
+							<p class="text-sm text-red-400">{errors.full_name}</p>
+						{/if}
+					</div>
+					<div class="space-y-2">
+						<Label for="email">Email *</Label>
+						<Input
+							id="email"
+							type="email"
+							class="min-h-11 bg-background"
+							placeholder="john@example.com"
+							bind:value={formData.email}
+							aria-invalid={errors.email ? 'true' : undefined}
+						/>
+						{#if errors.email}
+							<p class="text-sm text-red-400">{errors.email}</p>
+						{/if}
+					</div>
+				</div>
 
-		<form onsubmit={handleSubmit} class="mt-6 space-y-4">
-			<div class="grid gap-4 md:grid-cols-2">
+				<div class="grid gap-4 md:grid-cols-3">
+					<div class="space-y-2">
+						<Label for="gender">Gender</Label>
+						<Select.Root type="single" value={formData.gender} onValueChange={(v) => (formData.gender = v)}>
+							<Select.Trigger class="min-h-11 w-full bg-background">
+								<span class={formData.gender ? '' : 'text-muted-foreground'}>
+									{formData.gender ? formData.gender : 'Select'}
+								</span>
+							</Select.Trigger>
+							<Select.Content>
+								<Select.Item value="male">Male</Select.Item>
+								<Select.Item value="female">Female</Select.Item>
+								<Select.Item value="other">Other</Select.Item>
+							</Select.Content>
+						</Select.Root>
+					</div>
+					<div class="space-y-2">
+						<Label for="height">Height (cm)</Label>
+						<Input
+							id="height"
+							type="number"
+							class="min-h-11 bg-background"
+							placeholder="175"
+							min="0"
+							bind:value={formData.height_cm}
+						/>
+					</div>
+					<div class="space-y-2">
+						<Label for="weight">Weight (kg)</Label>
+						<Input
+							id="weight"
+							type="number"
+							class="min-h-11 bg-background"
+							placeholder="70"
+							min="0"
+							bind:value={formData.weight_kg}
+						/>
+					</div>
+				</div>
+
 				<div class="space-y-2">
-					<Label for="name">Full name *</Label>
-					<Input
-						id="name"
-						class="min-h-11 border-zinc-600 bg-zinc-900/50"
-						placeholder="John Doe"
-						bind:value={formData.full_name}
-						aria-invalid={errors.full_name ? 'true' : undefined}
+					<Label for="notes">Injuries / notes</Label>
+					<Textarea
+						id="notes"
+						class="min-h-[100px] bg-background"
+						placeholder="Any injuries or special considerations…"
 					/>
-					{#if errors.full_name}
-						<p class="text-sm text-red-400">{errors.full_name}</p>
-					{/if}
 				</div>
-				<div class="space-y-2">
-					<Label for="email">Email *</Label>
-					<Input
-						id="email"
-						type="email"
-						class="min-h-11 border-zinc-600 bg-zinc-900/50"
-						placeholder="john@example.com"
-						bind:value={formData.email}
-						aria-invalid={errors.email ? 'true' : undefined}
-					/>
-					{#if errors.email}
-						<p class="text-sm text-red-400">{errors.email}</p>
-					{/if}
-				</div>
-			</div>
 
-			<div class="grid gap-4 md:grid-cols-3">
-				<div class="space-y-2">
-					<Label for="gender">Gender</Label>
-					<Select.Root type="single" value={formData.gender} onValueChange={(v) => (formData.gender = v)}>
-						<Select.Trigger class="min-h-11 w-full border-zinc-600 bg-zinc-900/50">
-							{formData.gender ? formData.gender : 'Select'}
-						</Select.Trigger>
-						<Select.Content>
-							<Select.Item value="male">Male</Select.Item>
-							<Select.Item value="female">Female</Select.Item>
-							<Select.Item value="other">Other</Select.Item>
-						</Select.Content>
-					</Select.Root>
-				</div>
-				<div class="space-y-2">
-					<Label for="height">Height (cm)</Label>
-					<Input
-						id="height"
-						type="number"
-						class="min-h-11 border-zinc-600 bg-zinc-900/50"
-						placeholder="175"
-						min="0"
-						bind:value={formData.height_cm}
-					/>
-				</div>
-				<div class="space-y-2">
-					<Label for="weight">Weight (kg)</Label>
-					<Input
-						id="weight"
-						type="number"
-						class="min-h-11 border-zinc-600 bg-zinc-900/50"
-						placeholder="70"
-						min="0"
-						bind:value={formData.weight_kg}
-					/>
-				</div>
-			</div>
+				{#if clientMutation.isError}
+					<p class="text-sm text-red-400">Failed to create client: {clientMutation.error.message}</p>
+				{/if}
+			</Card.Content>
 
-			<div class="space-y-2">
-				<Label for="notes">Injuries / notes</Label>
-				<Textarea
-					id="notes"
-					class="min-h-[100px] border-zinc-600 bg-zinc-900/50"
-					placeholder="Any injuries or special considerations…"
-				/>
-			</div>
-
-			{#if clientMutation.isError}
-				<p class="text-sm text-red-400">Failed to create client: {clientMutation.error.message}</p>
-			{/if}
-
-			<div class="flex flex-wrap gap-3 pt-4">
-				<Button type="submit" class="app-cta min-h-11" disabled={clientMutation.isPending}>
+			<Card.Footer class="flex flex-wrap gap-3 pt-4">
+				<Button type="submit" class="min-h-11" disabled={clientMutation.isPending}>
 					{clientMutation.isPending ? 'Creating…' : 'Create client'}
 				</Button>
 				<Button href="/app/clients" variant="outline" type="button" class="app-outline min-h-11">
 					Cancel
 				</Button>
-			</div>
+			</Card.Footer>
 		</form>
-	</div>
+	</Card.Root>
 </div>

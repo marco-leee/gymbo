@@ -697,7 +697,7 @@
 </script>
 
 <div
-	class="app-run fixed inset-0 z-[200] flex flex-col gap-3 overflow-hidden p-3 pt-[max(0.75rem,env(safe-area-inset-top))] pb-[max(0.75rem,env(safe-area-inset-bottom))] md:p-4"
+	class="fixed inset-0 z-[200] flex flex-col gap-3 overflow-hidden p-3 pt-[max(0.75rem,env(safe-area-inset-top))] pb-[max(0.75rem,env(safe-area-inset-bottom))] md:p-4"
 >
 	<div
 		class="flex w-full shrink-0 items-center justify-between gap-2 border-b border-white/10 pb-3"
@@ -803,10 +803,9 @@
 							else if (openedSetId === set.id) openedSetId = null;
 						}}
 					>
-						<div class="app-card overflow-hidden p-0">
+						<div class="overflow-hidden p-0">
 							<div
 								class="flex items-start gap-2 border-b px-4 py-3"
-								style="border-color: var(--app-border);"
 							>
 								<Collapsible.Trigger
 									data-tour={setIndex === 0 ? 'record-set-accordion' : undefined}
@@ -978,7 +977,6 @@
 										{#if locked}
 											<p
 												class="mb-4 text-xs"
-												style="color: var(--app-muted);"
 											>
 												This set can’t be edited while it’s processing or after
 												it’s marked done.
@@ -1000,7 +998,6 @@
 														min="0"
 														bind:value={openedSetDraft.actual_reps}
 														disabled={locked}
-														class="border-[var(--app-border)] bg-black/20 text-zinc-100 disabled:opacity-60"
 													/>
 												</div>
 											{:else}
@@ -1023,7 +1020,6 @@
 														min="0"
 														bind:value={openedSetDraft.actual_duration}
 														disabled={locked}
-														class="border-[var(--app-border)] bg-black/20 text-zinc-100 disabled:opacity-60"
 													/>
 												</div>
 											{/if}
@@ -1042,7 +1038,6 @@
 													min="0"
 													bind:value={openedSetDraft.weight_kg}
 													disabled={locked}
-													class="border-[var(--app-border)] bg-black/20 text-zinc-100 disabled:opacity-60"
 												/>
 											</div>
 											<div class="space-y-2 sm:col-span-2">
@@ -1056,7 +1051,6 @@
 													rows={3}
 													bind:value={openedSetDraft.notes}
 													disabled={locked}
-													class="border-[var(--app-border)] bg-black/20 text-zinc-100 disabled:opacity-60"
 												/>
 											</div>
 										</div>
@@ -1078,7 +1072,7 @@
 														type="button"
 														variant="outline"
 														data-tour={setIndex === 0 ? 'record-upload-video' : undefined}
-														class="rounded-lg border-[var(--app-border)] bg-white/5 text-zinc-100"
+														class="rounded-lg"
 														disabled={recordSetMutation.isPending ||
 															uploadingVideoSetId === set.id}
 														onclick={() => openVideoUploadDialog(set)}
@@ -1132,7 +1126,6 @@
 										type="number"
 										min="0"
 										bind:value={newSetForm.actual_reps}
-										class="border-[var(--app-border)] bg-black/20 text-zinc-100"
 									/>
 								</div>
 							{:else}
@@ -1154,7 +1147,6 @@
 										type="number"
 										min="0"
 										bind:value={newSetForm.actual_duration}
-										class="border-[var(--app-border)] bg-black/20 text-zinc-100"
 									/>
 								</div>
 							{/if}
@@ -1177,7 +1169,6 @@
 									step="0.5"
 									min="0"
 									bind:value={newSetForm.weight_kg}
-									class="border-[var(--app-border)] bg-black/20 text-zinc-100"
 								/>
 							</div>
 							<div class="space-y-2 sm:col-span-2">
@@ -1190,7 +1181,6 @@
 									id="new-set-notes"
 									rows={3}
 									bind:value={newSetForm.notes}
-									class="border-[var(--app-border)] bg-black/20 text-zinc-100"
 								/>
 							</div>
 						</div>
