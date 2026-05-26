@@ -99,10 +99,10 @@
 			</div>
 		</div>
 		<Sheet.Footer class="gap-2 sm:justify-end">
-			<Button type="button" variant="outline" onclick={cancel}>Cancel</Button>
 			<Button type="button" onclick={handleSubmit} disabled={saving}>
 				{saving ? 'Saving…' : 'Save'}
 			</Button>
+			<Button type="button" variant="outline" onclick={cancel}>Cancel</Button>
 		</Sheet.Footer>
 	</Sheet.Content>
 </Sheet.Root>

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { page } from "$app/stores";
-	import { goto, invalidateAll } from "$app/navigation";
+	import { goto, invalidateAll, replaceState } from "$app/navigation";
 	import { untrack } from "svelte";
 	import { Button } from "$lib/components/ui/button/index.js";
 	import { Badge } from "$lib/components/ui/badge/index.js";
@@ -278,22 +278,35 @@
 		});
 	});
 
+	function selectExercise(ex: SessionExercise) {
+		if (currentExercise?.id !== ex.id) openedSetId = null;
+		currentExercise = ex;
+
+		const url = new URL($page.url);
+		url.searchParams.set("exercise", ex.id);
+		replaceState(url, {});
+	}
+
 	$effect(() => {
 		const sorted = [...(session?.exercises ?? [])].sort(
 			(a, b) => a.order_index - b.order_index,
 		);
 		timelineExercises = sorted;
+		const exerciseFromUrl = $page.url.searchParams.get("exercise");
+
 		if (sorted.length === 0) {
 			currentExercise = null;
 			return;
 		}
 		untrack(() => {
-			const curId = currentExercise?.id;
-			if (!curId || !sorted.some((e) => e.id === curId)) {
+			const preferredId = currentExercise?.id ?? exerciseFromUrl;
+			if (!preferredId || !sorted.some((e) => e.id === preferredId)) {
 				openedSetId = null;
 				currentExercise = sorted[0];
 			} else {
-				currentExercise = sorted.find((e) => e.id === curId) ?? sorted[0];
+				const next = sorted.find((e) => e.id === preferredId) ?? sorted[0];
+				if (currentExercise?.id !== next.id) openedSetId = null;
+				currentExercise = next;
 			}
 		});
 	});
@@ -778,10 +791,7 @@
 						omitOuterTimelineChrome={true}
 						onSelectExercise={(id) => {
 							const ex = timelineExercises.find((e) => e.id === id);
-							if (ex) {
-								if (currentExercise?.id !== ex.id) openedSetId = null;
-								currentExercise = ex;
-							}
+							if (ex) selectExercise(ex);
 						}}
 					/>
 				{:else}
