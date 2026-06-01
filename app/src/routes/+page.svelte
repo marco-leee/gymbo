@@ -16,8 +16,8 @@
 	let { data } = $props();
 
 	const HERO_BACKGROUND_MP4_SRC = '/videos/output.mp4';
-	const HERO_BACKGROUND_POSTER_SRC = '/videos/output-poster.jpg';
-	const POSE_DEMO_VIDEO_SRC = '/videos/pose-demo.mp4';
+	// const HERO_BACKGROUND_POSTER_SRC = '/videos/output-poster.jpg';
+	const POSE_DEMO_VIDEO_SRC = '/videos/demo.mp4';
 
 	let heroVideo = $state<HTMLVideoElement | null>(null);
 
@@ -38,7 +38,7 @@
 	let demoVideoReady = $state(false);
 	let demoVideoError = $state(false);
 
-	function onDemoVideoLoaded() {
+	function onDemoVideoReady() {
 		demoVideoReady = true;
 		demoVideoError = false;
 	}
@@ -81,8 +81,9 @@
 		name="description"
 		content="Session tracking, pose-aware video, and charts for trainers and their clients."
 	/>
-	<link rel="preload" href={HERO_BACKGROUND_POSTER_SRC} as="image" fetchpriority="high" />
+	<!-- <link rel="preload" href={HERO_BACKGROUND_POSTER_SRC} as="image" fetchpriority="high" /> -->
 	<link rel="preload" href={HERO_BACKGROUND_MP4_SRC} as="video" type="video/mp4" />
+	<link rel="preload" href={POSE_DEMO_VIDEO_SRC} as="video" type="video/mp4" />
 </svelte:head>
 
 <div class="flex min-h-dvh flex-col">
@@ -120,15 +121,15 @@
 
 	<main class="flex flex-1 flex-col">
 		<section
-			class="relative flex h-dvh min-h-dvh flex-col justify-center overflow-hidden bg-black bg-cover bg-center px-4"
-			style="background-image: url('{HERO_BACKGROUND_POSTER_SRC}')"
+			id="pose-demo"
+			class="scroll-mt-24 relative flex h-dvh min-h-dvh flex-col overflow-hidden bg-black bg-cover bg-center px-4 md:scroll-mt-28"
+			aria-labelledby="pose-demo-heading"
 		>
 			<!-- svelte-ignore a11y_media_has_caption -->
 			<video
 				bind:this={heroVideo}
 				class="pointer-events-none absolute inset-0 z-[1] h-full w-full object-cover"
 				src={HERO_BACKGROUND_MP4_SRC}
-				poster={HERO_BACKGROUND_POSTER_SRC}
 				autoplay
 				muted
 				loop
@@ -139,103 +140,100 @@
 				oncanplay={ensureHeroPlaying}
 			></video>
 			<div
-				class="absolute inset-0 z-[2] bg-gradient-to-b from-black/55 via-black/40 to-black/65"
+				class="absolute inset-0 z-[2] bg-gradient-to-b from-black/60 via-black/45 to-black/75"
 				aria-hidden="true"
 			></div>
-			<div class="relative z-10 mx-auto w-full max-w-5xl px-2 pt-16 text-center text-white md:pt-20">
-				<h1 class="font-display text-4xl tracking-tight drop-shadow-sm md:text-5xl">
-					See every rep, clearly.
-				</h1>
-				<p class="mx-auto mt-4 max-w-xl text-lg text-white/85">
-					Session tracking, pose-aware video, and charts — built for trainers and their clients.
-				</p>
-				<div class="mt-8 flex flex-wrap items-center justify-center gap-3">
-					<Button href={primaryHref} size="lg">{primaryLabel}</Button>
-					{#if !data.isSignedIn}
-						<Button
-							href="/login"
-							variant="outline"
-							size="lg"
-							class="border-white/30 bg-white/10 text-white backdrop-blur-sm hover:bg-white/20"
-						>
-							Sign in
-						</Button>
-					{/if}
-				</div>
-			</div>
-		</section>
 
-		<section
-			id="pose-demo"
-			class="scroll-mt-24 border-border/60 border-t px-4 py-12 md:scroll-mt-28 md:py-16"
-			aria-labelledby="pose-demo-heading"
-		>
 			<div
-				class="mx-auto grid max-w-5xl grid-cols-1 items-center gap-8 md:grid-cols-[2fr_3fr] md:gap-10"
+				class="relative z-10 mx-auto flex w-full max-w-5xl flex-1 flex-col justify-center gap-8 px-2 pt-20 pb-8 md:gap-10 md:pt-24 md:pb-10"
 			>
-				<div>
-					<p
-						class="text-primary mb-3 flex items-center gap-2 text-xs font-medium uppercase tracking-wider"
-					>
-						<span
-							class="bg-primary/10 flex size-8 items-center justify-center rounded-lg"
-							aria-hidden="true"
-						>
-							<ScanLineIcon class="size-4" />
-						</span>
-						Pose detection
+				<div class="text-center text-white">
+					<h1 class="font-display text-4xl tracking-tight drop-shadow-sm md:text-5xl">
+						See every rep, clearly.
+					</h1>
+					<p class="mx-auto mt-3 max-w-xl text-lg text-white/85">
+						Session tracking, pose-aware video, and charts — built for trainers and their clients.
 					</p>
-					<h2 id="pose-demo-heading" class="font-display text-3xl tracking-tight md:text-4xl">
-						Form you can see, rep by rep.
-					</h2>
-					<p class="text-muted-foreground mt-4 text-lg">
-						Capture a set with live pose overlay on device, then review form and progress in charts
-						when you are ready.
-					</p>
-					<ul class="mt-6 flex flex-wrap gap-2" aria-label="Pose detection highlights">
-						<li>
-							<span
-								class="border-border/80 bg-muted/50 text-foreground rounded-full border px-3 py-1 text-sm"
-							>
-								Live overlay
-							</span>
-						</li>
-						<li>
-							<span
-								class="border-border/80 bg-muted/50 text-foreground rounded-full border px-3 py-1 text-sm"
-							>
-								Rep-aware metrics
-							</span>
-						</li>
-					</ul>
 				</div>
 
 				<div
-					class="border-border/80 relative overflow-hidden rounded-xl border bg-muted/30"
+					class="border-white/15 grid grid-cols-1 items-center gap-6 rounded-2xl border bg-black/45 p-4 shadow-2xl backdrop-blur-md md:grid-cols-[2fr_3fr] md:gap-8 md:p-6"
 				>
-					{#if demoVideoError || !demoVideoReady}
-						<div
-							class="text-muted-foreground flex aspect-video w-full flex-col items-center justify-center gap-3 px-4 text-center"
-							aria-hidden={demoVideoReady && !demoVideoError}
+					<div class="text-white">
+						<p
+							class="text-primary mb-3 flex items-center gap-2 text-xs font-medium uppercase tracking-wider"
 						>
-							<VideoIcon class="size-10 opacity-60" aria-hidden="true" />
-							<p class="text-sm">Demo video coming soon</p>
+							<span
+								class="bg-primary/20 flex size-8 items-center justify-center rounded-lg"
+								aria-hidden="true"
+							>
+								<ScanLineIcon class="size-4" />
+							</span>
+							Pose detection
+						</p>
+						<h2 id="pose-demo-heading" class="font-display text-2xl tracking-tight md:text-3xl">
+							Form you can see, rep by rep.
+						</h2>
+						<p class="mt-3 text-base text-white/80 md:text-lg">
+							Capture a set with live pose overlay on device, then review form and progress in charts
+							when you are ready.
+						</p>
+						<ul class="mt-5 flex flex-wrap gap-2" aria-label="Pose detection highlights">
+							<li>
+								<span
+									class="rounded-full border border-white/20 bg-white/10 px-3 py-1 text-sm text-white/90"
+								>
+									Live overlay
+								</span>
+							</li>
+							<li>
+								<span
+									class="rounded-full border border-white/20 bg-white/10 px-3 py-1 text-sm text-white/90"
+								>
+									Rep-aware metrics
+								</span>
+							</li>
+						</ul>
+						<div class="mt-5 flex flex-wrap items-center gap-3 w-full">
+							<Button href={primaryHref} size="lg">{primaryLabel}</Button>
 						</div>
-					{/if}
-					<!-- svelte-ignore a11y_media_has_caption -->
-					<video
-						class="aspect-video w-full rounded-lg bg-muted object-cover {demoVideoReady &&
-						!demoVideoError
-							? ''
-							: 'sr-only'}"
-						src={POSE_DEMO_VIDEO_SRC}
-						controls
-						playsinline
-						preload="metadata"
-						aria-label="Demo of pose detection overlay during a training set"
-						onloadeddata={onDemoVideoLoaded}
-						onerror={onDemoVideoError}
-					></video>
+					</div>
+
+					<div class="relative overflow-hidden rounded-xl border border-white/15 bg-black/30">
+						{#if demoVideoError}
+							<div
+								class="flex aspect-video w-full flex-col items-center justify-center gap-3 px-4 text-center text-white/70"
+							>
+								<VideoIcon class="size-10 opacity-60" aria-hidden="true" />
+								<p class="text-sm">Demo video coming soon!</p>
+							</div>
+						{:else}
+							{#if !demoVideoReady}
+								<div
+									class="pointer-events-none absolute inset-0 z-10 flex aspect-video w-full flex-col items-center justify-center gap-3 px-4 text-center text-white/70"
+									aria-hidden="true"
+								>
+									<VideoIcon class="size-10 animate-pulse opacity-60" aria-hidden="true" />
+									<p class="text-sm">Loading demo…</p>
+								</div>
+							{/if}
+							<!-- svelte-ignore a11y_media_has_caption -->
+							<video
+								class="aspect-video w-full bg-black/40 object-cover"
+								src={POSE_DEMO_VIDEO_SRC}
+								controls
+								playsinline
+								loop
+								autoplay
+								muted
+								preload="auto"
+								aria-label="Demo of pose detection overlay during a training set"
+								onloadedmetadata={onDemoVideoReady}
+								oncanplay={onDemoVideoReady}
+								onerror={onDemoVideoError}
+							></video>
+						{/if}
+					</div>
 				</div>
 			</div>
 		</section>
