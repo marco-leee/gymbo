@@ -67,12 +67,62 @@ def test_video_applies_rotation_and_display_dimensions(monkeypatch) -> None:
         assert frame.shape[:2] == (1920, 1080)
 
 
+def test_video_ignores_ffprobe_when_expected_matches_coded(monkeypatch) -> None:
+    """Regression for portrait phone video with stale ffprobe rotation metadata."""
+    import utils.video as uv
+
+    class FakeCap:
+        def __init__(self, *_args, **_kw):
+            self._reads = 0
+
+        def isOpened(self):
+            return True
+
+        def get(self, p):
+            return {
+                uv.cv2.CAP_PROP_FPS: 30.0,
+                uv.cv2.CAP_PROP_FRAME_WIDTH: 480.0,
+                uv.cv2.CAP_PROP_FRAME_HEIGHT: 848.0,
+                uv.cv2.CAP_PROP_FRAME_COUNT: 2.0,
+            }.get(p, 0.0)
+
+        def read(self):
+            self._reads += 1
+            if self._reads <= 2:
+                return True, np.zeros((848, 480, 3), dtype=np.uint8)
+            return False, None
+
+        def release(self):
+            pass
+
+    monkeypatch.setattr(uv.cv2, "VideoCapture", lambda *_a, **_k: FakeCap())
+    monkeypatch.setattr(
+        uv,
+        "probe_video_stream",
+        lambda _path: VideoStreamProbe(480, 848, 270),
+    )
+
+    vid = Video(
+        "/tmp/fake.mp4",
+        CameraView.RIGHT,
+        expected_display_size=(480, 848),
+    )
+    assert vid.rotation_deg == 0
+    assert vid.width == 480
+    assert vid.height == 848
+
+    frames = list(vid.get_frames())
+    assert len(frames) == 2
+    for _idx, _ts, frame in frames:
+        assert frame.shape[:2] == (848, 480)
+
+
 def test_video_infers_rotation_from_expected_display_size(monkeypatch) -> None:
     import utils.video as uv
 
     class FakeCap:
         def __init__(self, *_args, **_kw):
-            pass
+            self._reads = 0
 
         def isOpened(self):
             return True
@@ -86,6 +136,9 @@ def test_video_infers_rotation_from_expected_display_size(monkeypatch) -> None:
             }.get(p, 0.0)
 
         def read(self):
+            self._reads += 1
+            if self._reads == 1:
+                return True, np.zeros((1080, 1920, 3), dtype=np.uint8)
             return False, None
 
         def release(self):
@@ -115,7 +168,7 @@ def test_metadata_for_storage_uses_display_dimensions(monkeypatch) -> None:
 
     class FakeCap:
         def __init__(self, *_args, **_kw):
-            pass
+            self._reads = 0
 
         def isOpened(self):
             return True
@@ -129,6 +182,9 @@ def test_metadata_for_storage_uses_display_dimensions(monkeypatch) -> None:
             }.get(p, 0.0)
 
         def read(self):
+            self._reads += 1
+            if self._reads == 1:
+                return True, np.zeros((1080, 1920, 3), dtype=np.uint8)
             return False, None
 
         def release(self):

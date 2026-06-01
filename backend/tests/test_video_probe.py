@@ -9,6 +9,7 @@ from utils.video_probe import (
     infer_rotation_from_expected_display,
     normalize_rotation_deg,
     probe_video_stream,
+    resolve_rotation_deg,
 )
 
 
@@ -32,6 +33,59 @@ def test_infer_rotation_from_expected_display() -> None:
     assert infer_rotation_from_expected_display(1920, 1080, 1920, 1080) == 0
     assert infer_rotation_from_expected_display(1920, 1080, 1080, 1920) == 90
     assert infer_rotation_from_expected_display(1920, 1080, 1280, 720) is None
+
+
+def test_resolve_rotation_trusts_expected_when_coded_already_portrait() -> None:
+    """Regression: ffprobe 270° but browser reports same dims as coded -> no rotate."""
+    assert (
+        resolve_rotation_deg(
+            coded_w=480,
+            coded_h=848,
+            probe_deg=270,
+            expected_display_size=(480, 848),
+            frame_size=(480, 848),
+        )
+        == 0
+    )
+
+
+def test_resolve_rotation_landscape_coded_portrait_expected() -> None:
+    assert (
+        resolve_rotation_deg(
+            coded_w=1920,
+            coded_h=1080,
+            probe_deg=90,
+            expected_display_size=(1080, 1920),
+            frame_size=(1920, 1080),
+        )
+        == 90
+    )
+
+
+def test_resolve_rotation_skips_when_decoder_already_rotated() -> None:
+    assert (
+        resolve_rotation_deg(
+            coded_w=1920,
+            coded_h=1080,
+            probe_deg=90,
+            expected_display_size=None,
+            frame_size=(1080, 1920),
+        )
+        == 0
+    )
+
+
+def test_resolve_rotation_portrait_coded_without_expected() -> None:
+    assert (
+        resolve_rotation_deg(
+            coded_w=480,
+            coded_h=848,
+            probe_deg=270,
+            expected_display_size=None,
+            frame_size=(480, 848),
+        )
+        == 0
+    )
 
 
 def test_parse_stream_probe_rotate_tag() -> None:

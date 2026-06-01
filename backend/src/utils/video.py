@@ -10,8 +10,8 @@ import numpy as np
 
 from utils.video_probe import (
     display_dimensions,
-    infer_rotation_from_expected_display,
     probe_video_stream,
+    resolve_rotation_deg,
 )
 
 log = logging.getLogger(__name__)
@@ -61,8 +61,19 @@ class Video:
         self.total_frames = int(self.video.get(cv2.CAP_PROP_FRAME_COUNT))
         self.duration = self.total_frames / float(self.fps) if self.fps else 0.0
 
+        ok, peek = self.video.read()
+        frame_size = None
+        if ok and peek is not None:
+            frame_size = (peek.shape[1], peek.shape[0])
+        self._peek_frame: np.ndarray | None = peek if ok else None
+
+        stream_probe = probe_video_stream(Path(video_path))
+        probe_deg = stream_probe.rotation_deg if stream_probe else 0
+
         self.rotation_deg = self._resolve_rotation(
-            Path(video_path), expected_display_size
+            probe_deg=probe_deg,
+            expected_display_size=expected_display_size,
+            frame_size=frame_size,
         )
         self.width, self.height = display_dimensions(
             self.coded_width, self.coded_height, self.rotation_deg
@@ -71,43 +82,43 @@ class Video:
 
     def _resolve_rotation(
         self,
-        path: Path,
+        *,
+        probe_deg: int,
         expected_display_size: tuple[int, int] | None,
+        frame_size: tuple[int, int] | None,
     ) -> int:
-        stream_probe = probe_video_stream(path)
-        rotation_deg = stream_probe.rotation_deg if stream_probe else 0
+        rotation_deg = resolve_rotation_deg(
+            coded_w=self.coded_width,
+            coded_h=self.coded_height,
+            probe_deg=probe_deg,
+            expected_display_size=expected_display_size,
+            frame_size=frame_size,
+        )
 
-        if rotation_deg == 0 and expected_display_size is not None:
-            expected_w, expected_h = expected_display_size
-            inferred = infer_rotation_from_expected_display(
+        if probe_deg != rotation_deg:
+            log.info(
+                "Rotation for %s: ffprobe=%s° resolved=%s° coded=%sx%s "
+                "frame=%s expected=%s",
+                self.video_path,
+                probe_deg,
+                rotation_deg,
                 self.coded_width,
                 self.coded_height,
-                expected_w,
-                expected_h,
+                frame_size,
+                expected_display_size,
             )
-            if inferred is not None and inferred != 0:
-                log.warning(
-                    "No ffprobe rotation for %s; inferring %s° from upload "
-                    "metadata display size %sx%s (coded %sx%s)",
-                    path,
-                    inferred,
-                    expected_w,
-                    expected_h,
-                    self.coded_width,
-                    self.coded_height,
-                )
-                rotation_deg = inferred
-
-        if rotation_deg != 0:
+        elif rotation_deg != 0:
+            disp_w, disp_h = display_dimensions(
+                self.coded_width, self.coded_height, rotation_deg
+            )
             log.info(
                 "Video %s coded=%sx%s rotation=%s° display=%sx%s",
-                path,
+                self.video_path,
                 self.coded_width,
                 self.coded_height,
                 rotation_deg,
-                *display_dimensions(
-                    self.coded_width, self.coded_height, rotation_deg
-                ),
+                disp_w,
+                disp_h,
             )
 
         return rotation_deg
@@ -131,9 +142,15 @@ class Video:
             cap.release()
 
     def get_frames(self):
-        has_next, frame = self.video.read()
-
         count = 0
+
+        if self._peek_frame is not None:
+            timestamp = 0.0 if self.fps else 0.0
+            yield count, timestamp, rotate_frame(self._peek_frame, self.rotation_deg)
+            self._peek_frame = None
+            count += 1
+
+        has_next, frame = self.video.read()
 
         while has_next:
             timestamp = (

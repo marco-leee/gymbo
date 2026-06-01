@@ -64,6 +64,63 @@ def infer_rotation_from_expected_display(
     return None
 
 
+def resolve_rotation_deg(
+    *,
+    coded_w: int,
+    coded_h: int,
+    probe_deg: int,
+    expected_display_size: tuple[int, int] | None = None,
+    frame_size: tuple[int, int] | None = None,
+) -> int:
+    """
+    Decide rotation to apply to OpenCV-decoded frames.
+
+    Browser ``videoWidth``/``videoHeight`` (``expected_display_size``) wins when
+    supplied. ffprobe rotation can be stale, or frames may already be upright
+    because the OpenCV/FFmpeg decoder applied display metadata.
+    """
+    coded = (coded_w, coded_h)
+
+    if expected_display_size is not None:
+        expected = expected_display_size
+        if expected == coded:
+            return 0
+        if expected == (coded_h, coded_w):
+            if probe_deg in (90, 270):
+                if display_dimensions(coded_w, coded_h, probe_deg) == expected:
+                    return probe_deg
+            for deg in (90, 270):
+                if display_dimensions(coded_w, coded_h, deg) == expected:
+                    return deg
+            return 90
+        if frame_size == expected:
+            return 0
+
+    if frame_size is not None and probe_deg != 0:
+        if frame_size == display_dimensions(coded_w, coded_h, probe_deg):
+            return 0
+
+    # Stale ffprobe on storage that is already upright portrait.
+    if (
+        probe_deg in (90, 270)
+        and coded_h > coded_w
+        and frame_size == coded
+    ):
+        probed = display_dimensions(coded_w, coded_h, probe_deg)
+        if probed[0] > probed[1]:
+            return 0
+
+    if frame_size == coded and probe_deg != 0:
+        return probe_deg
+
+    if probe_deg in (90, 270) and coded_h > coded_w:
+        probed = display_dimensions(coded_w, coded_h, probe_deg)
+        if probed[0] > probed[1]:
+            return 0
+
+    return probe_deg
+
+
 def _parse_stream_probe(stream: dict) -> VideoStreamProbe | None:
     width = stream.get("width")
     height = stream.get("height")
