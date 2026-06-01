@@ -1189,11 +1189,11 @@
 	>
 		<Dialog.Portal>
 			<Dialog.Overlay
-				class="data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-[252] bg-black/80"
+				class="data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-[252]"
 			/>
 			<Dialog.Content
 				aria-labelledby="record-upload-video-dialog-title"
-				class="data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed left-[50%] top-[50%] z-[253] grid max-h-[min(90vh,calc(100vh-2rem))] w-[calc(100vw-1.5rem)] max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 overflow-y-auto rounded-xl border border-white/15 bg-zinc-950 p-4 shadow-xl duration-200"
+				class="data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed left-[50%] top-[50%] z-[253] grid max-h-[min(90vh,calc(100vh-2rem))] w-[calc(100vw-1.5rem)] max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 overflow-y-auto rounded-xl border border-white/15 bg-[var(--background)] p-4 shadow-xl duration-200"
 			>
 				<Dialog.Title
 					class="text-lg font-semibold leading-none text-white"
@@ -1338,10 +1338,10 @@
 			/>
 			<Dialog.Content
 				aria-labelledby="record-set-video-dialog-title"
-				class="data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed left-[50%] top-[50%] z-[251] grid w-[calc(100vw-1.5rem)] max-w-3xl translate-x-[-50%] translate-y-[-50%] gap-4 rounded-xl border border-white/15 bg-zinc-950 p-4 shadow-xl duration-200"
+				class="data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed left-[50%] top-[50%] z-[251] grid w-[calc(100vw-1.5rem)] max-w-3xl translate-x-[-50%] translate-y-[-50%] gap-4 rounded-xl border border-white/15 bg-[var(--background)] p-4 shadow-xl duration-200"
 			>
 				<Dialog.Title
-					class="text-lg font-semibold leading-none text-white"
+					class="text-lg font-semibold leading-none text-[var(--foreground)]"
 					id="record-set-video-dialog-title"
 				>
 					Set video
@@ -1389,10 +1389,10 @@
 	>
 		<Sheet.Content
 			side="bottom"
-			class="z-[260] flex h-[85vh] max-h-[85vh] flex-col gap-0 overflow-hidden rounded-t-xl border border-white/15 border-b-0 bg-zinc-950 p-0 text-zinc-100"
+			class="z-[260] flex h-[85vh] max-h-[85vh] flex-col gap-0 overflow-hidden rounded-t-xl border border-white/15 border-b-0 bg-[var(--background)] p-0 text-[var(--foreground)]"
 		>
 			<Sheet.Header class="border-b border-white/10 p-4 text-left">
-				<Sheet.Title class="text-lg font-semibold text-white">
+				<Sheet.Title class="text-lg font-semibold text-[var(--foreground)]">
 					Pose angles
 				</Sheet.Title>
 				{#if poseChartSheet}

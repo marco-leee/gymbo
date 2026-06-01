@@ -7,6 +7,7 @@
 
 	const redirectPath = '/app';
 	const redirectDelaySeconds = 5;
+	const statusCode = $page.status;
 
 	let secondsLeft = $state(redirectDelaySeconds);
 
@@ -24,7 +25,7 @@
 </script>
 
 <svelte:head>
-	<title>Wrong place — GYMBO</title>
+	<title>{statusCode} Wrong Place — GYMBO</title>
 </svelte:head>
 
 <div class="bg-background flex min-h-dvh items-center justify-center p-4">
