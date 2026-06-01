@@ -5,6 +5,7 @@ import {
 	normalizePoseChartPoint,
 	poseChartAngleKeys
 } from './pose-chart-series';
+import { KIP_COLORS_HEX } from './kip-colors';
 
 describe('pose-chart-series', () => {
 	test('normalizePoseChartPoint maps legacy camelCase to KIP names', () => {
@@ -25,9 +26,9 @@ describe('pose-chart-series', () => {
 		expect(keys).toEqual(['HIP_HINGE']);
 	});
 
-	test('colorForKipName returns stable CSS var per KIP', () => {
-		expect(colorForKipName('INSIDE_KNEE')).toBe('var(--chart-1)');
-		expect(colorForKipName('HIP_HINGE')).toBe('var(--chart-3)');
+	test('colorForKipName returns stable hex per KIP', () => {
+		expect(colorForKipName('INSIDE_KNEE')).toBe(KIP_COLORS_HEX.INSIDE_KNEE);
+		expect(colorForKipName('HIP_HINGE')).toBe(KIP_COLORS_HEX.HIP_HINGE);
 	});
 
 	test('normalizePoseChartPoint preserves explicit null KIPs', () => {

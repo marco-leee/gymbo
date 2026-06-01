@@ -13,7 +13,7 @@ from models.exercise import ExerciseType
 from models.overall_results import OverallResult, OverallResults
 from pipeline.biometrics import compute_frame_biometrics
 from pipeline.from_record import record_to_frame_state
-from pipeline.overlays import render_overlays
+from pipeline.overlays import render_kip_angles, render_overlays
 from pipeline.runner import PerceptionRunConfig, perceive_frame_pipeline
 from pipeline.frame_state import FramePerceptionState
 from pipeline.run_stats import PipelineRunStats
@@ -189,6 +189,7 @@ class AnalysisPipeline:
                         status,
                     )
 
+                bio = None
                 if st.overall_result is not None:
                     frames_ok += 1
                     overall_results.results.append(st.overall_result)
@@ -213,6 +214,15 @@ class AnalysisPipeline:
 
                 # Always write a frame: overlays when detected, otherwise original
                 vis = render_overlays(frame, st.perception_record)
+                if bio is not None:
+                    crop_xy = (
+                        st.perception_record.object_detection.crop_from_primary_px
+                        if st.perception_record.object_detection is not None
+                        else None
+                    )
+                    vis = render_kip_angles(
+                        vis, bio.key_interest_points_2d, crop_xy
+                    )
                 writer.write(vis)
                 frames_written += 1
         finally:

@@ -1,4 +1,5 @@
 import { findCatalogEntry } from '$lib/exercises/catalog';
+import { KIP_COLORS_HEX } from '$lib/pose/kip-colors';
 import {
 	KIP_NAMES,
 	type KipName,
@@ -20,13 +21,8 @@ const KIP_LABELS: Record<KipName, string> = {
 	FRONT_KNEE: 'Front Knee'
 };
 
-/** Stable chart color per KIP (matches `--chart-*` tokens in layout.css). */
-export const KIP_CHART_COLORS: Record<KipName, string> = {
-	INSIDE_KNEE: 'var(--chart-1)',
-	OUTSIDE_HIP: 'var(--chart-2)',
-	HIP_HINGE: 'var(--chart-3)',
-	FRONT_KNEE: 'var(--chart-4)'
-};
+/** Stable chart color per KIP (matches video overlay palette in kip-colors.ts). */
+export const KIP_CHART_COLORS: Record<KipName, string> = KIP_COLORS_HEX;
 
 export function colorForKipName(key: KipName): string {
 	return KIP_CHART_COLORS[key];

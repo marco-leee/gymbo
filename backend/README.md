@@ -124,7 +124,8 @@ Async set video processing: download from S3/R2 → `AnalysisPipeline` → remux
 | ---------- | --- |
 | `PYTHONPATH=src uv run python src/__main__.py` | Local/dev: drain Redis list (`REDIS_URL`, `REDIS_VIDEO_QUEUE_KEY`) via `RPOP` until empty |
 | `PYTHONPATH=src uv run python src/__main__.py --listen` | Long-lived worker: poll queue; sleep 1s when empty |
-| `uv run python src/runpod_video_handler.py` | RunPod Serverless queue worker (`runpod.serverless.start`) |
+| `PYTHONPATH=src uv run python src/__main__.py --model-size {n,s,m,l,x}` | YOLO26 checkpoint variant (default `x`; repo `just ai` uses `n`) |
+| `uv run python src/runpod_video_handler.py` | RunPod Serverless queue worker (`runpod.serverless.start`; uses `yolo26x` via `run_video_job` default) |
 
 Shared logic lives in `src/video_queue_worker.py`. RunPod job envelope parsing is in `src/runpod_video_handler.py` (`parse_runpod_job`).
 

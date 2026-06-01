@@ -1,6 +1,8 @@
-"""Draw segmentation tint, skeleton, and bbox on a frame (visualization-only)."""
+"""Draw segmentation tint, skeleton, bbox, and KIP angle arcs on a frame."""
 
 from __future__ import annotations
+
+from typing import Any
 
 import cv2
 import numpy as np
@@ -8,8 +10,109 @@ import torch
 from ultralytics.utils.plotting import Annotator
 
 from pipeline.from_record import decode_mask_u8_from_segmentation
+from pipeline.kip_colors import KIP_COLORS_BGR, KIP_LABELS
 from pipeline.schemas import FramePerceptionRecord
 from pipeline.yolo_compat import normalized_body33_to_coco17_frame_pixels
+
+
+def draw_kip_angle(
+    image: np.ndarray,
+    *,
+    center: tuple[int, int],
+    angle: int | float,
+    rotation_angle: int | float,
+    color_bgr: tuple[int, int, int],
+    label: str | None = None,
+) -> None:
+    """Draw an angle arc and degree label at the joint vertex."""
+    cx, cy = center
+    cv2.ellipse(
+        image,
+        center,
+        (30, 30),
+        float(rotation_angle),
+        0,
+        float(angle),
+        color_bgr,
+        2,
+    )
+    cv2.putText(
+        image,
+        f"{float(angle):.0f}°",
+        (cx - 40, cy + 24),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.55,
+        color_bgr,
+        2,
+        cv2.LINE_AA,
+    )
+    if label:
+        cv2.putText(
+            image,
+            label,
+            (cx - 40, cy + 44),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.45,
+            color_bgr,
+            1,
+            cv2.LINE_AA,
+        )
+
+
+def _kip_vertex_center(
+    idx_to_coordinates: dict[Any, Any],
+) -> tuple[int, int] | None:
+    coords = list(idx_to_coordinates.values())
+    if len(coords) != 3:
+        return None
+    _, center, _ = coords
+    if not isinstance(center, (list, tuple)) or len(center) < 2:
+        return None
+    return int(center[0]), int(center[1])
+
+
+def render_kip_angles(
+    frame_bgr: np.ndarray,
+    kips: dict[str, dict[str, Any]] | None,
+    crop_xy: tuple[int, int, int, int] | None,
+) -> np.ndarray:
+    """Draw KIP angle arcs using the canonical per-KIP palette."""
+    if not kips:
+        return frame_bgr
+
+    vis = frame_bgr
+    offset_x = int(crop_xy[0]) if crop_xy is not None else 0
+    offset_y = int(crop_xy[1]) if crop_xy is not None else 0
+
+    for kip_name, kip_data in kips.items():
+        color = KIP_COLORS_BGR.get(kip_name)
+        if color is None or not isinstance(kip_data, dict):
+            continue
+
+        idx_map = kip_data.get("idx_to_coordinates")
+        if not isinstance(idx_map, dict):
+            continue
+
+        center = _kip_vertex_center(idx_map)
+        if center is None:
+            continue
+
+        angle = kip_data.get("angle")
+        rotation_angle = kip_data.get("rotation_angle")
+        if angle is None or rotation_angle is None:
+            continue
+
+        frame_center = (center[0] + offset_x, center[1] + offset_y)
+        draw_kip_angle(
+            vis,
+            center=frame_center,
+            angle=angle,
+            rotation_angle=rotation_angle,
+            color_bgr=color,
+            label=KIP_LABELS.get(kip_name),
+        )
+
+    return vis
 
 
 def render_overlays(frame_bgr: np.ndarray, rec: FramePerceptionRecord) -> np.ndarray:

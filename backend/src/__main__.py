@@ -12,6 +12,7 @@ from pydantic import ValidationError
 
 from database.mongodb.video_queue_persist import VideoProcessingJob
 from video_queue_worker import (
+    YOLO_MODEL_SIZES,
     init_s3_or_exit,
     log,
     print_gpu_status,
@@ -39,6 +40,16 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Poll indefinitely; sleep 1s when the queue is empty",
     )
+    parser.add_argument(
+        "--model-size",
+        choices=YOLO_MODEL_SIZES,
+        default="x",
+        metavar="SIZE",
+        help=(
+            "YOLO26 variant letter (n, s, m, l, x); loads pose_models/yolo26{SIZE}*.pt "
+            "(default: x)"
+        ),
+    )
     return parser.parse_args()
 
 
@@ -64,7 +75,7 @@ def main() -> None:
                 log.exception("Bad job payload: %s raw=%s", e, payload[:500])
                 continue
             try:
-                run_video_job(s3, job)
+                run_video_job(s3, job, model_size=args.model_size)
             except Exception:
                 log.exception("[%s] Job failed", job.job_id)
     finally:

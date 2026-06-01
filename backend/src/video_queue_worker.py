@@ -87,15 +87,32 @@ def _expected_display_size_from_metadata(
     return None
 
 
+YOLO_MODEL_SIZES = ("n", "s", "m", "l", "x")
+
+
+def yolo26_weight_paths(pose_models_root: Path, size: str) -> tuple[str, str, str]:
+    if size not in YOLO_MODEL_SIZES:
+        raise ValueError(
+            f"Invalid YOLO model size {size!r}; expected one of {YOLO_MODEL_SIZES}"
+        )
+    return (
+        str(pose_models_root / f"yolo26{size}.pt"),
+        str(pose_models_root / f"yolo26{size}-seg.pt"),
+        str(pose_models_root / f"yolo26{size}-pose.pt"),
+    )
+
+
 def _pipeline_context(
     video_path: Path,
     job: VideoProcessingJob,
     *,
     upload_metadata: dict | None = None,
+    model_size: str = "x",
 ) -> SessionContext:
     cam = camera_view_from_job_metadata(job.metadata)
     etype = exercise_type_from_catalog_key(job.exercise_key)
     pm_root = _ROOT / "pose_models"
+    detect, seg, pose = yolo26_weight_paths(pm_root, model_size)
     return SessionContext(
         user_id=None,
         exercise_type=etype,
@@ -104,9 +121,9 @@ def _pipeline_context(
         video_path=str(video_path.resolve()),
         expected_display_size=_expected_display_size_from_metadata(upload_metadata),
         conf_threshold=0.8,
-        yolo_detect_weights=str(pm_root / "yolo26x.pt"),
-        yolo_seg_weights=str(pm_root / "yolo26x-seg.pt"),
-        yolo_pose_weights=str(pm_root / "yolo26x-pose.pt"),
+        yolo_detect_weights=detect,
+        yolo_seg_weights=seg,
+        yolo_pose_weights=pose,
     )
 
 
@@ -209,7 +226,12 @@ def _validate_downloaded_video(
             )
 
 
-def run_video_job(s3: S3StorageProvider, job: VideoProcessingJob) -> None:
+def run_video_job(
+    s3: S3StorageProvider,
+    job: VideoProcessingJob,
+    *,
+    model_size: str = "x",
+) -> None:
     jid = job.job_id
     try:
         ObjectId(job.session_id)
@@ -281,7 +303,10 @@ def run_video_job(s3: S3StorageProvider, job: VideoProcessingJob) -> None:
         )
 
         ctx = _pipeline_context(
-            Path(local_in), job, upload_metadata=upload_metadata
+            Path(local_in),
+            job,
+            upload_metadata=upload_metadata,
+            model_size=model_size,
         )
         log.info(
             "[%s] Pipeline config camera_view=%s conf_threshold=%s detect=%s pose=%s seg=%s",
