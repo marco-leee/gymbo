@@ -123,6 +123,7 @@ Async set video processing: download from S3/R2 → `AnalysisPipeline` → remux
 | Entrypoint | Use |
 | ---------- | --- |
 | `PYTHONPATH=src uv run python src/__main__.py` | Local/dev: drain Redis list (`REDIS_URL`, `REDIS_VIDEO_QUEUE_KEY`) via `RPOP` until empty |
+| `PYTHONPATH=src uv run python src/__main__.py --listen` | Long-lived worker: poll queue; sleep 1s when empty |
 | `uv run python src/runpod_video_handler.py` | RunPod Serverless queue worker (`runpod.serverless.start`) |
 
 Shared logic lives in `src/video_queue_worker.py`. RunPod job envelope parsing is in `src/runpod_video_handler.py` (`parse_runpod_job`).

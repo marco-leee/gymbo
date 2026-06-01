@@ -1,10 +1,11 @@
-"""Drain Redis FIFO once (RPOP until empty): download input, run analysis pipeline, update Mongo."""
+"""Redis video queue worker: drain once (default) or poll with --listen."""
 
 from __future__ import annotations
 
+import argparse
 import json
 import os
-import sys
+import time
 
 import redis
 from pydantic import ValidationError
@@ -29,7 +30,20 @@ def _queue_key() -> str:
     return os.environ.get("REDIS_VIDEO_QUEUE_KEY", "video_jobs")
 
 
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Process video jobs from a Redis FIFO queue (RPOP)."
+    )
+    parser.add_argument(
+        "--listen",
+        action="store_true",
+        help="Poll indefinitely; sleep 1s when the queue is empty",
+    )
+    return parser.parse_args()
+
+
 def main() -> None:
+    args = parse_args()
     print_gpu_status()
     s3 = init_s3_or_exit()
     redis_client = _redis_connect()
@@ -38,6 +52,9 @@ def main() -> None:
         while True:
             payload = redis_client.rpop(key)
             if payload is None:
+                if args.listen:
+                    time.sleep(1)
+                    continue
                 log.info("Queue %r drained; exiting", key)
                 break
             try:
