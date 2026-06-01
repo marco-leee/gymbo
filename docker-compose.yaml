@@ -6,20 +6,6 @@ services:
     networks:
       - gymbo
 
-  postgres:
-    image: postgres:17.5-alpine3.22
-    ports:
-      - "32800:5432"
-    volumes:
-      - psql-db:/var/lib/postgresql/data
-    environment:
-      - POSTGRES_USER=admin
-      - POSTGRES_PASSWORD=local
-      - POSTGRES_DB=gymbo
-    restart: 'no'
-    networks:
-      - gymbo
-
   minio:
     image: quay.io/minio/minio:latest
     command: minio server --address ":9000" --console-address ":9001" /data
@@ -55,13 +41,9 @@ services:
 volumes:
   minio:
     driver: local
-  psql-db:
-    driver: local
   mongo-db:
     driver: local
 
 networks:
   gymbo:
     driver: bridge
-  host:
-    driver: host
