@@ -119,7 +119,11 @@ class AnalysisPipeline:
         if not ctx.video_path:
             raise ValueError("video_path is required when input_source is VIDEO_FILE.")
 
-        video = Video(ctx.video_path, ctx.camera_view)
+        video = Video(
+            ctx.video_path,
+            ctx.camera_view,
+            expected_display_size=ctx.expected_display_size,
+        )
         mp4_path = Path(mp4_output)
         mp4_path.parent.mkdir(parents=True, exist_ok=True)
         if output_json_path:

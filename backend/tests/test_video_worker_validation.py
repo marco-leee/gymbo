@@ -61,6 +61,11 @@ def test_validate_downloaded_video_warns_on_upload_metadata_mismatch(
     mock_vid.duration = 4.0
     mock_vid.total_frames = 120
     mock_vid.fps = 30
+    mock_vid.coded_width = 1920
+    mock_vid.coded_height = 1080
+    mock_vid.width = 1080
+    mock_vid.height = 1920
+    mock_vid.rotation_deg = 90
     mock_video_cls.return_value = mock_vid
 
     path = Path("/tmp/fake.mp4")
@@ -73,6 +78,51 @@ def test_validate_downloaded_video_warns_on_upload_metadata_mismatch(
             camera_view=CameraView.RIGHT,
             upload_metadata={"duration_sec": 10.0, "total_frames": 300},
         )
+
+
+@patch("video_queue_worker.Video")
+@patch("video_queue_worker.probe_video_duration_sec", return_value=4.0)
+def test_validate_downloaded_video_warns_on_display_dimension_mismatch(
+    mock_probe: MagicMock,
+    mock_video_cls: MagicMock,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    import logging
+
+    from video_queue_worker import _validate_downloaded_video
+    from utils.video import CameraView
+
+    caplog.set_level(logging.WARNING)
+
+    mock_vid = MagicMock()
+    mock_vid.duration = 4.0
+    mock_vid.total_frames = 120
+    mock_vid.fps = 30
+    mock_vid.coded_width = 1920
+    mock_vid.coded_height = 1080
+    mock_vid.width = 1080
+    mock_vid.height = 1920
+    mock_vid.rotation_deg = 90
+    mock_video_cls.return_value = mock_vid
+
+    path = Path("/tmp/fake.mp4")
+    with patch.object(Path, "stat") as mock_stat:
+        mock_stat.return_value = MagicMock(st_size=1000)
+        _validate_downloaded_video(
+            job_id="job-1",
+            local_path=path,
+            s3_bytes=1000,
+            camera_view=CameraView.RIGHT,
+            upload_metadata={
+                "duration_sec": 4.0,
+                "video_width": 720,
+                "video_height": 1280,
+            },
+        )
+
+    assert any(
+        "normalized display dimensions" in record.message for record in caplog.records
+    )
 
 
 @patch("video_queue_worker.Video")

@@ -75,7 +75,24 @@ def create_s3_provider() -> S3StorageProvider:
     )
 
 
-def _pipeline_context(video_path: Path, job: VideoProcessingJob) -> SessionContext:
+def _expected_display_size_from_metadata(
+    upload_metadata: dict | None,
+) -> tuple[int, int] | None:
+    if not upload_metadata:
+        return None
+    up_w = upload_metadata.get("video_width")
+    up_h = upload_metadata.get("video_height")
+    if isinstance(up_w, int) and isinstance(up_h, int) and up_w > 0 and up_h > 0:
+        return up_w, up_h
+    return None
+
+
+def _pipeline_context(
+    video_path: Path,
+    job: VideoProcessingJob,
+    *,
+    upload_metadata: dict | None = None,
+) -> SessionContext:
     cam = camera_view_from_job_metadata(job.metadata)
     etype = exercise_type_from_catalog_key(job.exercise_key)
     pm_root = _ROOT / "pose_models"
@@ -85,6 +102,7 @@ def _pipeline_context(video_path: Path, job: VideoProcessingJob) -> SessionConte
         camera_view=cam,
         input_source=InputSource.VIDEO_FILE,
         video_path=str(video_path.resolve()),
+        expected_display_size=_expected_display_size_from_metadata(upload_metadata),
         conf_threshold=0.8,
         yolo_detect_weights=str(pm_root / "yolo26x.pt"),
         yolo_seg_weights=str(pm_root / "yolo26x-seg.pt"),
@@ -105,7 +123,12 @@ def _validate_downloaded_video(
     local_bytes = local_path.stat().st_size
     ffprobe_sec = probe_video_duration_sec(local_path)
 
-    vid = Video(str(local_path.resolve()), camera_view)
+    expected_display_size = _expected_display_size_from_metadata(upload_metadata)
+    vid = Video(
+        str(local_path.resolve()),
+        camera_view,
+        expected_display_size=expected_display_size,
+    )
     try:
         opencv_duration = vid.duration
         opencv_frames = vid.total_frames
@@ -115,7 +138,8 @@ def _validate_downloaded_video(
 
     log.info(
         "[%s] video probe s3_bytes=%s local_bytes=%s ffprobe_sec=%s "
-        "opencv_fps=%s opencv_frames=%s opencv_duration_sec=%.2f path=%s",
+        "opencv_fps=%s opencv_frames=%s opencv_duration_sec=%.2f "
+        "coded=%sx%s display=%sx%s rotation_deg=%s path=%s",
         job_id,
         s3_bytes,
         local_bytes,
@@ -123,18 +147,39 @@ def _validate_downloaded_video(
         opencv_fps,
         opencv_frames,
         opencv_duration,
+        vid.coded_width,
+        vid.coded_height,
+        vid.width,
+        vid.height,
+        vid.rotation_deg,
         local_path,
     )
 
     if upload_metadata:
         up_dur = upload_metadata.get("duration_sec")
         up_frames = upload_metadata.get("total_frames")
+        up_w = upload_metadata.get("video_width")
+        up_h = upload_metadata.get("video_height")
         log.debug(
-            "[%s] upload video_metadata duration_sec=%s total_frames=%s",
+            "[%s] upload video_metadata duration_sec=%s total_frames=%s "
+            "video_width=%s video_height=%s",
             job_id,
             up_dur,
             up_frames,
+            up_w,
+            up_h,
         )
+        if isinstance(up_w, int) and isinstance(up_h, int) and up_w > 0 and up_h > 0:
+            if up_w != vid.width or up_h != vid.height:
+                log.warning(
+                    "[%s] normalized display dimensions %sx%s differ from upload "
+                    "metadata %sx%s",
+                    job_id,
+                    vid.width,
+                    vid.height,
+                    up_w,
+                    up_h,
+                )
         if isinstance(up_dur, (int, float)) and opencv_duration > 0:
             if abs(float(up_dur) - opencv_duration) > _DURATION_MISMATCH_WARN_SEC:
                 log.warning(
@@ -235,7 +280,9 @@ def run_video_job(s3: S3StorageProvider, job: VideoProcessingJob) -> None:
             upload_metadata=upload_metadata,
         )
 
-        ctx = _pipeline_context(Path(local_in), job)
+        ctx = _pipeline_context(
+            Path(local_in), job, upload_metadata=upload_metadata
+        )
         log.info(
             "[%s] Pipeline config camera_view=%s conf_threshold=%s detect=%s pose=%s seg=%s",
             jid,
@@ -264,7 +311,11 @@ def run_video_job(s3: S3StorageProvider, job: VideoProcessingJob) -> None:
         )
 
         chart = overall_results_to_pose_chart_data(overall)
-        src_vid = Video(str(Path(local_in).resolve()), ctx.camera_view)
+        src_vid = Video(
+            str(Path(local_in).resolve()),
+            ctx.camera_view,
+            expected_display_size=ctx.expected_display_size,
+        )
         try:
             vmeta = src_vid.metadata_for_storage()
         finally:

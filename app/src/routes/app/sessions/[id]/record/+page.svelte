@@ -1397,8 +1397,7 @@
 				</Sheet.Title>
 				{#if poseChartSheet}
 					<Sheet.Description class="text-sm text-zinc-400">
-						{poseChartSheet.exerciseName} · Set {poseChartSheet.setNumber} · Video
-						preview and inside knee vs outside hip (degrees) by frame
+						{poseChartSheet.exerciseName} · Set {poseChartSheet.setNumber}
 					</Sheet.Description>
 				{/if}
 			</Sheet.Header>

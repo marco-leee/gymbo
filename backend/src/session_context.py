@@ -19,6 +19,7 @@ class SessionContext:
     camera_view: CameraView
     input_source: InputSource
     video_path: str | None = None
+    expected_display_size: tuple[int, int] | None = None
     stream_url: str | None = None
     planned_sets: int | None = None
     target_reps_per_set: int | None = None
