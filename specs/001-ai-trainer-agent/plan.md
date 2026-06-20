@@ -163,6 +163,28 @@ The frame loop and WebSocket connection are scoped to the active Coached Exercis
 
 **v1 note**: Cardio/duration-based exercises in the plan are out of scope for the rep-observation graph; live agent v1 targets rep-based strength blocks (e.g. overhead squat).
 
+## Control Plane: SvelteKit REST ↔ Python Worker
+
+LangGraph and `RunController` run in the Python trainer worker (`trainer_fastapi_main.py`). SvelteKit owns authenticated REST and MongoDB persistence. Graph lifecycle commands cross process boundaries via an internal HTTP API on the worker.
+
+```mermaid
+flowchart LR
+    Browser -->|REST cookie auth| SK["SvelteKit /api/trainer/*"]
+    Browser -->|WS frames + events| PY["Python /trainer Socket.IO"]
+    SK -->|MongoDB CRUD| DB[(MongoDB)]
+    SK -->|POST /internal/runs/*/start|resume|end| PY
+    PY -->|RunController| Graph[LangGraph subgraphs]
+    Graph -->|trainer:* events| Browser
+```
+
+| Responsibility | Owner | Endpoint |
+|----------------|-------|----------|
+| Create run, read snapshot, config patch, event logs | SvelteKit | `/api/trainer/exercise-runs/*` |
+| Start / resume / end / pause graph | Python worker (called by SvelteKit server) | `POST /internal/runs/{run_id}/start` etc. |
+| Live frames, state, cues, emergency | Python worker | Socket.IO `/trainer` |
+
+**Env**: `TRAINER_WORKER_URL` (default `http://localhost:10001`) on SvelteKit server; `TRAINER_WS_PORT` on Python worker.
+
 ## Modular Architecture
 
 Full decomposition: **[modular-architecture.md](./modular-architecture.md)**.
@@ -255,3 +277,5 @@ flowchart LR
 | LangGraph subgraphs (4) | Spec defines Session, Set, VoiceOut, Rest as independent coordinated flows | Single linear graph cannot model async voice-out without blocking set loop (violates FR-024, SC-007) |
 | Dedicated `/trainer` WS namespace | Separates live agent protocol from existing `/yolo` inference | Overloading YOLO protocol couples unrelated concerns and complicates event routing |
 | In-memory voice queue (`asyncio.Queue`) | Decouples set loop from voice consumer within single worker | Synchronous voice generation in set loop would block observation (violates FR-024, SC-007). Redis deferred until multi-worker split |
+| SvelteKit + Python split control plane | REST/auth/Mongo in SvelteKit; LangGraph in Python worker | Monolithic Python REST duplicates existing Gymbo auth/session patterns; monolithic SvelteKit graph cannot run LangGraph/MediaPipe stack |
+| Live pose overlay deferred | Plan mentions overlay reuse; v1 focuses on coaching loop | Overlay is display-only; server pose drives VLM context, not client overlay (YAGNI for v1 UI) |

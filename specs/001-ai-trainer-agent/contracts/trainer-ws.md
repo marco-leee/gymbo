@@ -11,7 +11,9 @@ URL: {BACKEND_WS_URL}/trainer
 Auth: Session cookie or Bearer token (same as existing Gymbo auth)
 ```
 
-Client connects after REST `POST /api/trainer/exercise-runs/{run_id}/start` returns `ws_token` (optional short-lived token for WS auth).
+Client connects after REST `POST /api/trainer/exercise-runs/{run_id}/start` succeeds.
+
+**v1 auth**: Same session cookie / Bearer token as Gymbo REST. The optional `ws_token` from the start response is reserved for future short-lived WS auth and is **not required in v1**.
 
 ---
 

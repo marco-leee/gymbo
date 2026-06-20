@@ -132,7 +132,8 @@ L7 → external libs (Mongo, OpenRouter)
 |--------|---------|----------------|------------|
 | **trainer_ws_protocol** | `models/trainer_ws_protocol.py` | Pydantic wire shapes for all WS events | — |
 | **trainer_socket_namespace** | `trainer_socket_namespace.py` | Socket.IO handlers: register, frame, control, ping | `RunRegistry`, protocol models |
-| **trainer_rest** | `app/.../api/trainer/**` or `backend/.../trainer_api.py` | REST for exercise-run CRUD + start/end/resume | `RunController` |
+| **trainer_rest (SvelteKit)** | `app/src/routes/api/trainer/**`, `app/src/lib/server/trainer-runs.ts`, `app/src/lib/server/trainer-worker.ts` | Public REST: run CRUD, config, event logs; proxies graph lifecycle to Python | MongoDB, `trainer-worker` |
+| **trainer_internal_api (Python)** | `backend/src/trainer_api.py` | Internal HTTP: `POST /internal/runs/{id}/start|resume|end|pause` → `RunController` | `RunController`, `RunRegistry` |
 
 Transport validates wire format, delegates to application layer, publishes events back to client. **No coaching logic here.**
 
@@ -382,3 +383,4 @@ After migration, `langchain-flow.py` becomes a thin CLI that calls `graphs/facto
 | New VLM provider | `pipeline/vlm/{adapter}.py` implements `VLMPort` |
 | Redis voice queue | Replace queue in `RunContext`; `voice_out` graph unchanged |
 | Multi-worker | Split `RunRegistry` + queue to Redis; graphs unchanged |
+| Live pose overlay UI | Wire `app/src/lib/pose/` to live page; display-only, post-v1 |

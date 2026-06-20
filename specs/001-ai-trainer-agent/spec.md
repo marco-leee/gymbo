@@ -295,7 +295,7 @@ A trainer starts a coached session for a single exercise. The system prepares th
 
 ### Key Entities
 
-- **Coached Session**: A single-exercise live coaching session; includes exercise identity, planned sets and reps, rest configuration, merged observation state, status (preparing, active, resting, paused, ended, emergency), and timestamps.
+- **Coached Exercise Run** *(spec shorthand: “coached session” for one exercise block)*: One live agent graph invocation for a single planned exercise; includes exercise identity, planned sets and reps, rest configuration, merged observation state, status (preparing, active, resting, paused, ended), and timestamps. A multi-exercise **Gymbo Session** runs one Coached Exercise Run at a time (see [plan.md](./plan.md)).
 - **Client Frame Loop**: Client-side sampling of the live camera; configurable rate (default 1 fps); sends frames to server.
 - **Frame Buffer**: Server-side buffer of latest frames received from the client; consumed by the set observation loop.
 - **Observation Cycle**: One grab-preprocess-analyze-merge-or-emit pass within the set loop; includes frame reference, pose data, form judgment, and safety outcome.
@@ -324,7 +324,7 @@ A trainer starts a coached session for a single exercise. The system prepares th
 ## Assumptions
 
 - Live real-time coaching during an active camera session is the delivery mode for v1 — confirmed by stakeholder.
-- One exercise per coached session with multiple sets and optional rest between sets — confirmed by stakeholder.
+- One **Coached Exercise Run** at a time (one exercise block per graph invocation), with multiple sets and optional rest between sets; a **Gymbo Session** may plan multiple exercises sequenced by the trainer — confirmed by stakeholder and clarified in plan/data-model.
 - Primary persona is a trainer supervising a client via mobile camera — per product direction.
 - Starting exercise family is squat/overhead squat — per existing product focus.
 - Hybrid runtime: client owns frame loop (default 1 fps sampling); entire agent graph runs server-side — confirmed in clarification session 2026-06-20.

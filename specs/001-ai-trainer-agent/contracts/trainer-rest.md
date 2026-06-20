@@ -6,6 +6,8 @@ All endpoints require authenticated trainer session (existing Gymbo auth via `ho
 
 **Scope**: Endpoints operate on **Coached Exercise Runs** (one exercise block). The parent **Gymbo Session** (`/api/sessions/{id}`) holds the multi-exercise plan; each run targets one `SessionExercise`.
 
+**Control plane**: SvelteKit handles public REST and MongoDB. `POST .../start`, `POST .../resume`, and `POST .../end` proxy to the Python trainer worker internal API (`POST /internal/runs/{run_id}/start|resume|end`) which runs `RunController` and LangGraph. See [plan.md](../plan.md) § Control Plane.
+
 ---
 
 ## POST `/api/trainer/exercise-runs`
@@ -82,10 +84,11 @@ Start the agent graph (prepare → setup) for this exercise run. Idempotent if a
 ```json
 {
   "run_id": "uuid",
-  "status": "preparing",
-  "ws_token": "optional-short-lived-token"
+  "status": "preparing"
 }
 ```
+
+v1: WS auth uses the same session cookie as REST; `ws_token` is optional and not emitted in v1.
 
 ---
 

@@ -45,7 +45,7 @@ Start trainer ASGI server:
 ```bash
 cd backend
 uv run python src/trainer_fastapi_main.py
-# Listens on YOLO_WS_PORT (default 10001)
+# Listens on TRAINER_WS_PORT (default 10001)
 ```
 
 Health check:
@@ -133,6 +133,7 @@ Tests use `--dry-run` graph mode and fixture frames from `src/tmp/vlm-state/proc
 | `OPENROUTER_MODEL` | nemotron free tier | VLM model |
 | `MONGODB_URI` | from app env | Session persistence |
 | `TRAINER_WS_PORT` | 10001 | Trainer Socket.IO port |
+| `TRAINER_WORKER_URL` | `http://localhost:10001` | Python worker base URL (SvelteKit server-side proxy for graph lifecycle) |
 | `TRAINER_MAX_PENDING_FRAMES` | 4 | Frame backpressure |
 
 ---
