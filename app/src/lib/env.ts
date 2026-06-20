@@ -21,5 +21,6 @@ export const env = {
 		'dev-only-better-auth-secret-change-in-production-32chars',
 	BETTER_AUTH_URL: privateEnv.BETTER_AUTH_URL || 'http://localhost:5173',
 	GOOGLE_CLIENT_ID: privateEnv.GOOGLE_CLIENT_ID,
-	GOOGLE_CLIENT_SECRET: privateEnv.GOOGLE_CLIENT_SECRET
+	GOOGLE_CLIENT_SECRET: privateEnv.GOOGLE_CLIENT_SECRET,
+	TRAINER_WORKER_URL: privateEnv.TRAINER_WORKER_URL || 'http://localhost:10001'
 };
