@@ -8,7 +8,7 @@ fe:
   cd app && bun run dev
 
 ai:
-  cd backend && source ./.venv/bin/activate && cd src && uv run python __main__.py --listen --model-size n
+  cd backend && source ./.venv/bin/activate && cd src && uv run python __main__.py --listen --model-size x
 
 image := "ghcr.io/marco-leee/gymbo/pose:yolov26"
 build-pose version:

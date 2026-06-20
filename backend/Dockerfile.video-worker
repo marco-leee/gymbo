@@ -49,16 +49,16 @@ COPY pyproject.toml uv.lock ./
 COPY src ./src
 COPY test_input.json ./test_input.json
 
-ARG ULTRALYTICS_ASSETS_RELEASE=v8.4.0
-RUN set -eux; \
-    mkdir -p /app/src/pose_models; \
-    cd /app/src/pose_models; \
-    for f in yolo26x.pt yolo26x-pose.pt yolo26x-seg.pt; do \
-      if [ ! -s "$f" ]; then \
-        curl -fsSL -o "$f" \
-          "https://github.com/ultralytics/assets/releases/download/${ULTRALYTICS_ASSETS_RELEASE}/$f"; \
-      fi; \
-    done
+# ARG ULTRALYTICS_ASSETS_RELEASE=v8.4.0
+# RUN set -eux; \
+#     mkdir -p /app/src/pose_models; \
+#     cd /app/src/pose_models; \
+#     for f in yolo26x.pt yolo26x-pose.pt yolo26x-seg.pt; do \
+#       if [ ! -s "$f" ]; then \
+#         curl -fsSL -o "$f" \
+#           "https://github.com/ultralytics/assets/releases/download/${ULTRALYTICS_ASSETS_RELEASE}/$f"; \
+#       fi; \
+#     done
 
 ENV PYTHONPATH=/app/src
 RUN uv sync --frozen --no-dev

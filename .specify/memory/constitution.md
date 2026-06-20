@@ -5,7 +5,7 @@ Version change: (uninitialized template) → 1.0.0
 Modified principles: N/A (initial ratification)
 Added sections:
   - Core Principles (9 principles from user input)
-  - Additional Constraints (ADHD-aware design, tech stack)
+  - Additional Constraints (tech stack)
   - Development Workflow (feature dirs, change logging, chores)
   - Governance
 Removed sections: None
@@ -52,8 +52,7 @@ than correcting wrong implementations.
 Actions and decisions MUST be simple and straightforward. Complexity MUST be
 justified before adoption.
 
-**Rationale**: Simple solutions are easier to review, maintain, and reason
-about—especially for developers with ADHD traits.
+**Rationale**: Simple solutions are easier to review, maintain, and reason about.
 
 ### V. DRY (Don't Repeat Yourself)
 
@@ -99,15 +98,6 @@ developers track feature evolution without reconstructing context from diffs
 alone.
 
 ## Additional Constraints
-
-### ADHD-Aware Design
-
-UI/UX decisions MUST consider users with ADHD traits. Interfaces MUST minimize
-cognitive load: minimalistic layout, clear hierarchy, supportive language, and
-no unnecessary information density.
-
-**Rationale**: Gymbo serves people with ADHD traits; overwhelming interfaces
-directly undermine the product's purpose.
 
 ### Technology & Architecture
 
