@@ -1,11 +1,11 @@
-"""Graph factory: wire dry-run vs live adapters."""
+"""Graph factory: wire dry-run vs live adapters and compiled LangGraph subgraphs."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 
-from agent.app.event_publisher import RunEventPublisher
-from agent.app.run_context import RunContext
+from langgraph.checkpoint.memory import MemorySaver
+
 from agent.infra.llm_factory import LLMClientFactory
 from agent.pipeline.cue_generator import CueGenerator
 from agent.pipeline.pose.dry_run_adapter import DryRunPoseAdapter
@@ -43,12 +43,29 @@ def build_dependencies(*, dry_run: bool = False) -> GraphDependencies:
     )
 
 
-def build_session_runner(
-    ctx: RunContext,
-    deps: GraphDependencies,
-    publisher: RunEventPublisher,
-    repository,
-):
-    from agent.graphs.session import SessionRunner
+def build_checkpointer() -> MemorySaver:
+    return MemorySaver()
 
-    return SessionRunner(ctx, deps, publisher, repository)
+
+def build_set_subgraph():
+    from agent.graphs.set_loop import build_set_subgraph as _build
+
+    return _build()
+
+
+def build_voice_graph():
+    from agent.graphs.voice_out import build_voice_graph as _build
+
+    return _build()
+
+
+def build_rest_subgraph():
+    from agent.graphs.rest import build_rest_subgraph as _build
+
+    return _build()
+
+
+def build_session_graph(*, checkpointer=None):
+    from agent.graphs.session import build_session_graph as _build
+
+    return _build(checkpointer=checkpointer)

@@ -6,6 +6,8 @@ import asyncio
 import logging
 from datetime import UTC, datetime
 
+from langgraph.types import Command
+
 from agent.app.event_publisher import RunEventPublisher
 from agent.app.run_context import RunContext
 from agent.app.run_registry import RunRegistry
@@ -16,8 +18,14 @@ from agent.domain.models import (
     SafetyEventRecord,
 )
 from agent.domain.safety_evaluator import evaluate_global_safety
-from agent.graphs.factory import build_dependencies, build_session_runner
-from agent.graphs.voice_out import VoiceOutHandler
+from agent.graphs.factory import (
+    build_checkpointer,
+    build_dependencies,
+    build_session_graph,
+    build_voice_graph,
+)
+from agent.graphs.runtime import build_graph_config
+from agent.graphs.state import build_initial_state
 from agent.infra.run_repository import RunRepository
 
 logger = logging.getLogger(__name__)
@@ -37,6 +45,17 @@ class RunController:
         self.publisher = publisher
         self.dry_run = dry_run
         self._deps = build_dependencies(dry_run=dry_run)
+        self._checkpointer = build_checkpointer()
+        self._session_graph = build_session_graph(checkpointer=self._checkpointer)
+        self._voice_graph = build_voice_graph()
+
+    def _build_config(self, ctx: RunContext):
+        return build_graph_config(
+            ctx=ctx,
+            deps=self._deps,
+            publisher=self.publisher,
+            repository=self.repository,
+        )
 
     def attach_run(self, run: CoachedExerciseRun, *, sid: str | None = None) -> RunContext:
         ctx = RunContext(run=run, sid=sid, dry_run=self.dry_run)
@@ -61,30 +80,21 @@ class RunController:
         if ctx.session_task and not ctx.session_task.done():
             return ctx
 
-        voice_handler = VoiceOutHandler(ctx, self._deps, self.publisher, self.repository)
-        await ctx.start_voice_consumer(voice_handler.handle_event)
+        config = self._build_config(ctx)
+        await ctx.start_voice_graph_consumer(self._voice_graph, config)
 
-        runner = build_session_runner(ctx, self._deps, self.publisher, self.repository)
-        ctx.session_task = asyncio.create_task(runner.run())
         ctx.run.status = RunStatus.PREPARING
         self.repository.update_run(ctx.run)
+        initial = build_initial_state(ctx.run)
+
+        async def _run_session() -> None:
+            try:
+                await self._session_graph.ainvoke(initial, config)
+            except Exception:
+                logger.exception("Session graph failed for run %s", run_id)
+
+        ctx.session_task = asyncio.create_task(_run_session())
         return ctx
-
-    async def start_set_loop(self, run_id: str) -> None:
-        """Start only the set loop (US1 minimal path)."""
-        ctx = self.load_or_attach(run_id)
-        if ctx is None:
-            return
-        from agent.graphs.set_loop import SetLoopRunner
-
-        voice_handler = VoiceOutHandler(ctx, self._deps, self.publisher, self.repository)
-        await ctx.start_voice_consumer(voice_handler.handle_event)
-
-        async def _run():
-            runner = SetLoopRunner(ctx, self._deps, self.publisher)
-            await runner.run_set()
-
-        ctx.set_loop_task = asyncio.create_task(_run())
 
     async def pause(self, run_id: str, *, source: str = "global_monitor", description: str = "") -> bool:
         ctx = self.registry.get(run_id)
@@ -116,9 +126,12 @@ class RunController:
         ctx.run.status = RunStatus.ACTIVE
         self.repository.update_run(ctx.run)
         await self.publisher.publish_state(ctx)
+
+        config = self._build_config(ctx)
         if ctx.session_task is None or ctx.session_task.done():
-            runner = build_session_runner(ctx, self._deps, self.publisher, self.repository)
-            ctx.session_task = asyncio.create_task(runner.run())
+            ctx.session_task = asyncio.create_task(
+                self._session_graph.ainvoke(Command(resume=True), config)
+            )
         return True
 
     async def end(self, run_id: str) -> bool:

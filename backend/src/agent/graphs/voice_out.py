@@ -1,78 +1,27 @@
-"""VoiceOut subgraph — async cue generation and logging."""
+"""VoiceOut subgraph — compiled LangGraph per event."""
 
 from __future__ import annotations
 
-import logging
-from typing import TYPE_CHECKING
+from langgraph.graph import END, START, StateGraph
 
-from agent.domain.models import CoachingEventRecord, VoiceOutDecision
-from agent.domain.voice_dedup import evaluate_dedup
-
-if TYPE_CHECKING:
-    from agent.app.event_publisher import RunEventPublisher
-    from agent.app.run_context import RunContext
-    from agent.graphs.factory import GraphDependencies
-    from agent.infra.run_repository import RunRepository
-
-logger = logging.getLogger(__name__)
+from agent.graphs.nodes import voice_nodes as nodes
+from agent.graphs.state import TrainerGraphState
 
 
-class VoiceOutHandler:
-    def __init__(
-        self,
-        ctx: RunContext,
-        deps: GraphDependencies,
-        publisher: RunEventPublisher,
-        repository: RunRepository,
-    ) -> None:
-        self.ctx = ctx
-        self.deps = deps
-        self.publisher = publisher
-        self.repository = repository
+def build_voice_graph():
+    graph = StateGraph(TrainerGraphState)
 
-    async def handle_event(self, event) -> None:
-        from agent.domain.models import VoiceOutEvent
+    graph.add_node("dedup_check", nodes.dedup_check)
+    graph.add_node("generate_cue", nodes.generate_cue)
+    graph.add_node("log_coaching", nodes.log_coaching)
 
-        if not isinstance(event, VoiceOutEvent):
-            return
+    graph.add_edge(START, "dedup_check")
+    graph.add_conditional_edges(
+        "dedup_check",
+        nodes.route_after_dedup,
+        {"skip": END, "speak": "generate_cue"},
+    )
+    graph.add_edge("generate_cue", "log_coaching")
+    graph.add_edge("log_coaching", END)
 
-        decision, repeat_state = evaluate_dedup(event, self.ctx.voice_repeat_state)
-        self.ctx.voice_repeat_state = repeat_state
-
-        if decision == VoiceOutDecision.INCREMENT:
-            logger.debug("Voice dedup increment for %s", event.focus_issue)
-            return
-
-        trigger = "repeat_threshold" if repeat_state.repeat_count == 0 and decision == VoiceOutDecision.SPEAK else "new_issue"
-        message = self.deps.cue_generator.generate(
-            event=event,
-            state=self.ctx.run.merged_observation_state,
-        )
-
-        record = CoachingEventRecord(
-            run_id=event.run_id,
-            message=message,
-            focus_issue=event.focus_issue,
-            trigger_reason=event.reason,
-            severity=event.severity,
-            set_number=event.set_number,
-            dedup_repeat_count=repeat_state.repeat_count or None,
-        )
-        self.repository.save_coaching_event(record)
-        self.ctx.recent_coaching.append(
-            {
-                "message": message,
-                "focus_issue": event.focus_issue,
-                "timestamp": event.timestamp.isoformat(),
-            }
-        )
-
-        await self.publisher.publish_voice_cue(
-            self.ctx,
-            cue_id=record.id,
-            message=message,
-            focus_issue=event.focus_issue,
-            severity=event.severity,
-            trigger=trigger,
-            repeat_count=repeat_state.repeat_count,
-        )
+    return graph.compile()

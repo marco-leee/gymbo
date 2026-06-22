@@ -1,16 +1,16 @@
 # Implementation Plan: AI Live Trainer Agent
 
-**Branch**: `001-ai-trainer-agent` | **Date**: 2026-06-20 | **Spec**: [spec.md](./spec.md)
+**Branch**: `001-ai-trainer-agent` | **Date**: 2026-06-22 | **Spec**: [spec.md](./spec.md)
 
 **Input**: Feature specification from `/specs/001-ai-trainer-agent/spec.md`
 
 ## Summary
 
-Build a server-side LangGraph multi-subgraph agent that coaches **one exercise at a time** (starting with overhead squat). Trainers may plan a **multi-exercise Gymbo session** ahead of time—each `SessionExercise` with its own sets, reps, and rest—but the agent graph runs **once per exercise block**: camera up → prepare → setup → all sets (with optional rest) → exercise feedback → done, then the trainer moves to the next planned exercise until the full session is complete.
+Build a server-side **LangGraph** multi-subgraph agent that coaches **one exercise at a time** (starting with overhead squat). Trainers may plan a **multi-exercise Gymbo session** ahead of time—each `SessionExercise` with its own sets, reps, and rest—but the agent graph runs **once per exercise block**: camera up → prepare → setup → all sets (with optional rest) → exercise feedback → done, then the trainer moves to the next planned exercise until the full session is complete.
 
 The **client** owns the camera frame loop (default 1 fps) and streams frames over WebSocket during an active exercise run; the **server** maintains a frame buffer, runs preprocess + pose + VLM form analysis per observation cycle, merges state or emits async voice-out events, and orchestrates prepare → set loop → rest → exercise feedback within that run. Voice coaching is fire-and-forget with repeat-issue deduplication (default threshold 3). Rep completion comes solely from merged VLM observation state—not pose heuristics.
 
-This extends the existing `backend/src/langchain-flow.py` POC (single-graph VLM loop over video files) into a production hybrid runtime integrated with the SvelteKit app and existing FastAPI/Socket.IO infrastructure.
+**Iteration 3 (this plan update)**: The first implementation landed domain, pipeline, transport, and application layers but orchestration still uses imperative asyncio runners (`SessionRunner`, `SetLoopRunner`, `RestRunner`, `VoiceOutHandler`) instead of compiled LangGraph graphs. This iteration replaces those runners with four **compiled `StateGraph` subgraphs** wired through `graphs/factory.py`, restores the POC's graph-native control flow, and uses LangGraph `interrupt()` + `MemorySaver` for emergency pause/resume—without changing wire contracts or domain/pipeline modules.
 
 ## Technical Context
 
@@ -359,5 +359,140 @@ sequenceDiagram
 ### Out of scope (iteration 2)
 
 - Reorder API to connect WS before start
-- LangGraph migration
 - Periodic `trainer:state` heartbeat when idle in prepare/setup
+
+---
+
+## Iteration 3: LangGraph migration (replace custom asyncio orchestration)
+
+**Date**: 2026-06-22 | **Trigger**: Plan specified LangGraph; implementation uses custom `*Runner` classes; original POC (`797df4d`) proved LangGraph `StateGraph` for VLM loop
+
+### Gap analysis
+
+| Area | Planned (research + modular-architecture) | Current code | Migration action |
+|------|-------------------------------------------|--------------|------------------|
+| Session orchestration | `StateGraph` nodes: prepare → setup → set loop → rest → feedback | `SessionRunner.run()` with `while` + `asyncio.sleep` | Replace with compiled session graph |
+| Set observation loop | Cyclic graph: grab → pose → VLM → route → safety → rep check | `SetLoopRunner.run_set()` with `while True` + sleep | Replace with compiled set subgraph + conditional edges |
+| VoiceOut | Compiled voice graph + async consumer | `VoiceOutHandler.handle_event` on `asyncio.Queue` | Replace consumer with `voice_graph.ainvoke` loop; keep queue as handoff |
+| Rest | Timer nodes in compiled graph | `RestRunner.run_rest()` with tick loop | Replace with rest subgraph using `SystemClock` in nodes |
+| Factory | `build_session_graph() → CompiledGraph` | `build_session_runner() → SessionRunner` | Factory returns compiled graphs + checkpointer |
+| Pause/resume | LangGraph `interrupt()` | `ctx.paused` flag polled in loops | Graph interrupt at safe boundaries; `Command(resume=...)` |
+| CLI / dry-run | `app.invoke(state)` | `SessionRunner.run()` | `session_graph.ainvoke` with fixture frame source |
+
+**Unchanged (reuse as-is)**: `domain/*`, `pipeline/*`, `exercises/*`, `infra/*`, transport wire protocol, `RunContext` frame buffer + voice queue, `RunEventPublisher`.
+
+### Target LangGraph topology
+
+```mermaid
+flowchart TB
+    subgraph SessionGraph ["session_graph (top-level)"]
+        direction TB
+        PREP[prepare] --> SETUP[setup]
+        SETUP --> ANN[announce_set]
+        ANN --> SETSG[set_subgraph]
+        SETSG --> PAUSE1{paused or end?}
+        PAUSE1 -- no --> RESTD{rest needed?}
+        PAUSE1 -- yes --> INT1[interrupt]
+        RESTD -- yes --> RESTSG[rest_subgraph]
+        RESTD -- no --> MORE{more sets?}
+        RESTSG --> MORE
+        MORE -- yes --> ANN
+        MORE -- no --> FB[exercise_feedback]
+        FB --> DONE[session_complete]
+    end
+
+    subgraph SetSubgraph ["set_subgraph (cyclic)"]
+        direction TB
+        GF[grab_frame] --> PP[preprocess_pose]
+        PP --> VA[vlm_analyze]
+        VA --> R{action?}
+        R --> OU[observe_update]
+        R --> EV[emit_voice]
+        OU --> SC[safety_check]
+        EV --> SC
+        SC --> SAFE{safe?}
+        SAFE -- no --> EM[set_emergency]
+        SAFE -- yes --> RC{reps complete?}
+        RC -- no --> WAIT[wait_cycle]
+        WAIT --> GF
+    end
+
+    subgraph VoiceGraph ["voice_graph (background task)"]
+        direction TB
+        CE[consume_event] --> DD[dedup_check]
+        DD --> GEN[generate_cue]
+        GEN --> LOG[log_and_publish]
+        LOG --> CE
+    end
+
+    EV -.->|put_nowait| VQ[(voice_queue)]
+    VQ -.-> CE
+```
+
+### State design
+
+Split **graph state** (LangGraph channels, checkpointable) from **RunContext** (I/O handles):
+
+| Store | Holds | Checkpoint? |
+|-------|-------|-------------|
+| `TrainerGraphState` (TypedDict) | `run_id`, `status`, `phase`, `current_set_number`, `completed_sets`, `merged_observation` dict, `flags` (`end_requested`, `paused`, `set_emergency`) | Yes — `MemorySaver` per run |
+| `RunContext` | `frame_buffer`, `voice_queue`, `voice_repeat_state`, `sid`, `recent_coaching`, deps injection | No — recreated on worker restart |
+
+Node functions receive `(state, config)`; pull `RunContext` from `config["configurable"]["run_context"]`. Side effects (WS publish, Mongo persist, queue enqueue) go through injected ports—same as today, but invoked from graph nodes instead of runner methods.
+
+### RunController integration
+
+| Lifecycle | Before | After |
+|-----------|--------|-------|
+| `start()` | `asyncio.create_task(SessionRunner.run())` | `asyncio.create_task(session_graph.ainvoke(initial_state, config))` |
+| Voice consumer | `VoiceOutHandler` on queue | `asyncio.create_task(_voice_loop())` draining queue → `voice_graph.ainvoke(event_state)` |
+| `pause()` | `ctx.paused = True` | `graph.interrupt(...)` or update state + interrupt at next node boundary |
+| `resume()` | Restart `SessionRunner` if done | `graph.ainvoke(Command(resume=True), config)` with same `thread_id=run_id` |
+| `end()` | Cancel tasks + teardown | Cancel graph task + `RunContext.teardown()` |
+
+Use `thread_id=run_id` on checkpointer for resume after emergency pause (FR-008, FR-009).
+
+### Migration phases (→ tasks.md Phase 10)
+
+| Step | Scope | Deliverable |
+|------|-------|-------------|
+| LG-1 | `graphs/state.py` — `TrainerGraphState`, reducers, initial state builder | Typed state + tests |
+| LG-2 | `graphs/nodes/` — thin async node wrappers calling existing domain/pipeline | Node module per subgraph |
+| LG-3 | `graphs/set_loop.py` — compile set subgraph; replace `SetLoopRunner` | Cyclic compiled graph |
+| LG-4 | `graphs/voice_out.py` — compile voice graph; replace `VoiceOutHandler` body | Background `ainvoke` per event |
+| LG-5 | `graphs/rest.py` — compile rest subgraph; replace `RestRunner` | Timer graph with early-exit edges |
+| LG-6 | `graphs/session.py` — compile session graph invoking set/rest subgraphs | Top-level compiled graph |
+| LG-7 | `graphs/factory.py` — `build_session_graph`, `build_voice_graph`, checkpointer | Factory API |
+| LG-8 | `RunController` — `ainvoke` / interrupt / resume; delete `*Runner` classes | Controller-only orchestration |
+| LG-9 | Tests — port integration tests to graph `ainvoke`; `--dry-run` CLI uses compiled graph | pytest green |
+| LG-10 | Docs — quickstart graph smoke; modular-architecture alignment | Artifacts updated |
+
+### Design decisions
+
+| Decision | Rationale | Alternative rejected |
+|----------|-----------|---------------------|
+| Keep `asyncio.Queue` for set→voice handoff | Proven non-blocking; graph nodes `put_nowait` in `emit_voice` | Synchronous voice node in set graph — blocks observation (FR-024) |
+| Voice graph as separate compiled graph + drain loop | Matches async/event-driven spec; simpler than fan-in Send API | Inline voice nodes in session graph — couples timing |
+| `MemorySaver` checkpointer (in-process) | Supports pause/resume without Redis; one worker v1 | Postgres checkpoint — YAGNI |
+| Poll/wait node between set cycles | Live frames arrive async; node sleeps ≤1s then loops | Push-driven graph edges — requires custom stream adapter |
+| Delete `*Runner` classes after migration | Avoid dual orchestration paths (DRY) | Wrapper adapters — hides divergence, doubles maintenance |
+| Node wrappers in `graphs/nodes/` | Keeps compiled graph files readable; matches modular-architecture | Fat nodes in graph files — harder to unit test |
+
+### Constitution check (iteration 3)
+
+| Principle | Gate | Status |
+|-----------|------|--------|
+| II. Follow Instructions | User requested LangGraph; aligns with original spec/research | Pass |
+| IV. KISS | Replace runners with graphs; no new features | Pass |
+| V. DRY | Reuse domain/pipeline; delete duplicate control flow | Pass |
+| VI. YAGNI | No Redis checkpoint, no new exercises, no contract changes | Pass |
+| VII. Modularize | Nodes thin; graphs orchestrate only | Pass |
+| IX. Change Logging | `log.md` entry on implement | Pass |
+
+### Out of scope (iteration 3)
+
+- LangGraph Studio / remote deployment
+- Postgres or Redis checkpoint store
+- Rewriting domain or pipeline modules
+- Changing WebSocket or REST contracts
+- Multi-worker graph distribution

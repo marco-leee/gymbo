@@ -1,7 +1,7 @@
 import { json, error, isHttpError } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getTrainerId, requireTrainer } from '$lib/server/trainer-auth';
-import { getCoachedExerciseRun, updateCoachedExerciseRun, serializeRun } from '$lib/server/trainer-runs';
+import { getCoachedExerciseRun, serializeRun } from '$lib/server/trainer-runs';
 import { startTrainerRun } from '$lib/server/trainer-worker';
 import { objectIdsEqual } from '$lib/services/object-id';
 
@@ -21,8 +21,8 @@ export const POST: RequestHandler = async (event) => {
 			throw error(503, 'Agent unavailable');
 		}
 
-		const updated = await updateCoachedExerciseRun(runId, { status: 'preparing' });
-		return json(serializeRun(updated ?? run));
+		const refreshed = await getCoachedExerciseRun(runId);
+		return json(serializeRun(refreshed ?? run));
 	} catch (err) {
 		if (isHttpError(err)) throw err;
 		throw error(500, 'Failed to start exercise run');

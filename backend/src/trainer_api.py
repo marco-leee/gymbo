@@ -10,6 +10,23 @@ router = APIRouter(prefix="/internal/runs", tags=["trainer-internal"])
 
 
 def _get_controller() -> RunController:
+    """Return the same RunController instance the Socket.IO namespace uses.
+
+    When the worker is started via ``python trainer_fastapi_main.py``, the ASGI
+    app lives in ``__main__`` while this module imports ``trainer_fastapi_main``
+    — two module objects, two registries. Prefer whichever module already built
+    the app cache.
+    """
+    import sys
+
+    for mod_name in ("__main__", "trainer_fastapi_main"):
+        mod = sys.modules.get(mod_name)
+        if mod is None:
+            continue
+        cache = getattr(mod, "_apps_cache", None)
+        if cache is not None:
+            return cache[2]
+
     from trainer_fastapi_main import get_run_controller
 
     return get_run_controller()

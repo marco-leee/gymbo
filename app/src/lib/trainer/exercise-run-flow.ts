@@ -16,6 +16,7 @@ export type ExerciseRunFlowOptions = {
 	wsUrl: string;
 	exercises: SessionExercisePlan[];
 	onStateChange?: (state: unknown) => void;
+	onPhaseMessage?: (payload: { phase: string; message: string; metadata?: Record<string, unknown> }) => void;
 	onEmergency?: (payload: { description: string; source: string }) => void;
 };
 
@@ -61,6 +62,7 @@ export class ExerciseRunFlow {
 			clientId: this.options.clientId,
 			exerciseType: exercise.exercise_key,
 			onState: (state) => this.options.onStateChange?.(state),
+			onPhaseMessage: (payload) => this.options.onPhaseMessage?.(payload),
 			onEmergency: (payload) => this.options.onEmergency?.(payload)
 		});
 		this.client.connect();

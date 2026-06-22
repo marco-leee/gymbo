@@ -154,14 +154,18 @@ Transport validates wire format, delegates to application layer, publishes event
 
 ### Orchestration — LangGraph (`backend/src/agent/graphs/`)
 
-Graphs **wire nodes and conditional edges only**. Node bodies delegate to L5/L6.
+Graphs **compile `StateGraph` subgraphs** with conditional edges. Node bodies delegate to L5/L6 via thin wrappers in `graphs/nodes/`.
 
-| Module | File | Nodes | Calls into |
-|--------|------|-------|------------|
-| **session** | `graphs/session.py` | `prepare`, `setup`, `announce_set`, `decide_rest`, `decide_more_sets`, `exercise_feedback` | domain feedback builder, invokes set/rest subgraphs |
-| **set_loop** | `graphs/set_loop.py` | `grab_frame`, `preprocess_pose`, `vlm_analyze`, `observe_update`, `emit_voice`, `safety_check`, `check_reps_complete` | pipeline + domain |
-| **voice_out** | `graphs/voice_out.py` | `consume_event`, `dedup_check`, `generate_cue`, `log_coaching` | `VoiceDedupPolicy`, `CueGeneratorPort`, repository |
-| **rest** | `graphs/rest.py` | `start_timer`, `during_rest_tick`, `check_timer_done` | `SystemClock`, event publisher |
+| Module | File | Graph type | Nodes | Calls into |
+|--------|------|------------|-------|------------|
+| **state** | `graphs/state.py` | — | `TrainerGraphState`, reducers, `build_initial_state()` | domain models |
+| **session** | `graphs/session.py` | Top-level compiled graph | `prepare`, `setup`, `announce_set`, `run_set`, `decide_rest`, `decide_more_sets`, `exercise_feedback`, `session_complete` | invokes set/rest subgraphs as nodes |
+| **set_loop** | `graphs/set_loop.py` | Cyclic compiled subgraph | `grab_frame`, `preprocess_pose`, `vlm_analyze`, `observe_update`, `emit_voice`, `safety_check`, `wait_cycle`, `check_reps_complete` | pipeline + domain |
+| **voice_out** | `graphs/voice_out.py` | Compiled graph (per-event) | `consume_event`, `dedup_check`, `generate_cue`, `log_coaching` | `VoiceDedupPolicy`, `CueGeneratorPort`, repository |
+| **rest** | `graphs/rest.py` | Compiled subgraph | `start_timer`, `during_rest_tick`, `check_timer_done` | `SystemClock`, event publisher |
+| **nodes/** | `graphs/nodes/*.py` | — | Async node functions | L5/L6 only |
+
+**Current vs target**: Orchestration uses compiled LangGraph subgraphs; legacy `*Runner` classes removed (Phase 10 complete).
 
 ```mermaid
 flowchart LR
@@ -192,7 +196,16 @@ flowchart LR
     end
 ```
 
-**Graph factory** (`graphs/factory.py`): `build_session_graph(run_context) → CompiledGraph` wires dependencies for dry-run vs live.
+**Graph factory** (`graphs/factory.py`):
+
+```python
+def build_session_graph(deps, *, checkpointer=MemorySaver()) -> CompiledStateGraph: ...
+def build_set_subgraph(deps) -> CompiledStateGraph: ...
+def build_voice_graph(deps) -> CompiledStateGraph: ...
+def build_rest_subgraph() -> CompiledStateGraph: ...
+```
+
+Wires dry-run vs live adapters; returns compiled graphs for `RunController.ainvoke`.
 
 ---
 
@@ -270,7 +283,7 @@ v1 registers one profile. Adding a new exercise = new profile file + registry en
 | **Set Subgraph** | `graphs/set_loop.py` | merger, rep_completion, safety | frame_buffer, pose, vlm | `RunContext.frame_buffer` |
 | **VoiceOut Subgraph** | `graphs/voice_out.py` | voice_dedup | cue_generator | `RunContext.voice_queue` + consumer task |
 | **Rest Subgraph** | `graphs/rest.py` | — | — | `event_publisher`, `clock` |
-| **Global safety** | interrupt in `RunController` | `safety_evaluator` | — | pauses all tasks in `RunContext` |
+| **Global safety** | interrupt in session graph + `RunController` | `safety_evaluator` | — | `Command(resume=...)` on checkpointer |
 
 ---
 
@@ -304,10 +317,16 @@ backend/src/agent/
 │       └── dry_run_adapter.py
 ├── graphs/
 │   ├── factory.py
+│   ├── state.py
 │   ├── session.py
 │   ├── set_loop.py
 │   ├── voice_out.py
-│   └── rest.py
+│   ├── rest.py
+│   └── nodes/
+│       ├── session_nodes.py
+│       ├── set_nodes.py
+│       ├── voice_nodes.py
+│       └── rest_nodes.py
 ├── exercises/
 │   ├── registry.py
 │   └── overhead_squat.py
@@ -315,10 +334,6 @@ backend/src/agent/
 │   ├── run_repository.py
 │   ├── llm_factory.py
 │   └── clock.py
-└── nodes/                  # thin wrappers if nodes grow large
-    ├── set_nodes.py
-    ├── voice_nodes.py
-    └── session_nodes.py
 
 app/src/lib/trainer/
 ├── exercise-run-flow.ts
@@ -340,7 +355,7 @@ app/src/lib/trainer/
 | `mock_vlm_result()` | `pipeline/vlm/dry_run_adapter.py` |
 | `sample_frame()`, `encode_frame_b64()` | `pipeline/preprocessor.py` + client `frame-loop.ts` (live) |
 | `voice_out()` cue generation | `pipeline/cue_generator.py` |
-| `build_graph()`, routing functions | `graphs/set_loop.py` + `factory.py` |
+| `build_graph()`, routing functions | `graphs/set_loop.py` + `graphs/session.py` + `factory.py` |
 | `SYSTEM_PROMPT` | `exercises/overhead_squat.py` |
 
 After migration, `langchain-flow.py` becomes a thin CLI that calls `graphs/factory` with a file-based frame source for offline dev.
@@ -353,7 +368,7 @@ After migration, `langchain-flow.py` becomes a thin CLI that calls `graphs/facto
 |-------|-----------|---------|
 | Domain | Unit, no mocks | `voice_dedup` threshold 3 speaks on third similar event |
 | Pipeline | Unit + fixture images | VLM dry-run adapter returns recorded JSON |
-| Graphs | Integration, `--dry-run` | Full set loop completes N reps from fixtures |
+| Graphs | Integration, `--dry-run` | `session_graph.ainvoke()` completes N reps from fixtures |
 | App | Integration | `RunController.start()` creates registry entry, tears down on end |
 | Transport | Contract | WS register with invalid `run_id` → `trainer:error` |
 | Frontend | Unit | `voice-playback` queues without interrupting |
@@ -371,6 +386,7 @@ After migration, `langchain-flow.py` becomes a thin CLI that calls `graphs/facto
 | P5 | `graphs/rest`, `infra/clock`, rest phase messages |
 | P6 | `domain/exercise_feedback`, `infra/run_repository`, REST end run |
 | P7 | All frontend `trainer/*` modules, `live/+page.svelte`, `exercise-run-flow` |
+| P10 | LangGraph migration — replace `*Runner` classes with compiled subgraphs (plan § Iteration 3) |
 
 ---
 

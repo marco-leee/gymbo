@@ -36,6 +36,7 @@
 				exercises,
 				onStateChange: (state) =>
 					liveState.applyTrainerState(state as Parameters<typeof liveState.applyTrainerState>[0]),
+				onPhaseMessage: ({ message }) => liveState.setPhaseMessage(message),
 				onEmergency: ({ description }) => liveState.setEmergency(description)
 			});
 			await flow.startCurrentExercise();

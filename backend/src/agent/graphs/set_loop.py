@@ -1,125 +1,45 @@
-"""Set observation subgraph — per-frame loop."""
+"""Set observation subgraph — compiled LangGraph cycle."""
 
 from __future__ import annotations
 
-import asyncio
-import logging
-from typing import TYPE_CHECKING
+from langgraph.graph import END, START, StateGraph
 
-from agent.domain.observation_merger import merge_observation, reset_set_reps
-from agent.domain.rep_completion import is_set_complete
-from agent.domain.safety_evaluator import evaluate_set_safety
-from agent.domain.models import RunPhase, RunStatus, VoiceOutEvent
-from agent.pipeline.preprocessor import decode_incoming, incoming_to_snapshot
-from agent.pipeline.vlm.openrouter_adapter import VLMContextAdapter
-
-if TYPE_CHECKING:
-    from agent.app.event_publisher import RunEventPublisher
-    from agent.app.run_context import RunContext
-    from agent.graphs.factory import GraphDependencies
-
-logger = logging.getLogger(__name__)
-
-CYCLE_INTERVAL_SEC = 1.0
+from agent.graphs.nodes import set_nodes as nodes
+from agent.graphs.state import TrainerGraphState
 
 
-class SetLoopRunner:
-    def __init__(
-        self,
-        ctx: RunContext,
-        deps: GraphDependencies,
-        publisher: RunEventPublisher,
-    ) -> None:
-        self.ctx = ctx
-        self.deps = deps
-        self.publisher = publisher
-        self._frame_index = 0
+def build_set_subgraph():
+    graph = StateGraph(TrainerGraphState)
 
-    async def run_set(self) -> bool:
-        """Run observation cycles until set complete, emergency, or end requested."""
-        run = self.ctx.run
-        run.phase = RunPhase.SET_IN_PROGRESS
-        reset_set_reps(run.merged_observation_state)
-        await self.publisher.publish_state(self.ctx)
+    graph.add_node("begin_set", nodes.begin_set)
+    graph.add_node("grab_frame", nodes.grab_frame)
+    graph.add_node("preprocess_pose", nodes.preprocess_pose)
+    graph.add_node("vlm_analyze", nodes.vlm_analyze)
+    graph.add_node("observe_update", nodes.observe_update)
+    graph.add_node("emit_voice", nodes.emit_voice)
+    graph.add_node("safety_check", nodes.safety_check)
+    graph.add_node("wait_cycle", nodes.wait_cycle)
 
-        while True:
-            if self.ctx.paused or self.ctx.end_requested:
-                return False
-            if self.ctx.end_set_requested:
-                self.ctx.end_set_requested = False
-                return True
+    graph.add_edge(START, "begin_set")
+    graph.add_edge("begin_set", "grab_frame")
+    graph.add_conditional_edges(
+        "grab_frame",
+        nodes.route_after_grab,
+        {"preprocess": "preprocess_pose", "wait": "wait_cycle", "done": END},
+    )
+    graph.add_edge("preprocess_pose", "vlm_analyze")
+    graph.add_conditional_edges(
+        "vlm_analyze",
+        nodes.route_after_vlm,
+        {"observe": "observe_update", "voice": "emit_voice", "safety": "safety_check"},
+    )
+    graph.add_edge("observe_update", "safety_check")
+    graph.add_edge("emit_voice", "safety_check")
+    graph.add_conditional_edges(
+        "safety_check",
+        nodes.route_after_safety,
+        {"wait": "wait_cycle", "done": END},
+    )
+    graph.add_edge("wait_cycle", "grab_frame")
 
-            if is_set_complete(
-                run.merged_observation_state.completed_reps,
-                run.config.target_reps_per_set,
-            ):
-                return True
-
-            await self._observation_cycle()
-            await asyncio.sleep(CYCLE_INTERVAL_SEC)
-
-    async def _observation_cycle(self) -> None:
-        ctx = self.ctx
-        if ctx.paused:
-            return
-
-        frame = ctx.frame_buffer.latest()
-        if frame is None:
-            logger.debug("Empty frame buffer — skipping cycle")
-            return
-
-        try:
-            bgr = decode_incoming(frame)
-            self.deps.pose.estimate(bgr)
-        except Exception as exc:
-            logger.warning("Pose/preprocess failed: %s", exc)
-            return
-
-        snapshot = incoming_to_snapshot(frame, self._frame_index)
-        self._frame_index += 1
-        prior = ctx.frame_history.prior_frames()
-        all_frames = prior + [snapshot]
-        ctx.frame_history.append(snapshot)
-
-        vlm_ctx = VLMContextAdapter(
-            merged_state=ctx.run.merged_observation_state,
-            set_number=ctx.run.current_set_number,
-            exercise_type=ctx.run.exercise_type,
-            recent_coaching=ctx.recent_coaching,
-        )
-
-        try:
-            vlm = self.deps.vlm.analyze(frames=all_frames, context=vlm_ctx)
-        except Exception as exc:
-            logger.warning("VLM analyze failed: %s", exc)
-            return
-
-        if vlm.action == "voice_out" and vlm.focus_issue:
-            event = VoiceOutEvent(
-                run_id=ctx.run.id,
-                set_number=ctx.run.current_set_number,
-                focus_issue=vlm.focus_issue,
-                reason=vlm.voice_reason or "Form cue needed",
-                severity=vlm.severity,
-                frame_seq=frame.seq,
-            )
-            await ctx.enqueue_voice(event)
-
-        merge_observation(ctx.run.merged_observation_state, vlm)
-
-        safety = evaluate_set_safety(vlm)
-        if not safety.safe:
-            await self._handle_emergency(safety.description, source=safety.source)
-            return
-
-        await self.publisher.publish_state(ctx)
-
-    async def _handle_emergency(self, description: str, *, source: str) -> None:
-        self.ctx.paused = True
-        self.ctx.run.status = RunStatus.PAUSED
-        await self.publisher.publish_emergency(
-            self.ctx,
-            source=source,
-            severity="critical",
-            description=description,
-        )
+    return graph.compile()

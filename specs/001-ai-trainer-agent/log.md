@@ -60,3 +60,20 @@
 - **Problem**: Frames sent before `active`; status stuck on `preparing` (WS race + Mongo not persisted mid-run)
 - **Plan**: `plan.md` § Iteration 2 — active-only frame gating, state snapshot on register, Python status persistence
 - **Artifacts**: `contracts/trainer-ws.md`, `contracts/trainer-rest.md`, `research.md` §13, `data-model.md`, `tasks.md` Phase 9 (T087–T093)
+
+## 2026-06-22 — Phase 9 implemented: live transport lifecycle
+
+- **Client**: `trainer-client.ts` gates `sendFrame` on `status === 'active'`; exposes `onFramesEnabledChange`
+- **Server**: `trainer_socket_namespace.py` accepts frames only when `ACTIVE`; emits `trainer:state` after register
+- **REST**: start endpoint returns worker-reflected run snapshot (removed hardcoded Mongo `preparing` patch)
+- **UI**: `exercise-run-flow.ts` + live page wire `onPhaseMessage` to `LiveRunState`
+- **Tests/docs**: quickstart §6.9 active-only frame checklist
+
+## 2026-06-22 — Phase 10 implemented: LangGraph migration
+
+- **Orchestration**: Replaced `*Runner` classes with compiled `StateGraph` subgraphs (session, set, voice, rest)
+- **New modules**: `graphs/state.py`, `graphs/runtime.py`, `graphs/nodes/*`
+- **RunController**: `session_graph.ainvoke()` + `MemorySaver` checkpointer; voice queue drains via `voice_graph.ainvoke()`
+- **CLI**: `langchain-flow.py --dry-run` invokes compiled session graph
+- **Tests**: 11 backend tests pass (`test_session_graph.py`, `test_state.py`, updated set subgraph test)
+- **Fix**: `TrainerGraphState` includes routing channels (`has_frame`, `vlm_action`, etc.); dry-run VLM derives `rep_completed` from frame index

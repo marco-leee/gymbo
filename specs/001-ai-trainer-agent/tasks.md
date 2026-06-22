@@ -202,15 +202,47 @@
 
 **Depends on**: Phase 7 (live UI) complete
 
-- [ ] T087 [P] Gate `sendFrame` on `status === 'active'` in `app/src/lib/trainer/trainer-client.ts`
-- [ ] T088 Restrict frame accept to `RunStatus.ACTIVE` only in `backend/src/trainer_socket_namespace.py`
-- [ ] T089 Emit `trainer:state` snapshot immediately after `trainer:register` in `backend/src/trainer_socket_namespace.py`
-- [ ] T090 Persist `status`/`phase` on session graph transitions in `backend/src/agent/graphs/session.py` via `run_repository.update_run`
-- [ ] T091 Remove or defer SvelteKit hardcoded `preparing` patch in `app/src/routes/api/trainer/exercise-runs/[run_id]/start/+server.ts`; return worker-reflected status
-- [ ] T092 [P] Wire `onPhaseMessage` to live UI in `app/src/lib/trainer/exercise-run-flow.ts` and `app/src/routes/app/sessions/[id]/live/+page.svelte`
-- [ ] T093 [P] Add quickstart tests: no `trainer:frame` during prepare/setup; state snapshot after register; frames resume on `active` only
+- [X] T087 [P] Gate `sendFrame` on `status === 'active'` in `app/src/lib/trainer/trainer-client.ts`
+- [X] T088 Restrict frame accept to `RunStatus.ACTIVE` only in `backend/src/trainer_socket_namespace.py`
+- [X] T089 Emit `trainer:state` snapshot immediately after `trainer:register` in `backend/src/trainer_socket_namespace.py`
+- [X] T090 Persist `status`/`phase` on session graph transitions in `backend/src/agent/graphs/session.py` via `run_repository.update_run`
+- [X] T091 Remove or defer SvelteKit hardcoded `preparing` patch in `app/src/routes/api/trainer/exercise-runs/[run_id]/start/+server.ts`; return worker-reflected status
+- [X] T092 [P] Wire `onPhaseMessage` to live UI in `app/src/lib/trainer/exercise-run-flow.ts` and `app/src/routes/app/sessions/[id]/live/+page.svelte`
+- [X] T093 [P] Add quickstart tests: no `trainer:frame` during prepare/setup; state snapshot after register; frames resume on `active` only
 
 **Checkpoint**: Live page status/phase updates after register; frames only during `active`; REST status no longer stuck at `preparing`
+
+---
+
+## Phase 10: LangGraph Migration (Iteration 3)
+
+**Purpose**: Replace imperative `*Runner` asyncio loops with compiled LangGraph `StateGraph` subgraphs (see plan.md § Iteration 3)
+
+**Depends on**: Phases 3–7 complete (domain, pipeline, and transport already in place). Can run in parallel with Phase 9 where files do not conflict.
+
+**Independent Test**: `TRAINER_DRY_RUN=1 uv run pytest backend/tests/integration/trainer/test_session_graph.py -v` passes; live page SC-001–SC-007 unchanged; `langchain-flow.py --dry-run` invokes compiled session graph.
+
+### Implementation for LangGraph Migration
+
+- [X] T094 Define `TrainerGraphState` TypedDict, channel reducers, and `build_initial_state()` in `backend/src/agent/graphs/state.py`
+- [X] T095 [P] Add unit tests for initial state builder and reducer behavior in `backend/tests/unit/agent/graphs/test_state.py`
+- [X] T096 [P] Implement set subgraph node wrappers (grab_frame, preprocess_pose, vlm_analyze, observe_update, emit_voice, safety_check, wait_cycle, check_reps_complete) in `backend/src/agent/graphs/nodes/set_nodes.py`
+- [X] T097 [P] Implement voice subgraph node wrappers (consume_event, dedup_check, generate_cue, log_coaching) in `backend/src/agent/graphs/nodes/voice_nodes.py`
+- [X] T098 [P] Implement session subgraph node wrappers (prepare, setup, announce_set, decide_rest, decide_more_sets, exercise_feedback, session_complete) in `backend/src/agent/graphs/nodes/session_nodes.py`
+- [X] T099 [P] Implement rest subgraph node wrappers (start_timer, during_rest_tick, check_timer_done) in `backend/src/agent/graphs/nodes/rest_nodes.py`
+- [X] T100 Compile cyclic set subgraph with conditional edges in `backend/src/agent/graphs/set_loop.py`; remove `SetLoopRunner` class
+- [X] T101 Compile voice subgraph in `backend/src/agent/graphs/voice_out.py`; replace `VoiceOutHandler` with queue drain loop calling `voice_graph.ainvoke()` in `backend/src/agent/app/run_context.py`
+- [X] T102 Compile rest subgraph with early-exit edges in `backend/src/agent/graphs/rest.py`; remove `RestRunner` class
+- [X] T103 Compile top-level session graph invoking set/rest subgraphs as nodes in `backend/src/agent/graphs/session.py`; remove `SessionRunner` class; persist `status`/`phase` via nodes calling `run_repository.update_run`
+- [X] T104 Update `build_session_graph()`, `build_set_subgraph()`, `build_voice_graph()`, `build_rest_subgraph()`, and `MemorySaver` checkpointer in `backend/src/agent/graphs/factory.py`
+- [X] T105 Refactor `RunController.start()`, `pause()`, `resume()`, and `end()` to use `session_graph.ainvoke()` / `Command(resume=True)` with `thread_id=run_id` in `backend/src/agent/app/run_controller.py`
+- [X] T106 Delete legacy runner imports and `start_set_loop()` minimal path if superseded in `backend/src/agent/app/run_controller.py` and `backend/src/agent/graphs/__init__.py`
+- [X] T107 [P] Add integration test for dry-run `session_graph.ainvoke()` completing prepare → set → feedback in `backend/tests/integration/trainer/test_session_graph.py`
+- [X] T108 Update offline CLI to call `build_session_graph().ainvoke()` instead of `SessionRunner.run()` in `backend/src/langchain-flow.py`
+- [X] T109 [P] Update LangGraph migration smoke steps in `specs/001-ai-trainer-agent/quickstart.md` section 9
+- [X] T110 Re-run quickstart SC-001–SC-007 checklist after migration and append results to `specs/001-ai-trainer-agent/log.md`
+
+**Checkpoint**: All orchestration runs through compiled LangGraph; no `*Runner` classes remain; pause/resume uses checkpointer; wire contracts unchanged
 
 ---
 
@@ -228,7 +260,8 @@
 | US4 (6) | US1 set complete | US5 T063 (rest wiring) |
 | US5 (7) | US1–US4 subgraphs + T019–T020 | Polish |
 | Polish (8) | Desired stories complete | — |
-| Transport lifecycle (9) | Phase 7 | — |
+| Transport lifecycle (9) | Phase 7 | Phase 10 (partial overlap on session.py) |
+| LangGraph migration (10) | Phases 3–7 | — |
 
 ### User Story Dependencies
 
@@ -281,6 +314,18 @@ T072 coaching-events/+server.ts
 T073 safety-events/+server.ts
 ```
 
+### Phase 10 (LangGraph Migration)
+
+```bash
+T095 tests/unit/agent/graphs/test_state.py
+T096 graphs/nodes/set_nodes.py
+T097 graphs/nodes/voice_nodes.py
+T098 graphs/nodes/session_nodes.py
+T099 graphs/nodes/rest_nodes.py
+T107 tests/integration/trainer/test_session_graph.py
+T109 quickstart.md
+```
+
 ---
 
 ## Implementation Strategy
@@ -302,10 +347,14 @@ T073 safety-events/+server.ts
 5. US4 → rest subgraph
 6. US5 → full session UX + REST proxies + live page
 7. Polish → SC-003 benchmark + smoke tests
+8. Phase 9 → transport lifecycle fixes
+9. Phase 10 → LangGraph migration (replace `*Runner` classes)
 
 ### Suggested MVP Scope
 
 **User Story 1** (T001–T038): Core frame-based observation and rep tracking. Voice (US2) follows immediately after MVP validation.
+
+**Next priority after MVP**: Phase 9 (transport bugs) then Phase 10 (LangGraph migration).
 
 ---
 
@@ -313,27 +362,31 @@ T073 safety-events/+server.ts
 
 | Metric | Count |
 |--------|-------|
-| **Total tasks** | 93 |
-| Setup | 5 |
-| Foundational | 15 |
-| US1 (P1) | 18 |
-| US2 (P1) | 10 |
-| US3 (P2) | 9 |
-| US4 (P3) | 4 |
-| US5 (P4) | 19 |
-| Polish | 6 |
-| Transport lifecycle (9) | 7 |
+| **Total tasks** | 110 |
+| Setup | 5 (complete) |
+| Foundational | 15 (complete) |
+| US1 (P1) | 18 (complete) |
+| US2 (P1) | 10 (complete) |
+| US3 (P2) | 9 (complete) |
+| US4 (P3) | 4 (complete) |
+| US5 (P4) | 19 (complete) |
+| Polish | 6 (complete) |
+| Transport lifecycle (9) | 7 (complete) |
+| LangGraph migration (10) | 17 (complete) |
+| **Remaining** | 0 |
 
 ### Independent Test Criteria
 
-| Story | How to verify |
+| Story / Phase | How to verify |
 |-------|---------------|
 | US1 | One set via `/trainer` WS; frame pipeline, state merge, rep completion from VLM |
 | US2 | Repeated voice-out events; dedup threshold 3; set loop unblocked |
 | US3 | Unsafe trigger → pause within 2s; resume/end/end_set via WS + REST |
 | US4 | Rest subgraph timer + `end_rest`; full loop after US5 |
 | US5 | Full 3-set session via REST proxy → Python → WS; SC-005 feedback fields |
+| Phase 9 | No frames during prepare/setup; state snapshot after register; REST status advances |
+| Phase 10 | `test_session_graph.py` green; no `*Runner` classes; SC-001–SC-007 unchanged |
 
 ### Format Validation
 
-All 93 tasks use checklist format: `- [ ] T### [P?] [US?] Description with file path`
+All 110 tasks use checklist format: `- [ ] T### [P?] [US?] Description with file path`

@@ -11,30 +11,25 @@
 
 ---
 
-## 1. Backend: POC Graph (existing)
+## 1. Backend: Graph smoke test (dry-run)
 
-Validate LangGraph wiring without API calls:
+Validate compiled LangGraph wiring without API calls:
 
 ```bash
 cd backend
 uv sync
-uv run python src/langchain-flow.py --video src/test.mp4 --dry-run --state-dir src/tmp/vlm-state/test
+uv run python src/langchain-flow.py --dry-run
 ```
 
-Expected: JSON snapshots in `src/tmp/vlm-state/test/` for each graph step.
+Expected: session graph completes prepare → setup → set loop (fixture VLM) → feedback in stdout.
+
+After LangGraph migration (plan § Iteration 3), this invokes `build_session_graph().ainvoke()` — not the legacy `SessionRunner`.
 
 ---
 
-## 2. Backend: Live VLM on Video File
+## 2. Backend: Live VLM on Video File (legacy POC)
 
-Full VLM pipeline against test video:
-
-```bash
-cd backend
-uv run python src/langchain-flow.py --video src/test.mp4 --state-dir src/tmp/vlm-state/live
-```
-
-Requires `OPENROUTER_API_KEY` in `backend/src/.env`.
+The original single-graph video POC (`797df4d`) is superseded by the trainer agent. For offline video dev post-migration, use dry-run graph smoke above or push frames via `/trainer` WebSocket (section 6).
 
 ---
 
@@ -439,6 +434,19 @@ Verify transport lifecycle fixes (plan.md § Iteration 2):
 
 ---
 
+## 9. LangGraph migration smoke (iteration 3)
+
+After `/speckit-tasks` Phase 10 implementation:
+
+```bash
+cd backend
+TRAINER_DRY_RUN=1 uv run pytest tests/integration/trainer/test_session_graph.py -v
+```
+
+Manual: start worker with dry-run, run live page — behavior must match pre-migration (SC-001–SC-007). Graph task visible in logs as `session_graph.ainvoke` not `SessionRunner`.
+
+---
+
 ## Next Step
 
-Run `/speckit-tasks` to generate implementation tasks from this plan.
+Run `/speckit-tasks` to generate implementation tasks from this plan (include Phase 10: LangGraph migration).

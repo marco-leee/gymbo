@@ -69,6 +69,22 @@ class RunContext:
             except asyncio.QueueFull:
                 break
 
+    async def start_voice_graph_consumer(self, voice_graph, config) -> None:
+        if self.voice_consumer_task and not self.voice_consumer_task.done():
+            return
+
+        async def _consume() -> None:
+            while True:
+                event = await self.voice_queue.get()
+                if event is None:
+                    break
+                await voice_graph.ainvoke(
+                    {"voice_event": event.model_dump(mode="json")},
+                    config,
+                )
+
+        self.voice_consumer_task = asyncio.create_task(_consume())
+
     async def start_voice_consumer(self, handler: VoiceConsumer) -> None:
         if self.voice_consumer_task and not self.voice_consumer_task.done():
             return

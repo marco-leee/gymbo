@@ -390,6 +390,32 @@ Per active Coached Exercise Run, held in the trainer worker's run registry:
 
 ---
 
+## TrainerGraphState (LangGraph orchestration state)
+
+LangGraph channel state for one Coached Exercise Run. Checkpointed via `MemorySaver` (`thread_id` = `run_id`). Distinct from MongoDB `CoachedExerciseRun` document — graph state is the hot path; repository syncs selected fields on transitions.
+
+| Field | Type | Reducer | Description |
+|-------|------|---------|-------------|
+| `run_id` | string | replace | Coached Exercise Run id |
+| `status` | RunStatus | replace | Mirrors `CoachedExerciseRun.status` |
+| `phase` | RunPhase | replace | Current phase for UI/events |
+| `current_set_number` | int | replace | Active set (1-based) |
+| `completed_sets` | int | replace | Sets finished this run |
+| `merged_observation` | dict | merge (last-write per key) | Serialized `MergedObservationState` |
+| `end_requested` | bool | replace | Trainer ended run |
+| `paused` | bool | replace | Emergency or global pause |
+| `set_emergency` | bool | replace | Set-level unsafe triggered |
+| `exercise_feedback` | string? | replace | Generated at feedback node |
+
+**Not in graph state** (lives in `RunContext` configurable):
+- `frame_buffer`, `frame_history`, `voice_queue`, `voice_repeat_state`, `sid`, `recent_coaching`
+
+**Initial state**: Built from `CoachedExerciseRun` + config at `RunController.start()`.
+
+**Sync rule**: Nodes that change `status`/`phase` call `repository.update_run()` and `publisher.publish_state()` — same as current `SessionRunner` side effects.
+
+---
+
 ## MongoDB Collections
 
 | Collection | Document | Notes |

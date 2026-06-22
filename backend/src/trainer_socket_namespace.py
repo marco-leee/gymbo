@@ -87,6 +87,7 @@ class TrainerNamespace(socketio.AsyncNamespace):
 
         ctx.sid = sid
         await self.publisher.publish_registered(ctx)
+        await self.publisher.publish_state(ctx)
 
     async def on_trainer_frame(self, sid, data: dict) -> None:
         try:
@@ -105,13 +106,7 @@ class TrainerNamespace(socketio.AsyncNamespace):
         if ctx.paused or ctx.run.status == RunStatus.PAUSED:
             return
 
-        if ctx.run.status not in (RunStatus.ACTIVE, RunStatus.PREPARING, RunStatus.SETUP):
-            await self.publisher.publish_error(
-                sid,
-                code="RUN_NOT_ACTIVE",
-                message="Run not accepting frames",
-                run_id=payload.meta.run_id,
-            )
+        if ctx.run.status != RunStatus.ACTIVE:
             return
 
         try:

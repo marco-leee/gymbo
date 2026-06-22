@@ -29,12 +29,14 @@ export type TrainerClientOptions = {
 	onPhaseMessage?: (payload: { phase: string; message: string; metadata?: Record<string, unknown> }) => void;
 	onEmergency?: (payload: { description: string; source: string }) => void;
 	onConnectionChange?: (connected: boolean) => void;
+	onFramesEnabledChange?: (enabled: boolean) => void;
 };
 
 export class TrainerClient {
 	private socket: Socket | null = null;
 	private pingTimer: ReturnType<typeof setInterval> | null = null;
 	private missedPongs = 0;
+	private runStatus = '';
 	readonly voiceQueue = new VoicePlaybackQueue();
 
 	constructor(private options: TrainerClientOptions) {}
@@ -58,9 +60,17 @@ export class TrainerClient {
 		});
 
 		this.socket.on('trainer:state', (data: Record<string, unknown>) => {
+			const status = String(data.status ?? '');
+			const wasActive = this.runStatus === 'active';
+			this.runStatus = status;
+			if (status === 'active' && !wasActive) {
+				this.options.onFramesEnabledChange?.(true);
+			} else if (wasActive && status !== 'active') {
+				this.options.onFramesEnabledChange?.(false);
+			}
 			this.options.onState?.({
 				runId: String(data.run_id ?? ''),
-				status: String(data.status ?? ''),
+				status,
 				phase: String(data.phase ?? ''),
 				currentSet: data.current_set as TrainerState['currentSet'],
 				merged_state: data.merged_state as TrainerState['merged_state']
@@ -110,6 +120,7 @@ export class TrainerClient {
 		width: number;
 		height: number;
 	}): void {
+		if (this.runStatus !== 'active') return;
 		this.socket?.emit('trainer:frame', {
 			meta: {
 				run_id: this.options.runId,

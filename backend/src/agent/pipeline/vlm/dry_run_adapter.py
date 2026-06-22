@@ -34,7 +34,15 @@ class DryRunVLMAdapter:
             if latest:
                 latest["frame_index"] = current.frame_index
                 latest["timestamp_sec"] = current.timestamp_sec
-                return VLMFrameResult.model_validate(latest)
+                result = VLMFrameResult.model_validate(latest)
+                phase = REP_PHASES[current.frame_index % len(REP_PHASES)]
+                return result.model_copy(
+                    update={
+                        "rep_phase": phase,
+                        "rep_completed": phase == "lockout",
+                        "in_rep": phase not in ("setup", "rest"),
+                    }
+                )
 
         phase = REP_PHASES[current.frame_index % len(REP_PHASES)]
         voice = current.frame_index > 0 and current.frame_index % 5 == 0

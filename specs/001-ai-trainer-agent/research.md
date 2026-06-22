@@ -214,6 +214,60 @@ All Technical Context items resolved. No remaining `NEEDS CLARIFICATION` flags.
 | Frame send gating (v1.1) | Client and server accept/send frames only when `status === active` |
 | Status sync on register (v1.1) | `trainer:state` snapshot immediately after `trainer:register` |
 | Mid-run status persistence (v1.1) | Python worker writes status/phase to Mongo on each transition |
+| LangGraph migration (v1.2) | Replace `*Runner` asyncio loops with four compiled `StateGraph` subgraphs; `MemorySaver` for pause/resume |
+
+---
+
+## 14. LangGraph migration (iteration 3)
+
+**Decision**: Replace imperative `SessionRunner`, `SetLoopRunner`, `RestRunner`, and `VoiceOutHandler` with four compiled LangGraph subgraphs. Top-level session graph invokes set and rest subgraphs as nodes; voice graph runs as a background drain loop on the existing `asyncio.Queue`.
+
+**Rationale**:
+- Original POC (`797df4d`) validated `StateGraph` for sample → VLM → observe/voice_out routing with structured output.
+- Research §1 already chose LangGraph for subgraph composition, conditional edges, and `interrupt()` — first implementation diverged to custom asyncio loops for speed of delivery.
+- Domain and pipeline modules are already graph-ready (pure functions + ports); only orchestration layer needs rewriting.
+- LangGraph `interrupt()` + `MemorySaver` maps directly to emergency pause/resume (FR-008, FR-009) without manual `ctx.paused` polling in every loop.
+- Cyclic set subgraph replaces `while True` + `asyncio.sleep` with explicit conditional edges — easier to test node-by-node and visualize.
+
+**Graph compilation pattern**:
+
+```python
+# set_loop.py (sketch)
+builder = StateGraph(TrainerGraphState)
+builder.add_node("grab_frame", grab_frame)
+# ... nodes delegate to domain/pipeline ...
+builder.add_conditional_edges("safety_check", route_after_safety, {...})
+builder.add_conditional_edges("check_reps_complete", route_reps, {"continue": "wait_cycle", "done": END})
+set_graph = builder.compile()
+
+# session.py — invoke subgraph as node
+session_builder.add_node("run_set", set_graph)
+```
+
+**State split**:
+- `TrainerGraphState` (TypedDict): checkpointable run progress — status, phase, set counters, merged observation dict, control flags.
+- `RunContext`: non-checkpointable I/O — frame buffer, voice queue, socket sid, repeat state. Passed via `config["configurable"]["run_context"]`.
+
+**Voice async pattern**:
+- `emit_voice` node calls `ctx.enqueue_voice(event)` (side effect, non-blocking).
+- Background task: `while event := await queue.get(): await voice_graph.ainvoke({"event": event, ...})`.
+- Preserves FR-024/FR-025/SC-007 without embedding voice generation in set graph.
+
+**Pause/resume**:
+- `MemorySaver` checkpointer keyed by `thread_id=run_id`.
+- Set-level or global emergency triggers `interrupt()` at next safe node (after `safety_check` or session decision node).
+- `RunController.resume()` sends `Command(resume=True)` to continue from checkpoint.
+
+**Alternatives considered**:
+- **Keep custom runners, add LangGraph later**: Rejected — dual paths violate DRY; plan and spec already mandate LangGraph.
+- **Single monolithic graph (POC style)**: Rejected — cannot model async voice + session/rest phases cleanly (research §1).
+- **LangGraph `Send` for voice fan-out**: Rejected — overkill for single consumer queue at v1 scale.
+- **Redis checkpointer**: Deferred — single worker; in-memory `MemorySaver` sufficient until multi-process.
+
+**Testing**:
+- Unit-test node wrappers with mock `RunContext` in configurable.
+- Integration: `session_graph.ainvoke(..., {"configurable": {"dry_run": True}})` with fixture frames pushed to buffer.
+- CLI: `langchain-flow.py` calls `build_session_graph().ainvoke()` instead of `SessionRunner.run()`.
 
 ---
 
