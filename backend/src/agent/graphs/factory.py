@@ -32,10 +32,10 @@ def build_dependencies(*, dry_run: bool = False) -> GraphDependencies:
             llm_factory=llm_factory,
             dry_run=True,
         )
-    from agent.pipeline.pose.mediapipe_adapter import MediapipePoseAdapter
+    from agent.pipeline.pose.yolo26_adapter import Yolo26PoseAdapter
 
     return GraphDependencies(
-        pose=MediapipePoseAdapter(),
+        pose=Yolo26PoseAdapter(),
         vlm=OpenRouterVLMAdapter(llm_factory),
         cue_generator=CueGenerator(llm_factory),
         llm_factory=llm_factory,

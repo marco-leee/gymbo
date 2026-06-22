@@ -31,8 +31,3 @@ class MediapipePoseAdapter:
         if result.key_interest_points_2d:
             kips = {k: v.model_dump() for k, v in result.key_interest_points_2d.items()}
         return PoseResult(landmarks=kips, confidence=0.9, annotated_b64=annotated_b64)
-
-
-class DryRunPoseAdapter:
-    def estimate(self, frame: np.ndarray) -> PoseResult | None:
-        return PoseResult(landmarks={"dry_run": True}, confidence=0.5)

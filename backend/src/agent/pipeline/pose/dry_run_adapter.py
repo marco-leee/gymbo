@@ -1,5 +1,15 @@
-"""Dry-run pose adapter (re-export for modular-architecture path)."""
+"""Dry-run pose adapter (no ML dependencies)."""
 
-from agent.pipeline.pose.mediapipe_adapter import DryRunPoseAdapter
+from __future__ import annotations
+
+import numpy as np
+
+from agent.domain.models import PoseResult
+
+
+class DryRunPoseAdapter:
+    def estimate(self, frame: np.ndarray) -> PoseResult | None:
+        return PoseResult(landmarks={"dry_run": True}, confidence=0.5)
+
 
 __all__ = ["DryRunPoseAdapter"]

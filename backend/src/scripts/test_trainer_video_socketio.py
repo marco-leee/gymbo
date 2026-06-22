@@ -2,6 +2,7 @@
 """Pump a video file into the /trainer Socket.IO namespace for local dev testing.
 
 Replaces the live webcam frame loop when validating the trainer worker without the UI.
+Subsamples the source video at 3 fps by default (e.g. a 30 fps file → frames 0, 10, 20, …).
 
 Example (self-contained — MongoDB + worker must be running)::
 
@@ -160,7 +161,7 @@ def main() -> None:
     p.add_argument("--camera-view", default="LEFT")
     p.add_argument("--planned-sets", type=int, default=1)
     p.add_argument("--target-reps", type=int, default=5)
-    p.add_argument("--fps", type=float, default=1.0, help="Wall-clock send rate while status is active")
+    p.add_argument("--fps", type=float, default=3.0, help="Sample rate: send N source frames per second of video (default 3)")
     p.add_argument("--max-frames", type=int, default=0, help="Stop after N frames (0 = until video EOF or run ends)")
     p.add_argument("--jpeg-quality", type=int, default=85)
     p.add_argument(
@@ -328,10 +329,26 @@ def main() -> None:
         sio_client.disconnect()
         raise SystemExit(f"could not open video: {video_path}")
 
+    video_fps = float(cap.get(cv2.CAP_PROP_FPS) or 0.0)
+    if video_fps <= 0:
+        video_fps = 30.0
+    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    sample_fps = max(args.fps, 0.1)
+    frame_step = max(1, round(video_fps / sample_fps))
+    effective_sample_fps = video_fps / frame_step
+    logger.info(
+        "Video %.2f fps, %s frame(s) → sample every %d frame(s) (~%.2f fps)",
+        video_fps,
+        total_frames if total_frames > 0 else "?",
+        frame_step,
+        effective_sample_fps,
+    )
+
     jpeg_params = [int(cv2.IMWRITE_JPEG_QUALITY), int(args.jpeg_quality)]
-    send_interval = 1.0 / max(args.fps, 0.1)
+    send_interval = 1.0 / sample_fps
     seq = 0
     sent = 0
+    source_frame_idx = 0
 
     def may_send() -> bool:
         if args.send_during_prepare:
@@ -348,22 +365,27 @@ def main() -> None:
             if args.max_frames and sent >= args.max_frames:
                 logger.info("reached --max-frames=%s", args.max_frames)
                 break
+            if total_frames > 0 and source_frame_idx >= total_frames:
+                logger.info("end of video after %s frame(s) sent", sent)
+                break
 
             if not may_send():
                 time.sleep(0.05)
                 continue
 
+            cap.set(cv2.CAP_PROP_POS_FRAMES, source_frame_idx)
             ok, frame_bgr = cap.read()
             if not ok:
                 logger.info("end of video after %s frame(s) sent", sent)
                 break
 
             h, w = frame_bgr.shape[:2]
-            timestamp_sec = cap.get(cv2.CAP_PROP_POS_MSEC) / 1000.0
+            timestamp_sec = source_frame_idx / video_fps
 
             ec, buf = cv2.imencode(".jpg", frame_bgr, jpeg_params)
             if not ec:
-                logger.warning("imencode failed at seq=%s", seq)
+                logger.warning("imencode failed at source_frame=%s seq=%s", source_frame_idx, seq)
+                source_frame_idx += frame_step
                 seq += 1
                 continue
 
@@ -379,13 +401,19 @@ def main() -> None:
             try:
                 sio_client.emit("trainer:frame", payload, namespace=NS)
             except sio_exceptions.BadNamespaceError:
-                logger.error("connection lost at seq=%s", seq)
+                logger.error("connection lost at seq=%s source_frame=%s", seq, source_frame_idx)
                 break
 
             sent += 1
             seq += 1
             if sent % 10 == 0 or sent == 1:
-                logger.info("sent frame seq=%s (total=%s)", seq - 1, sent)
+                logger.info(
+                    "sent frame seq=%s source_frame=%s (total=%s)",
+                    seq - 1,
+                    source_frame_idx,
+                    sent,
+                )
+            source_frame_idx += frame_step
             time.sleep(send_interval)
 
         logger.info("Done: sent %s frame(s)", sent)
