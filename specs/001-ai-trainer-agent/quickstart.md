@@ -388,6 +388,22 @@ Section 5 above is a shorter smoke-test summary of the same flow.
 
 ---
 
+### 6.9 Active-only frames and status sync (iteration 2)
+
+Verify transport lifecycle fixes (plan.md § Iteration 2):
+
+1. Start worker + live page; open DevTools → WS.
+2. Click **Start live coaching** — during first ~4s (prepare/setup):
+   - **No** `trainer:frame` events in WS log (camera preview may still run locally).
+   - After `trainer:register`, expect **`trainer:state`** snapshot immediately (not only `trainer:registered`).
+   - Live UI **Phase** / **Status** should update (not stuck on `preparing`).
+3. When `trainer:state` shows `status: "active"`:
+   - `trainer:frame` events appear at ~1 fps.
+4. Between sets (if rest configured): frames stop when `status: "resting"`; resume when back to `active`.
+5. `GET /api/trainer/exercise-runs/{run_id}` — status should advance past `preparing` during the run (Python persists transitions).
+
+---
+
 ## 7. Environment Variables
 
 | Variable | Default | Purpose |

@@ -211,3 +211,22 @@ All Technical Context items resolved. No remaining `NEEDS CLARIFICATION` flags.
 | Overlapping voice playback | Skip dupes; queue new/threshold-met (FR-031–032) |
 | Multi-exercise session | Graph runs one exercise at a time; UX loops exercise runs within planned Gymbo Session |
 | Module decomposition | Seven layers; see modular-architecture.md |
+| Frame send gating (v1.1) | Client and server accept/send frames only when `status === active` |
+| Status sync on register (v1.1) | `trainer:state` snapshot immediately after `trainer:register` |
+| Mid-run status persistence (v1.1) | Python worker writes status/phase to Mongo on each transition |
+
+---
+
+## 13. Live transport lifecycle (iteration 2)
+
+**Decision**: Gate client frame send and server frame accept to `status === active` only; emit `trainer:state` snapshot immediately after `trainer:register`; persist run status transitions from Python session graph to MongoDB.
+
+**Rationale**:
+- First implementation started session graph on `POST start` before WS connected; `publish_state` dropped events when `ctx.sid` was null — clients missed prepare→setup→active transitions.
+- SvelteKit patched Mongo to `preparing` on start but worker did not persist later transitions — REST appeared stuck.
+- Frames during prepare/setup filled buffer without set loop consuming them.
+
+**Alternatives considered**:
+- **Connect WS before start**: Correct ordering but requires API/UX reorder; deferred.
+- **Periodic state heartbeat during prepare**: Extra complexity; register snapshot sufficient for v1.1.
+- **Stop camera during prepare**: Worse UX for “frame your camera” prep message.

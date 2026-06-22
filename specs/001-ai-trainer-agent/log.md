@@ -54,3 +54,9 @@
 - **Tests**: Unit tests (voice dedup, observation merger); integration rep-accuracy benchmark (SC-003)
 - **POC**: `langchain-flow.py` refactored to thin CLI delegating to session graph
 - **Smoke test**: Run `TRAINER_DRY_RUN=1 uv run python src/trainer_fastapi_main.py` + `bun run dev` → `/app/sessions/{id}/live` (requires MongoDB + auth session)
+
+## 2026-06-20 — Iteration 2 plan: live transport lifecycle
+
+- **Problem**: Frames sent before `active`; status stuck on `preparing` (WS race + Mongo not persisted mid-run)
+- **Plan**: `plan.md` § Iteration 2 — active-only frame gating, state snapshot on register, Python status persistence
+- **Artifacts**: `contracts/trainer-ws.md`, `contracts/trainer-rest.md`, `research.md` §13, `data-model.md`, `tasks.md` Phase 9 (T087–T093)

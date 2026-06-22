@@ -279,3 +279,85 @@ flowchart LR
 | In-memory voice queue (`asyncio.Queue`) | Decouples set loop from voice consumer within single worker | Synchronous voice generation in set loop would block observation (violates FR-024, SC-007). Redis deferred until multi-worker split |
 | SvelteKit + Python split control plane | REST/auth/Mongo in SvelteKit; LangGraph in Python worker | Monolithic Python REST duplicates existing Gymbo auth/session patterns; monolithic SvelteKit graph cannot run LangGraph/MediaPipe stack |
 | Live pose overlay deferred | Plan mentions overlay reuse; v1 focuses on coaching loop | Overlay is display-only; server pose drives VLM context, not client overlay (YAGNI for v1 UI) |
+
+---
+
+## Iteration 2: Live transport lifecycle (post-MVP fix)
+
+**Date**: 2026-06-20 | **Trigger**: Live testing — frames sent before `active`; UI/REST status stuck on `preparing`
+
+### Problem summary
+
+| Bug | Root cause | Symptom |
+|-----|------------|---------|
+| Frames during prepare/setup | Client starts `FrameLoop` immediately after `POST .../start`; server accepts `PREPARING`/`SETUP` | Frame buffer fills before set loop; wasted bandwidth |
+| Status stuck on `preparing` | (1) Session graph starts before WS `register`; (2) `publish_state` no-ops when `ctx.sid` is null; (3) `register` emits only `trainer:registered`, no state snapshot; (4) SvelteKit patches Mongo to `preparing` but Python does not persist mid-run transitions | Live UI stale; REST/DB frozen at `preparing` |
+
+### Target behavior
+
+```mermaid
+sequenceDiagram
+    participant SK as SvelteKit
+    participant Py as PythonWorker
+    participant WS as TrainerClient
+
+    SK->>Py: POST start
+    Note over Py: prepare/setup run in-memory only
+    WS->>Py: trainer:register
+    Py->>WS: trainer:registered
+    Py->>WS: trainer:state snapshot
+    Note over WS: Camera preview ON, frames OFF
+    Py->>WS: trainer:state status=active
+    Note over WS: framesEnabled=true
+    loop while active
+        WS->>Py: trainer:frame
+    end
+    Py->>WS: trainer:state status=resting
+    Note over WS: framesEnabled=false
+```
+
+| Run status | Local camera preview | Send `trainer:frame` | Server accept frames |
+|------------|---------------------|----------------------|----------------------|
+| `preparing` | Yes (framing) | **No** | **No** (silent drop) |
+| `setup` | Yes | **No** | **No** |
+| `active` | Yes | **Yes** | **Yes** |
+| `resting` | Yes | **No** | **No** |
+| `paused` | Yes | **No** | **No** |
+| `feedback` / `ended` | Stop loop | **No** | **No** |
+
+### Design decisions
+
+| Decision | Rationale | Alternative rejected |
+|----------|-----------|---------------------|
+| Client gates `sendFrame` on `status === 'active'` | Aligns with FR-011/FR-013 intent; camera preview independent of send | Stop camera during prepare — loses framing UX for prep message |
+| Server accepts frames only when `ACTIVE` | Defense in depth; silent drop (no error spam) | Error on every frame during prepare |
+| `publish_state` immediately after `trainer:register` | Resync client after startup race | Require WS connect before `POST start` — bigger UX/API reorder |
+| Python persists status on each transition | REST/DB matches worker; fixes Mongo stuck at `preparing` | Remove SvelteKit `preparing` patch only — still stale mid-run |
+| Wire `trainer:phase_message` to live UI | Phase guidance visible during prepare/setup | Rely on `trainer:state` phase only |
+
+### Constitution check (iteration 2)
+
+| Principle | Gate | Status |
+|-----------|------|--------|
+| IV. KISS | Minimal diff: gate + snapshot + persist | Pass |
+| VI. YAGNI | No WS-before-start reorder in v1 | Pass |
+| VII. Modularize | Changes in transport + client only | Pass |
+| IX. Change Logging | `log.md` entry on implement | Pass |
+
+### Implementation scope (→ tasks.md Phase 9)
+
+| Module | Change |
+|--------|--------|
+| `app/src/lib/trainer/trainer-client.ts` | Track `runStatus`; gate `sendFrame`; optional `framesEnabled` callback |
+| `backend/src/trainer_socket_namespace.py` | `ACTIVE`-only frame accept; `publish_state` after register |
+| `backend/src/agent/graphs/session.py` | `repository.update_run` on status/phase transitions |
+| `app/src/routes/api/trainer/exercise-runs/[run_id]/start/+server.ts` | Stop hardcoding Mongo `preparing` before worker confirms (or mirror worker status) |
+| `app/src/lib/trainer/exercise-run-flow.ts` | Wire `onPhaseMessage` to live state |
+| `contracts/trainer-ws.md` | Document active-only frame rule + register state snapshot |
+| `quickstart.md` | Test: no frames during prepare; state updates after register |
+
+### Out of scope (iteration 2)
+
+- Reorder API to connect WS before start
+- LangGraph migration
+- Periodic `trainer:state` heartbeat when idle in prepare/setup

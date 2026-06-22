@@ -37,7 +37,9 @@ Register a live coaching stream for one exercise run.
 }
 ```
 
-**Response event**: `trainer:registered`
+**Response events** (v1.1): `trainer:registered` then **immediately** `trainer:state` (current snapshot)
+
+`trainer:registered`:
 
 ```json
 {
@@ -45,6 +47,19 @@ Register a live coaching stream for one exercise run.
   "session_exercise_id": "uuid",
   "status": "preparing",
   "config": { "...": "ExerciseRunConfig" }
+}
+```
+
+`trainer:state` (snapshot on register — same shape as below; ensures client resyncs if graph started before WS connected):
+
+```json
+{
+  "run_id": "uuid",
+  "status": "preparing",
+  "phase": "prepare",
+  "current_set": { "set_number": 1, "target_reps": 10, "completed_reps": 0 },
+  "merged_state": { "rep_phase": "setup", "in_rep": false, "active_issues": [] },
+  "timestamp": "2026-06-20T12:00:00Z"
 }
 ```
 
@@ -68,11 +83,17 @@ Send a sampled camera frame.
 }
 ```
 
+**Client behavior** (v1.1):
+- **MUST** only emit `trainer:frame` when run `status` is `active` (from latest `trainer:state`)
+- Camera preview MAY run during `preparing` / `setup` for framing; do not send frames until `active`
+- **MUST** stop sending on `resting`, `paused`, `feedback`, `ended`; resume sending when `status` returns to `active` (e.g. after rest or emergency resume)
+
 **Server behavior**:
+- Accept frames **only** when run `status` is `active`; silently ignore (no error) otherwise
 - Append to frame buffer (ring, latest wins)
 - Does NOT block waiting for VLM; set loop polls buffer independently
 
-**Errors**: `trainer:error` `{ "code": "BUFFER_FULL" | "RUN_NOT_ACTIVE" }` — client should drop frame and continue
+**Errors**: `trainer:error` `{ "code": "BUFFER_FULL" | "RUN_NOT_ACTIVE" }` — client should drop frame and continue (legacy; active-only gating should prevent most `RUN_NOT_ACTIVE`)
 
 ---
 
@@ -244,7 +265,8 @@ sequenceDiagram
 | Frame buffer full | Drop oldest; accept latest | Continue sending at configured rate |
 | Voice queue > 20 events | Coalesce by focus_issue; drop oldest | No action |
 | VLM timeout (>5s) | Skip cycle; log | Continue sending frames |
-| Session paused | Ignore frames except heartbeat | Pause frame loop |
+| Session paused | Ignore frames except heartbeat | Stop frame send (keep preview optional) |
+| Run not `active` | Silently drop frames | Client MUST NOT send until `status === active` |
 
 ---
 

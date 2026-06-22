@@ -196,6 +196,24 @@
 
 ---
 
+## Phase 9: Live Transport Lifecycle (Iteration 2)
+
+**Purpose**: Fix frame gating and status sync bugs found in live testing (see plan.md § Iteration 2)
+
+**Depends on**: Phase 7 (live UI) complete
+
+- [ ] T087 [P] Gate `sendFrame` on `status === 'active'` in `app/src/lib/trainer/trainer-client.ts`
+- [ ] T088 Restrict frame accept to `RunStatus.ACTIVE` only in `backend/src/trainer_socket_namespace.py`
+- [ ] T089 Emit `trainer:state` snapshot immediately after `trainer:register` in `backend/src/trainer_socket_namespace.py`
+- [ ] T090 Persist `status`/`phase` on session graph transitions in `backend/src/agent/graphs/session.py` via `run_repository.update_run`
+- [ ] T091 Remove or defer SvelteKit hardcoded `preparing` patch in `app/src/routes/api/trainer/exercise-runs/[run_id]/start/+server.ts`; return worker-reflected status
+- [ ] T092 [P] Wire `onPhaseMessage` to live UI in `app/src/lib/trainer/exercise-run-flow.ts` and `app/src/routes/app/sessions/[id]/live/+page.svelte`
+- [ ] T093 [P] Add quickstart tests: no `trainer:frame` during prepare/setup; state snapshot after register; frames resume on `active` only
+
+**Checkpoint**: Live page status/phase updates after register; frames only during `active`; REST status no longer stuck at `preparing`
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies
@@ -210,6 +228,7 @@
 | US4 (6) | US1 set complete | US5 T063 (rest wiring) |
 | US5 (7) | US1–US4 subgraphs + T019–T020 | Polish |
 | Polish (8) | Desired stories complete | — |
+| Transport lifecycle (9) | Phase 7 | — |
 
 ### User Story Dependencies
 
@@ -294,7 +313,7 @@ T073 safety-events/+server.ts
 
 | Metric | Count |
 |--------|-------|
-| **Total tasks** | 86 |
+| **Total tasks** | 93 |
 | Setup | 5 |
 | Foundational | 15 |
 | US1 (P1) | 18 |
@@ -303,6 +322,7 @@ T073 safety-events/+server.ts
 | US4 (P3) | 4 |
 | US5 (P4) | 19 |
 | Polish | 6 |
+| Transport lifecycle (9) | 7 |
 
 ### Independent Test Criteria
 
@@ -316,4 +336,4 @@ T073 safety-events/+server.ts
 
 ### Format Validation
 
-All 86 tasks use checklist format: `- [X] T### [P?] [US?] Description with file path`
+All 93 tasks use checklist format: `- [ ] T### [P?] [US?] Description with file path`

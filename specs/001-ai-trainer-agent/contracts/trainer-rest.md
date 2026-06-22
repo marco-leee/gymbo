@@ -79,7 +79,7 @@ Get Coached Exercise Run snapshot.
 
 Start the agent graph (prepare → setup) for this exercise run. Idempotent if already started.
 
-**Response** `200`:
+**Response** `200`: run snapshot. `status` reflects worker state when available; v1.1: avoid hardcoding `preparing` in SvelteKit if Python worker owns lifecycle — return worker response status or re-read Mongo after worker start.
 
 ```json
 {
@@ -87,6 +87,8 @@ Start the agent graph (prepare → setup) for this exercise run. Idempotent if a
   "status": "preparing"
 }
 ```
+
+**Note (v1.1)**: Mid-run status transitions (`setup`, `active`, `resting`, etc.) are persisted by the Python worker. REST `GET` may lag until worker writes; live UI MUST use `trainer:state` over WS as source of truth during coaching.
 
 v1: WS auth uses the same session cookie as REST; `ws_token` is optional and not emitted in v1.
 

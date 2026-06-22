@@ -126,6 +126,7 @@ stateDiagram-v2
 - `current_set_number` ≤ `config.planned_sets` while active
 - `ended_at` required when `status = ended`
 - `merged_observation_state.completed_reps` monotonically non-decreasing within a set
+- **v1.1**: Python worker MUST persist `status` and `phase` to MongoDB on each transition (`preparing` → `setup` → `active` → `resting` → …) so REST snapshots match in-memory graph; live UI treats WS `trainer:state` as authoritative during an active connection
 
 ---
 
