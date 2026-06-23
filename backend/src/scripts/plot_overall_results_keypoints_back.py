@@ -306,11 +306,12 @@ def _plot_kip_timeseries(
     return path_out
 
 
-def _plot_kip_angle_timeseries(
-    json_path: Path,
+def plot_kip_angle_timeseries(
+    stem_path: Path,
     results: list[dict[str, Any]],
     out: Path | None,
 ) -> Path:
+    """Plot KIP joint angles vs timestamp; save PNG and return output path."""
     by_kip = _kip_angle_series(results)
     if not by_kip:
         raise SystemExit(
@@ -340,10 +341,18 @@ def _plot_kip_angle_timeseries(
         y=1.02,
     )
     fig.tight_layout()
-    path_out = out or (json_path.parent / f"{json_path.stem}_kip_angle_vs_time.png")
+    path_out = out or (stem_path.parent / f"{stem_path.stem}_kip_angle_vs_time.png")
     fig.savefig(path_out, facecolor=fig.get_facecolor(), bbox_inches="tight")
     plt.close(fig)
     return path_out
+
+
+def _plot_kip_angle_timeseries(
+    json_path: Path,
+    results: list[dict[str, Any]],
+    out: Path | None,
+) -> Path:
+    return plot_kip_angle_timeseries(json_path, results, out)
 
 
 def _plot_back_timeseries(

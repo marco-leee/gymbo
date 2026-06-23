@@ -32,6 +32,8 @@ from pipeline.schemas import (
     SegmentationAlignment,
     SegmentationPass,
 )
+from pipeline.bbox_kalman import BBoxKalmanFilter
+from pipeline.pose_kalman import PoseKalmanBank
 from pipeline.yolo_compat import (
     best_person_box_index,
     clamp_crop_xyxy,
@@ -50,6 +52,8 @@ class PerceptionRunConfig:
     yolo_detect_weights: str
     yolo_pose_weights: str
     yolo_seg_weights: str
+    kalman_enabled: bool = True
+    kalman_vis_threshold: float | None = None
 
 
 def _detection_names(det: Any) -> dict[Any, Any]:
@@ -109,6 +113,92 @@ def _build_detection_pass(
     return od, best_used_i
 
 
+def _empty_detection_pass(
+    config: PerceptionRunConfig, w: int, h: int
+) -> ObjectDetectionPass:
+    return ObjectDetectionPass(
+        model=ModelRef(
+            name=_detect_model_name(config.yolo_detect_weights),
+            task="detect",
+        ),
+        frame=FrameSize(width=w, height=h),
+        detections=[],
+        primary_subject=None,
+        crop_from_primary_px=None,
+    )
+
+
+def _resolve_primary_crop(
+    det: Any | None,
+    config: PerceptionRunConfig,
+    w: int,
+    h: int,
+    bbox_kalman: BBoxKalmanFilter | None,
+) -> tuple[ObjectDetectionPass | None, tuple[int, int, int, int] | None, int | None]:
+    has_boxes = det is not None and det.boxes is not None and len(det.boxes) > 0
+    if has_boxes:
+        od_pass, best_i = _build_detection_pass(det, config, w, h)
+        raw_crop = od_pass.crop_from_primary_px if od_pass is not None else None
+        confidence = 1.0
+        if (
+            best_i is not None
+            and od_pass is not None
+            and best_i < len(od_pass.detections)
+        ):
+            confidence = od_pass.detections[best_i].confidence
+    else:
+        od_pass = _empty_detection_pass(config, w, h)
+        best_i = None
+        raw_crop = None
+        confidence = 1.0
+
+    crop: tuple[int, int, int, int] | None = None
+    if raw_crop is not None:
+        if config.kalman_enabled and bbox_kalman is not None:
+            crop = bbox_kalman.apply(
+                raw_crop, confidence=confidence, frame_w=w, frame_h=h
+            )
+        else:
+            crop = raw_crop
+    elif (
+        config.kalman_enabled
+        and bbox_kalman is not None
+        and bbox_kalman.has_state()
+    ):
+        crop = bbox_kalman.predict_clamped(w, h)
+        if od_pass is not None:
+            od_pass = od_pass.model_copy(update={"primary_subject": None})
+
+    if od_pass is not None and crop is not None:
+        od_pass = od_pass.model_copy(update={"crop_from_primary_px": crop})
+
+    return od_pass, crop, best_i
+
+
+def _kalman_vis_threshold(config: PerceptionRunConfig) -> float:
+    if config.kalman_vis_threshold is not None:
+        return config.kalman_vis_threshold
+    return max(config.conf_threshold, 0.5)
+
+
+def _build_pose_pass(
+    *,
+    frame_count: int,
+    pose_weights_path: str,
+    landmarks: list[LandmarkPoint],
+) -> PoseEstimationPass | None:
+    if len(landmarks) != 33:
+        return None
+    return PoseEstimationPass(
+        model=ModelRef(name=_detect_model_name(pose_weights_path), task="pose"),
+        coordinate_space=CoordinateSpace.NORMALIZED_CROP_XY,
+        landmark_layout=LandmarkLayout.BODY_33,
+        frame_count=frame_count,
+        subjects=[PoseSubject(track_or_instance_id=0, landmarks=landmarks)],
+        annotated_crop_png_base64=None,
+    )
+
+
 def _pose_pass_from_crop(
     pose_model: YOLO,
     cropped_frame: np.ndarray,
@@ -116,6 +206,9 @@ def _pose_pass_from_crop(
     frame_count: int,
     conf_threshold: float,
     pose_weights_path: str,
+    crop_xyxy_frame_px: tuple[int, int, int, int] | None = None,
+    pose_kalman: PoseKalmanBank | None = None,
+    config: PerceptionRunConfig | None = None,
 ) -> PoseEstimationPass | None:
     if cropped_frame.size == 0:
         return None
@@ -147,16 +240,22 @@ def _pose_pass_from_crop(
         )
         for d in group_dicts
     ]
-    if len(landmarks) != 33:
-        return None
+    if (
+        config is not None
+        and config.kalman_enabled
+        and pose_kalman is not None
+        and crop_xyxy_frame_px is not None
+    ):
+        landmarks = pose_kalman.apply_to_landmarks(
+            landmarks,
+            crop_xyxy_frame_px,
+            vis_threshold=_kalman_vis_threshold(config),
+        )
 
-    return PoseEstimationPass(
-        model=ModelRef(name=_detect_model_name(pose_weights_path), task="pose"),
-        coordinate_space=CoordinateSpace.NORMALIZED_CROP_XY,
-        landmark_layout=LandmarkLayout.BODY_33,
+    return _build_pose_pass(
         frame_count=frame_count,
-        subjects=[PoseSubject(track_or_instance_id=0, landmarks=landmarks)],
-        annotated_crop_png_base64=None,
+        pose_weights_path=pose_weights_path,
+        landmarks=landmarks,
     )
 
 
@@ -230,6 +329,8 @@ def perceive_frame_pipeline(
     pose_model: YOLO,
     segmenter: YOLO,
     config: PerceptionRunConfig,
+    pose_kalman: PoseKalmanBank | None = None,
+    bbox_kalman: BBoxKalmanFilter | None = None,
 ) -> FramePerceptionRecord:
     h, w = frame_bgr.shape[:2]
     prov = PipelineProvenance(
@@ -240,29 +341,26 @@ def perceive_frame_pipeline(
     )
     det_results = object_detector(frame_bgr, verbose=False)
     det0 = det_results[0] if det_results else None
-    if det0 is None or det0.boxes is None or len(det0.boxes) == 0:
-        return FramePerceptionRecord(
-            idx=idx,
-            timestamp=timestamp,
-            frame=FrameSize(width=w, height=h),
-            status=FramePerceptionStatus.NO_DETECTIONS,
-            provenance=prov,
-        )
-    od_pass, best_i = _build_detection_pass(det0, config, w, h)
-    if od_pass is None or best_i is None or od_pass.crop_from_primary_px is None:
+
+    od_pass, crop_xyxy, _best_i = _resolve_primary_crop(
+        det0, config, w, h, bbox_kalman
+    )
+    if crop_xyxy is None:
+        has_boxes = det0 is not None and det0.boxes is not None and len(det0.boxes) > 0
         return FramePerceptionRecord(
             idx=idx,
             timestamp=timestamp,
             frame=FrameSize(width=w, height=h),
             status=(
                 FramePerceptionStatus.NO_PRIMARY_PERSON
-                if det0.boxes is not None
+                if has_boxes
                 else FramePerceptionStatus.NO_DETECTIONS
             ),
             object_detection=od_pass,
             provenance=prov,
         )
-    x1, y1, x2, y2 = od_pass.crop_from_primary_px
+
+    x1, y1, x2, y2 = crop_xyxy
     cropped_frame = frame_bgr[y1:y2, x1:x2]
 
     pose_pass = _pose_pass_from_crop(
@@ -271,23 +369,38 @@ def perceive_frame_pipeline(
         frame_count=idx,
         conf_threshold=config.conf_threshold,
         pose_weights_path=config.yolo_pose_weights,
+        crop_xyxy_frame_px=crop_xyxy,
+        pose_kalman=pose_kalman,
+        config=config,
     )
     seg_list = segmenter(cropped_frame, verbose=False)
 
     if pose_pass is None:
-        return FramePerceptionRecord(
-            idx=idx,
-            timestamp=timestamp,
-            frame=FrameSize(width=w, height=h),
-            status=FramePerceptionStatus.POSE_FAILED,
-            object_detection=od_pass,
-            provenance=prov,
-        )
+        if (
+            config.kalman_enabled
+            and pose_kalman is not None
+            and pose_kalman.has_state()
+        ):
+            predicted = pose_kalman.predict_landmarks(crop_xyxy)
+            pose_pass = _build_pose_pass(
+                frame_count=idx,
+                pose_weights_path=config.yolo_pose_weights,
+                landmarks=predicted,
+            )
+        if pose_pass is None:
+            return FramePerceptionRecord(
+                idx=idx,
+                timestamp=timestamp,
+                frame=FrameSize(width=w, height=h),
+                status=FramePerceptionStatus.POSE_FAILED,
+                object_detection=od_pass,
+                provenance=prov,
+            )
 
     seg_pass = _segmentation_pass_from_crop(
         cropped_frame,
         seg_list,
-        crop_xyxy_frame_px=(x1, y1, x2, y2),
+        crop_xyxy_frame_px=crop_xyxy,
         conf_threshold=config.conf_threshold,
         seg_weights_path=config.yolo_seg_weights,
     )
